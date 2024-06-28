@@ -50,6 +50,8 @@ typedef struct string {
 
 void push_temp_allocator();
 
+// Not sure what to call this lol
+#define fixed_string const_string
 #define cstr const_string
 #define const_string(s) ((string){ length_of_null_terminated_string(s), (u8*)s })
 

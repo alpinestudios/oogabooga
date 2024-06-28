@@ -17,4 +17,4 @@ typedef struct Context_Extra {
 // Includes for game goes here	
 // ...
 
-#include "main.c"
+#include "entry.c"

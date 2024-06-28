@@ -1,12 +1,16 @@
 
 #if !defined(DEBUG) && !defined(RELEASE)
 
-#ifdef _DEBUG
-#define DEBUG
-#elif defined(NDEBUG)
-#define RELEASE
+	#ifdef _DEBUG
+		#define DEBUG
+	#elif defined(NDEBUG)
+		#define RELEASE
+	#endif
+
 #endif
 
+#ifndef ENTRY_PROC
+	#define ENTRY_PROC entry
 #endif
 
 #ifdef _WIN32
@@ -25,16 +29,17 @@
 #endif
 
 #include "base.c"
-
 #include "string.c"
 #include "string_format.c"
 
 #include "os_interface.c"
 
+#include "linmath.c"
+
 #include "memory.c"
+#include "input.c"
 
-
-
+#include "drawing.c"
 
 #ifdef OS_WINDOWS
 	#include "os_impl_windows.c"
@@ -49,7 +54,7 @@
 
 void oogabooga_init(u64 program_memory_size) {
 	os_init(program_memory_size);
-		heap_init();
+	heap_init();
 	temporary_storage_init();
 }
 
@@ -61,7 +66,7 @@ void oogabooga_init(u64 program_memory_size) {
 #endif
 
 
-int oogabooga_main(int argc, char **argv);
+int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
 	context.allocator.proc = initialization_allocator_proc;
@@ -73,7 +78,7 @@ int main(int argc, char **argv) {
 		oogabooga_run_tests();
 	#endif
 	
-	int code = oogabooga_main(argc, argv);
+	int code = ENTRY_PROC(argc, argv);
 	
 	printf("Ooga booga program exit with code %i\n", code);
 	

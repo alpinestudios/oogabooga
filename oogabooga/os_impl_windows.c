@@ -19,6 +19,35 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
 	return 0;
 }
 
+LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
+	
+	if (window._initialized) {
+		assert(passed_window == window._os_handle, "Event from another window?? wut (%d)", message);
+	}
+	
+    switch (message) {
+        case WM_CLOSE:
+            DestroyWindow(window._os_handle);
+            break;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+        case WM_SIZE:
+            break;
+        case WM_MOVE:
+            break;
+        default:
+            return DefWindowProc(passed_window, message, wparam, lparam);
+    }
+    return 0;
+}
+
+// #Temporary #Cleanup
+// #Temporary #Cleanup
+// #Temporary #Cleanup
+// #Temporary #Cleanup
+#include "GL/gl.h"
+HDC hdc;
 void os_init(u64 program_memory_size) {
 	
 	SYSTEM_INFO si;
@@ -69,6 +98,89 @@ void os_init(u64 program_memory_size) {
 	assert(os.crt_memcmp, "Missing crt_memcmp in crt");
 	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memset"));
 	assert(os.crt_memset, "Missing memset in crt");
+	
+	window.title = fixed_string("Unnamed Window");
+	window.width = 1280;
+	window.height = 720;
+	window.x = 0;
+	window.y = 0;
+	window.should_close = false;
+	window._initialized = false;
+	window.clear_color.r = 0.392f; 
+	window.clear_color.g = 0.584f;
+	window.clear_color.b = 0.929f;
+	window.clear_color.a = 1.0f;
+	
+	WNDCLASSEX wc = (WNDCLASSEX){0};
+    MSG msg;
+    HINSTANCE instance = GetModuleHandle(NULL);
+    assert(instance != INVALID_HANDLE_VALUE, "Failed getting current HINSTANCE");
+
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_OWNDC;
+    wc.lpfnWndProc = win32_window_proc;
+    wc.hInstance = instance;
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = "sigma balls";
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+
+	BOOL ok = RegisterClassEx(&wc);
+	assert(ok, "Failed registering window class (error code %lu)", GetLastError());
+	
+	RECT rect = {0, 0, window.width, window.height};
+	DWORD style = WS_OVERLAPPEDWINDOW;
+	DWORD ex_style = WS_EX_CLIENTEDGE;
+	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	
+	u32 actual_window_width = rect.right - rect.left;
+	u32 actual_window_height = rect.bottom - rect.top;
+    // Create the window
+    window._os_handle = CreateWindowEx(
+        ex_style,
+        "sigma balls",
+        temp_convert_to_null_terminated_string(window.title),
+        style,
+        CW_USEDEFAULT, CW_USEDEFAULT, actual_window_width, actual_window_height,
+        NULL, NULL, instance, NULL);
+    assert(window._os_handle != NULL, "Window creation failed, error: %lu", GetLastError());
+	window._initialized = true;
+    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
+    UpdateWindow(window._os_handle);
+    
+    
+    
+    
+    // #Temporary #Cleanup
+    // #Temporary #Cleanup
+    // #Temporary #Cleanup
+    // #Temporary #Cleanup
+    
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),
+        1,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+        PFD_TYPE_RGBA,
+        32,
+        0, 0, 0, 0, 0, 0,
+        0, 0,
+        0, 0, 0, 0, 0,
+        24,
+        8,
+        0,
+        PFD_MAIN_PLANE,
+        0,
+        0, 0, 0
+    };
+
+    hdc = GetDC(window._os_handle);
+    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    SetPixelFormat(hdc, pixelFormat, &pfd);
+
+    HGLRC hglrc = wglCreateContext(hdc);
+    wglMakeCurrent(hdc, hglrc);
 }
 
 bool os_grow_program_memory(u64 new_size) {
@@ -277,4 +389,76 @@ bool os_compare_and_swap_64(u64 *a, u64 b, u64 old) {
 
 bool os_compare_and_swap_bool(bool *a, bool b, bool old) {
 	return os_compare_and_swap_8(cast(u8*)a, cast(u8)b, cast(u8)old);
+}
+
+
+void os_update() {
+
+	static Os_Window last_window;
+
+	if (!strings_match(last_window.title, window.title)) {
+		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
+	}
+	
+	BOOL ok;
+	int screen_height = GetSystemMetrics(SM_CYSCREEN);
+	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
+	DWORD ex_style = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.y != window.y) {
+		RECT update_rect;
+		update_rect.left = window.x;
+		update_rect.right = window.x + window.width;
+		update_rect.bottom = screen_height-(window.y);
+		update_rect.top = screen_height-(window.y+window.height);
+		ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
+		assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+		
+		u32 actual_x = update_rect.left;
+		u32 actual_y = update_rect.top;
+		u32 actual_width  = update_rect.right-update_rect.left;
+		u32 actual_height = update_rect.bottom-update_rect.top;
+		
+		SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, 0);
+	}
+	
+	RECT client_rect;
+	ok = GetClientRect(window._os_handle, &client_rect);
+	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
+	
+	// Convert the client area rectangle top-left corner to screen coordinates
+	POINT top_left;
+	top_left.x = client_rect.left;
+	top_left.y = client_rect.top;
+	ok = ClientToScreen(window._os_handle, &top_left);
+	assert(ok, "ClientToScreen failed with error code %lu", GetLastError());
+	
+	// Convert the client area rectangle bottom-right corner to screen coordinates
+	POINT bottom_right;
+	bottom_right.x = client_rect.right;
+	bottom_right.y = client_rect.bottom;
+	ok = ClientToScreen(window._os_handle, &bottom_right);
+	assert(ok, "ClientToScreen failed with error code %lu", GetLastError());
+
+	
+	window.x = (u32)top_left.x;
+	window.y = (u32)(screen_height-bottom_right.y);
+	window.width  = (u32)(client_rect.right - client_rect.left);
+	window.height = (u32)(client_rect.bottom - client_rect.top);
+	
+	last_window = window;
+	
+	SwapBuffers(hdc);
+	glClearColor(window.clear_color.r, window.clear_color.g, window.clear_color.b, window.clear_color.a);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glViewport(0, 0, window.width, window.height);
+
+	MSG msg;
+	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_QUIT) {
+            window.should_close = true;
+            break;
+        }
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
 }

@@ -4,17 +4,19 @@
 	typedef HANDLE Mutex_Handle;
 	typedef HANDLE Thread_Handle;
 	typedef HMODULE Dynamic_Library_Handle;
+	typedef HWND Window_Handle;
 	
 #elif defined(__linux__)
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
 	typedef SOMETHING Dynamic_Library_Handle;
-	
+	typedef SOMETHING Window_Handle;
 	#error "Linux is not supported yet";
 #elif defined(__APPLE__) && defined(__MACH__)
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
 	typedef SOMETHING Dynamic_Library_Handle;
+	typedef SOMETHING Window_Handle;
 	#error "Mac is not supported yet";
 #else
 	#error "Current OS not supported!";
@@ -189,3 +191,42 @@ void os_write_string_to_stdout(string s);
 ///
 void* os_get_stack_base();
 void* os_get_stack_limit();
+
+
+
+///
+///
+// Window management
+///
+typedef struct Os_Window {
+
+	// Keep in mind that setting these in runtime is potentially slow!
+	string title;
+	u32 width;
+	u32 height;
+	u32 x;
+	u32 y;
+	struct {
+		float32 r, g, b, a;
+	} clear_color;
+	
+	bool should_close;
+	
+	// readonly
+	bool _initialized;
+	Window_Handle _os_handle;
+	
+} Os_Window;
+Os_Window window;
+
+
+
+
+///
+///
+// Window input
+///
+
+
+
+void os_update();
