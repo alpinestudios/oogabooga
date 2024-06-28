@@ -67,7 +67,7 @@ typedef struct {
 Heap_Block *heap_head;
 bool heap_initted = false;
 Spinlock *heap_lock; // This is terrible but I don't care for now
-
+	
 
 u64 get_heap_block_size_excluding_metadata(Heap_Block *block) {
 	return block->size - sizeof(Heap_Block);

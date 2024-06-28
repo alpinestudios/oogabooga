@@ -20,6 +20,7 @@ int oogabooga_main(int argc, char **argv) {
 	
 	// or we can just do this for temporary allocation
 	int *b = talloc(sizeof(int));
+	(void)b;
 	
 	// Call each frame
 	reset_temporary_storage();
@@ -39,6 +40,7 @@ int oogabooga_main(int argc, char **argv) {
 
 	int hello;
 	hello = 5;
+	(void)hello;
 
 #ifdef DEBUG
 	printf("Hello, balls! (debug)\n");

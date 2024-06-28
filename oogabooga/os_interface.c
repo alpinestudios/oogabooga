@@ -122,7 +122,7 @@ typedef struct Thread {
 
 ///
 // Thread primitive
-Thread* os_make_thread();
+Thread* os_make_thread(Thread_Proc proc);
 void os_start_thread(Thread* t);
 void os_join_thread(Thread* t);
 

@@ -106,7 +106,9 @@ void test_allocator(bool do_log_heap) {
     int* foo = (int*)alloc(72);
     *foo = 1337;
     void* bar = alloc(69);
+    (void)bar;
     void* baz = alloc(420);
+    (void)baz;
     
     assert(*foo == 1337, "Temp memory corruptada");
     
