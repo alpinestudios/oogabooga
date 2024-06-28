@@ -221,6 +221,11 @@ void test_allocator_threaded(Thread *t) {
     }
 }
 
+void test_strings() {
+	string s = (string){ (u8*)"Ooga booga", length_of_null_terminated_string("Ooga booga") };
+	string a = const_string("Ooga booga");
+}
+
 void oogabooga_run_tests() {
 	printf("Testing allocator...\n");
 	test_allocator(true);
@@ -228,6 +233,10 @@ void oogabooga_run_tests() {
 	
 	printf("Testing threads...\n");
 	test_threads();
+	printf("OK!\n");
+	
+	printf("Testing strings...\n");
+	test_strings();
 	printf("OK!\n");
 
 	printf("Thread bombing allocator...\n");

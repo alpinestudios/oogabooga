@@ -29,12 +29,42 @@ typedef u8 bool;
 	
 #define assert(cond, ...) if (!(cond)) { printf("Assertion failed for condition: " #cond ". Message: " __VA_ARGS__); os_debug_break(); }
 
-#ifndef max
-	#define max(a, b) ((a) > (b) ? (a) : (b))
-	#define min(a, b) ((a) < (b) ? (a) : (b))
-#endif
-
 #define cast(t) (t)
+
+///
+// inline
+// (Credit to chatgpt, so it might not be 100% correct)
+#ifdef _MSC_VER
+    // Microsoft Visual C++
+    #define inline __forceinline
+#elif defined(__GNUC__) || defined(__GNUG__)
+    // GNU GCC/G++
+    #define inline __attribute__((always_inline)) inline
+#elif defined(__clang__)
+    // Clang/LLVM
+    #define inline __attribute__((always_inline)) inline
+#elif defined(__INTEL_COMPILER) || defined(__ICC)
+    // Intel C++ Compiler
+    #define inline __forceinline
+#elif defined(__BORLANDC__)
+    // Borland C++
+    #define inline __inline
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+    // MinGW (Minimalist GNU for Windows)
+    #define inline __attribute__((always_inline)) inline
+#elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
+    // Oracle Solaris Studio
+    #define inline inline __attribute__((always_inline))
+#elif defined(__IBMC__) || defined(__IBMCPP__)
+    // IBM XL C/C++ Compiler
+    #define inline __attribute__((always_inline)) inline
+#elif defined(__PGI)
+    // Portland Group Compiler
+    #define inline inline __attribute__((always_inline))
+#else
+    // Fallback for unknown compilers
+    #define inline inline
+#endif
 
 typedef struct Nothing {int nothing;} Nothing;
 

@@ -37,6 +37,20 @@ void os_init(u64 program_memory_size) {
 	
 	context.allocator = heap_allocator;
 	
+	os.crt = os_load_dynamic_library(const_string("msvcrt.dll"));
+	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
+	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vprintf"));
+	assert(os.crt_vprintf, "Missing vprintf in crt");
+	os.crt_printf = (Crt_Printf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("printf"));
+	assert(os.crt_printf, "Missing printf in crt");
+	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vsnprintf"));
+	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+	os.crt_memcpy = (Crt_Memcpy_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcpy"));
+	assert(os.crt_memcpy, "Missing memcpy in crt");
+	os.crt_memcmp = (Crt_Memcmp_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcmp"));
+	assert(os.crt_memcmp, "Missing crt_memcmp in crt");
+	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memset"));
+	assert(os.crt_memset, "Missing memset in crt");
 }
 
 bool os_grow_program_memory(u64 new_size) {
@@ -171,4 +185,23 @@ float64 os_get_current_time_in_seconds() {
         return -1.0;
     }
     return (double)counter.QuadPart / (double)frequency.QuadPart;
+}
+
+
+Dynamic_Library_Handle os_load_dynamic_library(string path) {
+	return LoadLibraryA(temp_convert_to_null_terminated_string(path));
+}
+void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier) {
+	return GetProcAddress(l, temp_convert_to_null_terminated_string(identifier));
+}
+void os_unload_dynamic_library(Dynamic_Library_Handle l) {
+	FreeLibrary(l);
+}
+
+
+void os_write_string_to_stdout(string s) {
+	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (win32_stdout == INVALID_HANDLE_VALUE) return;
+	
+	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
 }

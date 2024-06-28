@@ -164,10 +164,11 @@ void heap_init() {
 }
 
 void *heap_alloc(u64 size) {
-	// #Sync #Speed oof
-	os_lock_mutex(heap_mutex);
 
 	if (!heap_initted) heap_init();
+
+	// #Sync #Speed oof
+	os_lock_mutex(heap_mutex);
 	
 	size += sizeof(Heap_Allocation_Metadata);
 	
@@ -262,9 +263,10 @@ void *heap_alloc(u64 size) {
 }
 void heap_dealloc(void *p) {
 	// #Sync #Speed oof
-	os_lock_mutex(heap_mutex);
 	
 	if (!heap_initted) heap_init();
+
+	os_lock_mutex(heap_mutex);
 	
 	assert(is_pointer_in_program_memory(p), "Garbage pointer; out of program memory bounds!"); 
 	p = (u8*)p-sizeof(Heap_Allocation_Metadata);
@@ -431,3 +433,8 @@ void reset_temporary_storage() {
 	has_warned_temporary_storage_overflow = true;
 }
 
+// So we can do this in code included before this.
+void push_temp_allocator() {
+	if (!temporary_storage_initted) temporary_storage_init();
+	push_allocator(temp);
+}

@@ -1,13 +1,11 @@
 
-#include <stdio.h> // #Cleanup just using this for printf
-#include <stdlib.h>
-
 #include "base.c"
+
+#include "string.c"
 
 #include "os_interface.c"
 
 #include "memory.c"
-
 
 
 
@@ -24,6 +22,6 @@
 
 void oogabooga_init(u64 program_memory_size) {
 	os_init(program_memory_size);
-	heap_init();
+		heap_init();
 	temporary_storage_init();
 }

@@ -2,7 +2,7 @@
 ///
 // Build config stuff
 #define VERY_DEBUG 0
-#define RUN_TESTS 0
+#define RUN_TESTS 1
 
 typedef struct Context_Extra {
 	int monkee;
