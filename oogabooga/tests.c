@@ -1,4 +1,33 @@
 
+void log_heap() {
+	os_spinlock_lock(heap_lock);
+	printf("\nHEAP:\n");
+	
+	Heap_Block *block = heap_head;
+	
+	while (block != 0) {
+		
+		printf("\tBLOCK @ 0x%I64x, %llu bytes\n", (u64)block, block->size);
+		
+		Heap_Free_Node *node = block->free_head;
+
+		u64 total_free = 0;
+		
+		while (node != 0) {
+		
+			printf("\t\tFREE NODE @ 0x%I64x, %llu bytes\n", (u64)node, node->size);
+			
+			total_free += node->size;
+		
+			node = node->next;
+		}
+		
+		printf("\t TOTAL FREE: %llu\n\n", total_free);
+		
+		block = block->next;
+	}
+	os_spinlock_unlock(heap_lock);
+}
 
 void test_allocator(bool do_log_heap) {
 	// Basic allocation and free
@@ -70,6 +99,8 @@ void test_allocator(bool do_log_heap) {
     }
     
     
+    reset_temporary_storage();
+
     push_allocator(temp);
     
     int* foo = (int*)alloc(72);
@@ -222,9 +253,107 @@ void test_allocator_threaded(Thread *t) {
 }
 
 void test_strings() {
-	string s = (string){ (u8*)"Ooga booga", length_of_null_terminated_string("Ooga booga") };
-	string a = const_string("Ooga booga");
+	// Test length_of_null_terminated_string
+    assert(length_of_null_terminated_string("Test") == 4, "Failed: length_of_null_terminated_string");
+    assert(length_of_null_terminated_string("") == 0, "Failed: length_of_null_terminated_string");
+
+    // Test alloc_string and dealloc_string
+    string alloc_str = alloc_string(10);
+    assert(alloc_str.data != NULL, "Failed: alloc_string");
+    assert(alloc_str.count == 10, "Failed: alloc_string");
+    dealloc_string(alloc_str);
+
+    // Test string_concat
+    string str1 = const_string("Hello, ");
+    string str2 = const_string("World!");
+    string concat_str = string_concat(str1, str2);
+    assert(concat_str.count == str1.count + str2.count, "Failed: string_concat");
+    assert(memcmp(concat_str.data, "Hello, World!", concat_str.count) == 0, "Failed: string_concat");
+    dealloc_string(concat_str);
+
+    // Test convert_to_null_terminated_string
+    char* cstr = convert_to_null_terminated_string(str1);
+    assert(strcmp(cstr, "Hello, ") == 0, "Failed: convert_to_null_terminated_string");
+    dealloc(cstr);
+
+    // Test temp_convert_to_null_terminated_string
+    cstr = temp_convert_to_null_terminated_string(str2);
+    assert(strcmp(cstr, "World!") == 0, "Failed: temp_convert_to_null_terminated_string");
+    // No need to dealloc, it's temporary storage
+
+    // Test sprint
+    string format_str = const_string("Number: %d");
+    string formatted_str = sprint(format_str, 42);
+    char* formatted_cstr = convert_to_null_terminated_string(formatted_str);
+    assert(strcmp(formatted_cstr, "Number: 42") == 0, "Failed: sprint");
+    dealloc(formatted_str.data);
+    dealloc(formatted_cstr);
+
+    // Test tprint
+    string temp_formatted_str = tprint(format_str, 100);
+    formatted_cstr = temp_convert_to_null_terminated_string(temp_formatted_str);
+    assert(strcmp(formatted_cstr, "Number: 100") == 0, "Failed: tprint");
+    // No need to dealloc, it's temporary storage
+
+    // Test print and printf (visual inspection)
+    printf("Expected output: Hello, World!\n");
+    print(const_string("Hello, %s!\n"), const_string("World"));
+
+    printf("Expected output: Number: 1234\n");
+    print(const_string("Number: %d\n"), 1234);
+    
+    printf("Expected output: Number: 1234\n");
+    print(const_string("Number: %d\n"), 1234);
+
+    printf("Expected output: Mixed values: 42 and 3.14\n");
+    print(const_string("Mixed values: %d and %.2f\n"), 42, 3.14);
+
+	// This should fail assert and print descriptive error
+    //printf("Expected output (printf): Hello, World!\n");
+    //printf("Hello, %cs!\n", 5);
+	// This should fail assert and print descriptive error
+    // printf("Expected output (printf): Hello, World!\n");
+    // printf("Hello, %s!\n", "World");
+    
+    printf("Expected output (printf): Hello, World!\n");
+    printf("Hello, %s!\n", cstr("World"));
+
+    printf("Expected output (printf): Number: 5678\n");
+    printf("Number: %d\n", 5678);
+
+    printf("Expected output (printf): Mixed values: 99 and 2.71\n");
+    printf("Mixed values: %d and %.2f\n", 99, 2.71);
+
+    // Test handling of empty strings
+    string empty_str = const_string("");
+    string concat_empty_str = string_concat(empty_str, empty_str);
+    assert(concat_empty_str.count == 0, "Failed: string_concat with empty strings");
+    dealloc_string(concat_empty_str);
+
+    // Test very large strings (performance test)
+    string large_str1 = alloc_string(1024 * 1024);
+    string large_str2 = alloc_string(1024 * 1024);
+    string large_concat_str = string_concat(large_str1, large_str2);
+    assert(large_concat_str.count == 2 * 1024 * 1024, "Failed: large string_concat");
+    dealloc_string(large_str1);
+    dealloc_string(large_str2);
+    dealloc_string(large_concat_str);
+
+    // Test string with special characters
+    string special_char_str = const_string("Special chars: \n\t\r");
+    cstr = convert_to_null_terminated_string(special_char_str);
+    assert(strcmp(cstr, "Special chars: \n\t\r") == 0, "Failed: special character string");
+    dealloc(cstr);
+    
+    string a = tprintf("Hello, %cs!\n", "balls");
+    string balls1 = string_view(a, 7, 5);
+    string balls2 = const_string("balls");
+    
+    assert(strings_match(balls1, balls2), "String match failed");
+    assert(!strings_match(balls1, a), "String match failed");
 }
+
+
 
 void oogabooga_run_tests() {
 	printf("Testing allocator...\n");

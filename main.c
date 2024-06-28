@@ -1,11 +1,11 @@
 
 int oogabooga_main(int argc, char **argv) {
 	
-	
+	print(cstr("This is our print! %i\n"), 5);
 	
 	// alloc calls to context.allocator.proc which by default is set to the
 	// heap allocator in memory.c
-	int *a = cast(int*)alloc(sizeof(int));
+	int *a = (int*)alloc(sizeof(int));
 	dealloc(a);
 	
 	// We can do an old school memory dump to save our game with the global variables
@@ -35,8 +35,6 @@ int oogabooga_main(int argc, char **argv) {
 	// But it needs to be in build.c before including oogabooga.c.
 	// #define CONTEXT_EXTRA struct { int monkee; }
 	context.extra.monkee = 69;
-	
-
 	
 
 	int hello;

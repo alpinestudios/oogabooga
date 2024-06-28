@@ -7,7 +7,7 @@ pushd build
 mkdir release
 pushd release
 
-cl ../../main.c /Zi /Fecgame.exe /Ox /DRELEASE /std:c11
+cl ../../build.c /Zi /Fecgame.exe /Ox /DRELEASE /MD /std:c11
 
 popd
 popd

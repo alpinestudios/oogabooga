@@ -1,5 +1,37 @@
 
 
+
+void* program_memory = 0;
+u64 program_memory_size = 0;
+
+#ifndef INIT_MEMORY_SIZE
+	#define INIT_MEMORY_SIZE (1024*50)
+#endif
+// We may need to allocate stuff in initialization time before the heap is ready.
+// That's what this is for.
+u8 init_memory_arena[INIT_MEMORY_SIZE];
+u8 *init_memory_head = init_memory_arena;
+
+void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message) {
+	switch (message) {
+		case ALLOCATOR_ALLOCATE: {
+			p = init_memory_head;
+			init_memory_head += size;
+			
+			if (init_memory_head >= ((u8*)init_memory_arena+INIT_MEMORY_SIZE)) {
+				os_write_string_to_stdout(cstr("Out of initialization memory! Please provide more by increasing INIT_MEMORY_SIZE"));
+				os_break();
+			}
+			return p;
+			break;
+		}
+		case ALLOCATOR_DEALLOCATE: {
+			return 0;
+		}
+	}
+	return 0;
+}
+
 ///
 ///
 // Basic general heap allocator, free list
@@ -34,7 +66,7 @@ typedef struct {
 
 Heap_Block *heap_head;
 bool heap_initted = false;
-Mutex_Handle heap_mutex; // This is terrible but I don't care for now
+Spinlock *heap_lock; // This is terrible but I don't care for now
 
 
 u64 get_heap_block_size_excluding_metadata(Heap_Block *block) {
@@ -46,6 +78,17 @@ u64 get_heap_block_size_including_metadata(Heap_Block *block) {
 
 bool is_pointer_in_program_memory(void *p) {
 	return (u8*)p >= (u8*)program_memory && (u8*)p<((u8*)program_memory+program_memory_size);
+}
+bool is_pointer_in_stack(void* p) {
+    void* stack_base = os_get_stack_base();
+    void* stack_limit = os_get_stack_limit();
+    return (uintptr_t)p >= (uintptr_t)stack_limit && (uintptr_t)p < (uintptr_t)stack_base;
+}
+bool is_pointer_in_static_memory(void* p) {
+    return (uintptr_t)p >= (uintptr_t)os.static_memory_start && (uintptr_t)p < (uintptr_t)os.static_memory_end;
+}
+bool is_pointer_valid(void *p) {
+	return is_pointer_in_program_memory(p) || is_pointer_in_stack(p) || is_pointer_in_static_memory(p);
 }
 
 // Meant for debug
@@ -137,7 +180,6 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 		u64 minimum_size = ((u8*)block+size) - (u8*)program_memory + 1;
 		u64 new_program_size = (cast(u64)(minimum_size * 1.5));
 		assert(new_program_size >= minimum_size, "Bröd");
-		printf("Growing program memory to %llu bytes\n", new_program_size);
 		const u64 ATTEMPTS = 1000;
 		for (u64 i = 0; i <= ATTEMPTS; i++) {
 			if (program_memory_size >= new_program_size) break; // Another thread might have resized already, causing it to fail here.
@@ -158,9 +200,10 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 }
 
 void heap_init() {
-	heap_head = make_heap_block(0, DEFAULT_HEAP_BLOCK_SIZE);
-	heap_mutex = os_make_mutex();
+	if (heap_initted) return;
 	heap_initted = true;
+	heap_head = make_heap_block(0, DEFAULT_HEAP_BLOCK_SIZE);
+	heap_lock = os_make_spinlock();
 }
 
 void *heap_alloc(u64 size) {
@@ -168,7 +211,7 @@ void *heap_alloc(u64 size) {
 	if (!heap_initted) heap_init();
 
 	// #Sync #Speed oof
-	os_lock_mutex(heap_mutex);
+	os_spinlock_lock(heap_lock);
 	
 	size += sizeof(Heap_Allocation_Metadata);
 	
@@ -257,7 +300,7 @@ void *heap_alloc(u64 size) {
 #endif
 	
 	// #Sync #Speed oof
-	os_unlock_mutex(heap_mutex);
+	os_spinlock_unlock(heap_lock);
 	
 	return ((u8*)meta)+sizeof(Heap_Allocation_Metadata);
 }
@@ -266,15 +309,15 @@ void heap_dealloc(void *p) {
 	
 	if (!heap_initted) heap_init();
 
-	os_lock_mutex(heap_mutex);
+	os_spinlock_lock(heap_lock);
 	
 	assert(is_pointer_in_program_memory(p), "Garbage pointer; out of program memory bounds!"); 
 	p = (u8*)p-sizeof(Heap_Allocation_Metadata);
 	Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(p);
 	
 	// If > 256GB then prolly not legit lol
-	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Garbage pointer passed to heap_dealloc !!!");	
-	assert(is_pointer_in_program_memory(meta->block), "Garbage pointer passed to heap_dealloc !!!"); 
+	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory.");	
+	assert(is_pointer_in_program_memory(meta->block), "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory."); 
 	
 	// Yoink meta data before we start overwriting it
 	Heap_Block *block = meta->block;
@@ -327,38 +370,8 @@ void heap_dealloc(void *p) {
 #endif
 
 	// #Sync #Speed oof
-	os_unlock_mutex(heap_mutex);
+	os_spinlock_unlock(heap_lock);
 }
-void log_heap() {
-	os_lock_mutex(heap_mutex);
-	printf("\nHEAP:\n");
-	
-	Heap_Block *block = heap_head;
-	
-	while (block != 0) {
-		
-		printf("\tBLOCK @ 0x%I64x, %llu bytes\n", (u64)block, block->size);
-		
-		Heap_Free_Node *node = block->free_head;
-
-		u64 total_free = 0;
-		
-		while (node != 0) {
-		
-			printf("\t\tFREE NODE @ 0x%I64x, %llu bytes\n", (u64)node, node->size);
-			
-			total_free += node->size;
-		
-			node = node->next;
-		}
-		
-		printf("\t TOTAL FREE: %llu\n\n", total_free);
-		
-		block = block->next;
-	}
-	os_unlock_mutex(heap_mutex);
-}
-
 
 ///
 ///
@@ -416,7 +429,7 @@ void* talloc(u64 size) {
 	
 	if ((u8*)temporary_storage_pointer >= (u8*)temporary_storage+TEMPORARY_STORAGE_SIZE) {
 		if (!has_warned_temporary_storage_overflow) {
-			printf("WARNING: temporary storage was overflown, we wrap around at the start.\n");
+			os_write_string_to_stdout(cstr("WARNING: temporary storage was overflown, we wrap around at the start.\n"));
 		}
 		temporary_storage_pointer = temporary_storage;
 		return talloc(size);;

@@ -21,43 +21,59 @@ typedef u8 bool;
 
 #define thread_local _Thread_local
 
+#define ifnt(x) if (!(x))
+
 #ifdef _MSC_VER
-	#define os_debug_break __debugbreak
+	inline void os_break() {
+		__debugbreak();
+		int *a = 0;
+		*a = 5;
+	}
 #else
 	#error "Only msvc compiler supported at the moment";
 #endif
 	
-#define assert(cond, ...) if (!(cond)) { printf("Assertion failed for condition: " #cond ". Message: " __VA_ARGS__); os_debug_break(); }
+	
+void printf(const char* fmt, ...);
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+#define assert_line(line, cond, ...) if (!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
+#define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
 
 #define cast(t) (t)
 
 ///
-// inline
-// (Credit to chatgpt, so it might not be 100% correct)
+// Compiler specific stuff
 #ifdef _MSC_VER
     // Microsoft Visual C++
     #define inline __forceinline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__GNUC__) || defined(__GNUG__)
     // GNU GCC/G++
     #define inline __attribute__((always_inline)) inline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__clang__)
     // Clang/LLVM
     #define inline __attribute__((always_inline)) inline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__INTEL_COMPILER) || defined(__ICC)
     // Intel C++ Compiler
     #define inline __forceinline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__BORLANDC__)
     // Borland C++
     #define inline __inline
 #elif defined(__MINGW32__) || defined(__MINGW64__)
     // MinGW (Minimalist GNU for Windows)
     #define inline __attribute__((always_inline)) inline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
     // Oracle Solaris Studio
     #define inline inline __attribute__((always_inline))
 #elif defined(__IBMC__) || defined(__IBMCPP__)
     // IBM XL C/C++ Compiler
     #define inline __attribute__((always_inline)) inline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
 #elif defined(__PGI)
     // Portland Group Compiler
     #define inline inline __attribute__((always_inline))
@@ -120,3 +136,5 @@ void push_allocator(Allocator a) {
 	push_context(c);
 }
 void pop_allocator() { pop_context(); }
+
+

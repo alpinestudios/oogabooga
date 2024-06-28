@@ -25,6 +25,23 @@ void os_init(u64 program_memory_size) {
     GetSystemInfo(&si);
 	os.granularity = cast(u64)si.dwAllocationGranularity;
 	os.page_size = cast(u64)si.dwPageSize;
+	
+	os.static_memory_start = 0;
+	os.static_memory_end = 0;
+	
+	MEMORY_BASIC_INFORMATION mbi;
+    
+    
+    unsigned char* addr = 0;
+    while (VirtualQuery(addr, &mbi, sizeof(mbi))) {
+        if (mbi.Type == MEM_IMAGE) {
+            if (os.static_memory_start == NULL) {
+                os.static_memory_start = mbi.BaseAddress;
+            }
+            os.static_memory_end = (unsigned char*)mbi.BaseAddress + mbi.RegionSize;
+        }
+        addr += mbi.RegionSize;
+    }
 
 
 	program_memory_mutex = os_make_mutex();
@@ -35,16 +52,17 @@ void os_init(u64 program_memory_size) {
 	heap_allocator.proc = heap_allocator_proc;
 	heap_allocator.data = 0;
 	
+	heap_init();
 	context.allocator = heap_allocator;
 	
 	os.crt = os_load_dynamic_library(const_string("msvcrt.dll"));
 	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
-	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vprintf"));
-	assert(os.crt_vprintf, "Missing vprintf in crt");
-	os.crt_printf = (Crt_Printf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("printf"));
-	assert(os.crt_printf, "Missing printf in crt");
 	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vsnprintf"));
 	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vprintf"));
+	assert(os.crt_vprintf, "Missing vprintf in crt");
+	os.crt_vsprintf = (Crt_Vsprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vsprintf"));
+	assert(os.crt_vsprintf, "Missing vsprintf in crt");
 	os.crt_memcpy = (Crt_Memcpy_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcpy"));
 	assert(os.crt_memcpy, "Missing memcpy in crt");
 	os.crt_memcmp = (Crt_Memcmp_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcmp"));
@@ -204,4 +222,59 @@ void os_write_string_to_stdout(string s) {
 	if (win32_stdout == INVALID_HANDLE_VALUE) return;
 	
 	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
+}
+
+void* os_get_stack_base() {
+	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    return tib->StackBase;
+}
+void* os_get_stack_limit() {
+	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    return tib->StackLimit;
+}
+
+
+
+Spinlock *os_make_spinlock() {
+	Spinlock *l = cast(Spinlock*)alloc(sizeof(Spinlock));
+	l->locked = false;
+	return l;
+}
+void os_spinlock_lock(Spinlock *l) {
+    while (true) {
+        bool expected = false;
+        if (os_compare_and_swap_bool(&l->locked, true, expected)) {
+            return;
+        }
+        while (l->locked) {
+            // spinny boi
+        }
+    }
+}
+
+void os_spinlock_unlock(Spinlock *l) {
+    bool expected = true;
+    bool success = os_compare_and_swap_bool(&l->locked, false, expected);
+    assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
+}
+
+bool os_compare_and_swap_8(u8 *a, u8 b, u8 old) {
+	// #Portability not sure how portable this is.
+    return _InterlockedCompareExchange8((volatile CHAR*)a, (CHAR)b, (CHAR)old) == (CHAR)old;
+}
+
+bool os_compare_and_swap_16(u16 *a, u16 b, u16 old) {
+    return InterlockedCompareExchange16((volatile SHORT*)a, (SHORT)b, (SHORT)old) == (SHORT)old;
+}
+
+bool os_compare_and_swap_32(u32 *a, u32 b, u32 old) {
+    return InterlockedCompareExchange((volatile LONG*)a, (LONG)b, (LONG)old) == (LONG)old;
+}
+
+bool os_compare_and_swap_64(u64 *a, u64 b, u64 old) {
+    return InterlockedCompareExchange64((volatile LONG64*)a, (LONG64)b, (LONG64)old) == (LONG64)old;
+}
+
+bool os_compare_and_swap_bool(bool *a, bool b, bool old) {
+	return os_compare_and_swap_8(cast(u8*)a, cast(u8)b, cast(u8)old);
 }
