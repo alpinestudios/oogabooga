@@ -1,7 +1,7 @@
 
-int main() {
-	printf("Program started\n");
-	oogabooga_init(1024 * 1024 * 100); // Start with 100mb program memory
+int oogabooga_main(int argc, char **argv) {
+	
+	
 	
 	// alloc calls to context.allocator.proc which by default is set to the
 	// heap allocator in memory.c
@@ -37,10 +37,7 @@ int main() {
 	context.extra.monkee = 69;
 	
 
-	// This can be disabled in build.c
-#if RUN_TESTS
-	oogabooga_run_tests();
-#endif
+	
 
 	int hello;
 	hello = 5;
