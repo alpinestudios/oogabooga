@@ -220,7 +220,7 @@ void print_va_list_buffered(const string fmt, va_list args) {
 }
 
 // context.allocator (alloc & dealloc)
-void print(const string fmt, ...) {
+void prints(const string fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	print_va_list_buffered(fmt, args);
@@ -237,7 +237,11 @@ void printf(const char* fmt, ...) {
 	va_end(args);
 }
 
-
+#define FIRST_ARG(arg1, ...) arg1
+#define print(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string: prints, \
+                           default: printf \
+                          )(__VA_ARGS__)
 ///
 ///
 // Memory

@@ -1,4 +1,14 @@
 
+#if !defined(DEBUG) && !defined(RELEASE)
+
+#ifdef _DEBUG
+#define DEBUG
+#elif defined(NDEBUG)
+#define RELEASE
+#endif
+
+#endif
+
 #ifdef _WIN32
 	#include <Windows.h>
 	#define OS_WINDOWS

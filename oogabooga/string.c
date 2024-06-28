@@ -51,7 +51,7 @@ typedef struct string {
 void push_temp_allocator();
 
 #define cstr const_string
-#define const_string(s) (string){ length_of_null_terminated_string(s), (u8*)s }
+#define const_string(s) ((string){ length_of_null_terminated_string(s), (u8*)s })
 
 inline u64 length_of_null_terminated_string(const char* cstring) {
 	u64 len = 0;

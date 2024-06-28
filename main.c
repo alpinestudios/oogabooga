@@ -43,14 +43,14 @@ int oogabooga_main(int argc, char **argv) {
 	(void)hello;
 
 #ifdef DEBUG
-	printf("Hello, balls! (debug)\n");
+	print("Hello, balls! (debug)\n");
 #endif
 
 #ifdef RELEASE
-	printf("Hello, balls! (release)\n");
+	print("Hello, balls! (release)\n");
 #endif
 
-	printf("Program exit as expected\n");
+	print("Program exit as expected\n");
 
   return 0;
 }

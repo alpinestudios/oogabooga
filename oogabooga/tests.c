@@ -299,7 +299,7 @@ void test_strings() {
 
     // Test print and printf (visual inspection)
     printf("Expected output: Hello, World!\n");
-    print(const_string("Hello, %s!\n"), const_string("World"));
+    print("Hello, %s!\n", const_string("World"));
 
     printf("Expected output: Number: 1234\n");
     print(const_string("Number: %d\n"), 1234);
