@@ -27,6 +27,7 @@
 #include "base.c"
 
 #include "string.c"
+#include "string_format.c"
 
 #include "os_interface.c"
 

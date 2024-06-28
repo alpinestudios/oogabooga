@@ -182,66 +182,7 @@ void os_unload_dynamic_library(Dynamic_Library_Handle l);
 
 void os_write_string_to_stdout(string s);
 
-// context.allocator (alloc & dealloc)
-void print_va_list(const string fmt, va_list args) {
-	string s = sprint_va_list(fmt, args);
-	os_write_string_to_stdout(s);
-	dealloc(s.data);
-}
 
-// print for 'string' and printf for 'char*'
-
-#define PRINT_BUFFER_SIZE 4096
-// Avoids all and any allocations but overhead in speed and memory.
-// Need this for standard printing so we don't get infinite recursions.
-// (for example something in memory might fail assert and it needs to print that)
-void print_va_list_buffered(const string fmt, va_list args) {
-
-	string current = fmt;
-
-	char buffer[PRINT_BUFFER_SIZE];
-	
-	while (true) {
-		u64 size = min(current.count, PRINT_BUFFER_SIZE-1);
-		if (current.count <= 0) break;
-		
-		memcpy(buffer, current.data, size);
-		
-		char fmt_cstring[PRINT_BUFFER_SIZE+1];
-		memcpy(fmt_cstring, current.data, size);
-		fmt_cstring[size] = 0;
-		
-		string s = sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, PRINT_BUFFER_SIZE);
-		os_write_string_to_stdout(s);
-		
-		current.count -= size;
-		current.data += size;
-	}
-}
-
-// context.allocator (alloc & dealloc)
-void prints(const string fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	print_va_list_buffered(fmt, args);
-	va_end(args);	
-}
-// context.allocator (alloc & dealloc)
-void printf(const char* fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	string s;
-	s.data = cast(u8*)fmt;
-	s.count = strlen(fmt);
-	print_va_list_buffered(s, args);
-	va_end(args);
-}
-
-#define FIRST_ARG(arg1, ...) arg1
-#define print(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
-                           string: prints, \
-                           default: printf \
-                          )(__VA_ARGS__)
 ///
 ///
 // Memory

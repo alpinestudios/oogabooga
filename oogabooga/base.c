@@ -82,6 +82,21 @@ void printf(const char* fmt, ...);
     #define inline inline
 #endif
 
+
+#define FIRST_ARG(arg1, ...) arg1
+#define print(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string: prints, \
+                           default: printf \
+                          )(__VA_ARGS__)
+#define sprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string: sprints, \
+                           default: sprintf \
+                          )(__VA_ARGS__)
+#define tprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string: tprints, \
+                           default: tprintf \
+                          )(__VA_ARGS__)
+
 typedef struct Nothing {int nothing;} Nothing;
 
 #ifndef CONTEXT_EXTRA
