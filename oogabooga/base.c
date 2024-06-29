@@ -23,6 +23,8 @@ typedef u8 bool;
 
 #define local_persist static
 
+#define forward_global extern
+
 #define ifnt(x) if (!(x))
 
 #ifdef _MSC_VER
@@ -42,7 +44,7 @@ void printf(const char* fmt, ...);
 #define assert_line(line, cond, ...) if (!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
 #define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
 
-#if CONFIGRATION == RELEASE
+#if CONFIGURATION == RELEASE
 #undef assert
 #define assert(...)
 #endif
@@ -97,15 +99,15 @@ void printf(const char* fmt, ...);
 
 #define FIRST_ARG(arg1, ...) arg1
 #define print(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
-                           string: prints, \
+                           string:  prints, \
                            default: printf \
                           )(__VA_ARGS__)
 #define sprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
-                           string: sprints, \
+                           string:  sprints, \
                            default: sprintf \
                           )(__VA_ARGS__)
 #define tprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
-                           string: tprints, \
+                           string:  tprints, \
                            default: tprintf \
                           )(__VA_ARGS__)
 

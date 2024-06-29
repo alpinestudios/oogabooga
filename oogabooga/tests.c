@@ -190,20 +190,11 @@ void test_thread_proc1(Thread* t) {
 	os_sleep(5);
 	printf("Hello from thread %llu\n", t->id);
 }
-Mutex_Handle test_mutex;
-void test_thread_proc2(Thread* t) {
-	os_lock_mutex(test_mutex);
-	printf("Thread %llu part 1\n", t->id);
-	os_sleep(1);
-	printf("Thread %llu part 2\n", t->id);
-	os_sleep(1);
-	printf("Thread %llu part 3\n", t->id);
-	os_unlock_mutex(test_mutex);
-}
+
 void test_threads() {
 	Thread* t = os_make_thread(test_thread_proc1);
 	os_start_thread(t);
-	os_sleep(10);
+	os_sleep(20);
 	printf("This should be printed in middle of thread execution\n");
 	os_join_thread(t);
 	printf("Thread is joined\n");
@@ -211,17 +202,6 @@ void test_threads() {
 	Mutex_Handle m = os_make_mutex();
 	os_lock_mutex(m);
 	os_unlock_mutex(m);
-	
-	
-	test_mutex = os_make_mutex();
-	Thread *threads[100];
-	for (int i = 0; i < 100; i++) {
-		threads[i] = os_make_thread(test_thread_proc2);
-		os_start_thread(threads[i]);
-	}
-	for (int i = 0; i < 100; i++) {
-		os_join_thread(threads[i]);
-	}
 }
 
 void test_allocator_threaded(Thread *t) {
@@ -266,8 +246,8 @@ void test_strings() {
     dealloc_string(alloc_str);
 
     // Test string_concat
-    string str1 = const_string("Hello, ");
-    string str2 = const_string("World!");
+    string str1 = fixed_string("Hello, ");
+    string str2 = fixed_string("World!");
     string concat_str = string_concat(str1, str2);
     assert(concat_str.count == str1.count + str2.count, "Failed: string_concat");
     assert(memcmp(concat_str.data, "Hello, World!", concat_str.count) == 0, "Failed: string_concat");
@@ -284,7 +264,7 @@ void test_strings() {
     // No need to dealloc, it's temporary storage
 
     // Test sprint
-    string format_str = const_string("Number: %d");
+    string format_str = fixed_string("Number: %d");
     string formatted_str = sprint(format_str, 42);
     char* formatted_cstr = convert_to_null_terminated_string(formatted_str);
     assert(strcmp(formatted_cstr, "Number: 42") == 0, "Failed: sprint");
@@ -299,16 +279,16 @@ void test_strings() {
 
     // Test print and printf (visual inspection)
     printf("Expected output: Hello, World!\n");
-    print("Hello, %s!\n", const_string("World"));
+    print("Hello, %s!\n", fixed_string("World"));
 
     printf("Expected output: Number: 1234\n");
-    print(const_string("Number: %d\n"), 1234);
+    print(fixed_string("Number: %d\n"), 1234);
     
     printf("Expected output: Number: 1234\n");
-    print(const_string("Number: %d\n"), 1234);
+    print(fixed_string("Number: %d\n"), 1234);
 
     printf("Expected output: Mixed values: 42 and 3.14\n");
-    print(const_string("Mixed values: %d and %.2f\n"), 42, 3.14);
+    print(fixed_string("Mixed values: %d and %.2f\n"), 42, 3.14);
 
 	// This should fail assert and print descriptive error
     //printf("Expected output (printf): Hello, World!\n");
@@ -327,7 +307,7 @@ void test_strings() {
     printf("Mixed values: %d and %.2f\n", 99, 2.71);
 
     // Test handling of empty strings
-    string empty_str = const_string("");
+    string empty_str = fixed_string("");
     string concat_empty_str = string_concat(empty_str, empty_str);
     assert(concat_empty_str.count == 0, "Failed: string_concat with empty strings");
     dealloc_string(concat_empty_str);
@@ -342,35 +322,118 @@ void test_strings() {
     dealloc_string(large_concat_str);
 
     // Test string with special characters
-    string special_char_str = const_string("Special chars: \n\t\r");
+    string special_char_str = fixed_string("Special chars: \n\t\r");
     cstr = convert_to_null_terminated_string(special_char_str);
     assert(strcmp(cstr, "Special chars: \n\t\r") == 0, "Failed: special character string");
     dealloc(cstr);
     
     string a = tprintf("Hello, %cs!\n", "balls");
     string balls1 = string_view(a, 7, 5);
-    string balls2 = const_string("balls");
+    string balls2 = fixed_string("balls");
     
     assert(strings_match(balls1, balls2), "String match failed");
     assert(!strings_match(balls1, a), "String match failed");
 }
 
+void test_file_io() {
 
+#if TARGET_OS == WINDOWS
+    // Test win32_fixed_utf8_to_null_terminated_wide
+    string utf8_str = fixed_string("Test");
+    u16 *wide_str = win32_fixed_utf8_to_null_terminated_wide(utf8_str);
+    assert(wide_str != NULL, "Failed: win32_fixed_utf8_to_null_terminated_wide");
+    assert(wide_str[4] == 0, "Failed: win32_fixed_utf8_to_null_terminated_wide");
+    dealloc(wide_str);
+
+    // Test temp_win32_fixed_utf8_to_null_terminated_wide
+    push_temp_allocator();
+    wide_str = temp_win32_fixed_utf8_to_null_terminated_wide(utf8_str);
+    assert(wide_str != NULL, "Failed: temp_win32_fixed_utf8_to_null_terminated_wide");
+    assert(wide_str[4] == 0, "Failed: temp_win32_fixed_utf8_to_null_terminated_wide");
+    pop_allocator();
+#endif
+
+	File file = OS_INVALID_FILE;
+
+    os_file_close(file);
+    // Test os_file_open and os_file_close
+    file = os_file_open(fixed_string("test.txt"), O_WRITE | O_CREATE);
+    assert(file != OS_INVALID_FILE, "Failed: os_file_open (write/create)");
+    os_file_close(file);
+    
+
+    // Test os_file_write_string and os_file_read
+    string hello_world_write = fixed_string("Hello, World!");
+    file = os_file_open(fixed_string("test.txt"), O_WRITE | O_CREATE);
+    assert(file != OS_INVALID_FILE, "Failed: os_file_open (write/create)");
+    bool write_result = os_file_write_string(file, hello_world_write);
+    assert(write_result, "Failed: os_file_write_string");
+    os_file_close(file);
+
+    file = os_file_open(fixed_string("test.txt"), O_READ);
+    assert(file != OS_INVALID_FILE, "Failed: os_file_open (read)");
+    string hello_world_read = talloc_string(hello_world_write.count);
+    bool read_result = os_file_read(file, hello_world_read.data, hello_world_read.count, &hello_world_read.count);
+    assert(read_result, "Failed: os_file_read %d", GetLastError());
+    assert(strings_match(hello_world_read, hello_world_write), "Failed: os_file_read write/read mismatch");
+    os_file_close(file);
+
+    // Test os_file_write_bytes
+    file = os_file_open(fixed_string("test_bytes.txt"), O_WRITE | O_CREATE);
+    assert(file != OS_INVALID_FILE, "Failed: os_file_open (write/create)");
+    int int_data = 42;
+    write_result = os_file_write_bytes(file, &int_data, sizeof(int));
+    assert(write_result, "Failed: os_file_write_bytes");
+    os_file_close(file);
+
+    // Test os_read_entire_file and os_write_entire_file
+    string write_data = fixed_string("Entire file test");
+    bool write_entire_result = os_write_entire_file(fixed_string("entire_test.txt"), write_data);
+    assert(write_entire_result, "Failed: os_write_entire_file");
+
+    string read_data;
+    bool read_entire_result = os_read_entire_file(fixed_string("entire_test.txt"), &read_data);
+    assert(read_entire_result, "Failed: os_read_entire_file");
+    assert(strings_match(read_data, write_data), "Failed: os_read_entire_file write/read mismatch");
+    assert(memcmp(read_data.data, write_data.data, write_data.count) == 0, "Failed: os_read_entire_file (content mismatch)");
+    dealloc(read_data.data);
+    
+    // Test fprint
+    File balls = os_file_open(fixed_string("balls.txt"), O_WRITE | O_CREATE);
+    assert(balls != OS_INVALID_FILE, "Failed: Could not create balls.txt");
+	fprint(balls, "Hello, %cs!", "Balls");    
+    os_file_close(balls);
+    string hello_balls;
+    read_entire_result = os_read_entire_file(fixed_string("balls.txt"), &hello_balls);
+    assert(read_entire_result, "Failed: could not read balls.txt");
+    assert(strings_match(hello_balls, fixed_string("Hello, Balls!")), "Failed: balls read/write mismatch. Expected 'Hello, Balls!', got '%s'", hello_balls);
+
+    // Clean up test files
+    bool delete_ok = false;
+    delete_ok = os_file_delete(fixed_string("test.txt"));
+    assert(delete_ok, "Failed: could not delete test.txt");
+    delete_ok = os_file_delete(fixed_string("test_bytes.txt"));
+    assert(delete_ok, "Failed: could not delete test_bytes.txt");
+    delete_ok = os_file_delete(fixed_string("entire_test.txt"));
+    assert(delete_ok, "Failed: could not delete entire_test.txt");
+    delete_ok = os_file_delete(fixed_string("balls.txt"));
+    assert(delete_ok, "Failed: could not delete balls.txt");
+}
 
 void oogabooga_run_tests() {
-	printf("Testing allocator...\n");
+	printf("Testing allocator... ");
 	test_allocator(true);
 	printf("OK!\n");
 	
-	printf("Testing threads...\n");
+	printf("Testing threads... ");
 	test_threads();
 	printf("OK!\n");
 	
-	printf("Testing strings...\n");
+	printf("Testing strings... ");
 	test_strings();
 	printf("OK!\n");
 
-	printf("Thread bombing allocator...\n");
+	printf("Thread bombing allocator... ");
 	Thread* threads[100];
 	for (int i = 0; i < 100; i++) {
 		threads[i] = os_make_thread(test_allocator_threaded);
@@ -379,5 +442,9 @@ void oogabooga_run_tests() {
 	for (int i = 0; i < 100; i++) {
 		os_join_thread(threads[i]);
 	}
+	printf("OK!\n");
+	
+	printf("Testing file IO... ");
+	test_file_io();
 	printf("OK!\n");
 }

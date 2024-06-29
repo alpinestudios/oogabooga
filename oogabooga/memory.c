@@ -298,7 +298,7 @@ void *heap_alloc(u64 size) {
 	meta->size = size;
 	meta->block = best_fit_block;
 
-#if VERY_DEBUG
+#if CONFIGURATION == VERY_DEBUG
 	santiy_check_free_node_tree(meta->block);
 #endif
 	
@@ -368,7 +368,7 @@ void heap_dealloc(void *p) {
 		}
 	}
 	
-#if VERY_DEBUG
+#if CONFIGURATION == VERY_DEBUG
 	santiy_check_free_node_tree(block);
 #endif
 

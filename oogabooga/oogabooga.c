@@ -1,4 +1,26 @@
 
+#define DEBUG 0
+#define VERY_DEBUG 1
+#define RELEASE 2
+
+#if !defined(CONFIGURATION)
+
+	#if defined(NDEBUG)
+		#define CONFIGURATION RELEASE
+	#else
+		#define CONFIGURATION DEBUG
+	#endif
+
+#endif
+
+#ifndef ENTRY_PROC
+	#define ENTRY_PROC entry
+#endif
+
+#define WINDOWS 0
+#define LINUX   1
+#define MACOS   2
+
 // This needs to be included before dependencies
 #include "base.c"
 
@@ -25,34 +47,18 @@ void lodepng_free(void* ptr) {
 
 /////
 
-#define DEBUG 0
-#define VERY_DEBUG 1
-#define RELEASE 2
 
-#if !defined(CONFIGURATION)
-
-	#ifdef _DEBUG
-		#define CONFIGURATION DEBUG
-	#elif defined(NDEBUG)
-		#define CONFIGURATION RELEASE
-	#endif
-
-#endif
-
-#ifndef ENTRY_PROC
-	#define ENTRY_PROC entry
-#endif
 
 #ifdef _WIN32
 	#include <Windows.h>
-	#define OS_WINDOWS
+	#define TARGET_OS WINDOWS
 #elif defined(__linux__)
 	// Include whatever #Incomplete #Portability
-	#define OS_LINUX
+	#define TARGET_OS LINUX
 	#error "Linux is not supported yet";
 #elif defined(__APPLE__) && defined(__MACH__)
 	// Include whatever #Incomplete #Portability
-	#define OS_MAC
+	#define TARGET_OS MACOS
 	#error "Mac is not supported yet";
 #else
 	#error "Current OS not supported!";
@@ -69,11 +75,11 @@ void lodepng_free(void* ptr) {
 
 #ifndef GFX_RENDERER
 // #Portability
-	#ifdef OS_WINDOWS
+	#if TARGET_OS == WINDOWS
 		#define GFX_RENDERER GFX_RENDERER_D3D11
-	#elif defined (OS_LINUX)
+	#elif TARGET_OS == LINUX
 		#define GFX_RENDERER GFX_RENDERER_VULKAN
-	#elif defined (OS_MAC)
+	#elif TARGET_OS == MACOS
 		#define GFX_RENDERER GFX_RENDERER_METAL
 	#endif
 #endif
@@ -107,11 +113,11 @@ void lodepng_free(void* ptr) {
 	#error "Unknown renderer defined in GFX_RENDERER"
 #endif
 
-#ifdef OS_WINDOWS
+#if TARGET_OS == WINDOWS
 	#include "os_impl_windows.c"
-#elif defined (OS_LINUX)
+#elif TARGET_OS == LINUX
 
-#elif defined (OS_MAC)
+#elif TARGET_OS == MACOS
 
 #endif
 

@@ -10,6 +10,9 @@ int start(int argc, char **argv) {
 	
 	seed_for_random = os_get_current_cycle_count();
 	
+	const float64 fps_limit = 420;
+	const float64 min_frametime = 1.0 / fps_limit;
+	
 	float64 last_time = os_get_current_time_in_seconds();
 	while (!window.should_close) {
 		reset_temporary_storage();
@@ -19,6 +22,11 @@ int start(int argc, char **argv) {
 		
 		float64 now = os_get_current_time_in_seconds();
 		float64 delta = now - last_time;
+		if (delta < min_frametime) {
+			os_high_precision_sleep((min_frametime-delta)*1000.0);
+			now = os_get_current_time_in_seconds();
+			delta = now - last_time;
+		}
 		last_time = now;
 		
 		if (is_key_just_released(KEY_ESCAPE)) {
@@ -27,6 +35,7 @@ int start(int argc, char **argv) {
 		
 		if (is_key_just_released('E')) {
 			print("Mouse pos: %f, %f\n", input_frame.mouse_x, input_frame.mouse_y);
+			print("FPS: %.2f\n", 1.0 / delta);
 		}
 		
 		for (u64 i = 0; i < input_frame.number_of_events; i++) {

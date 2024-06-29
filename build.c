@@ -2,7 +2,7 @@
 
 ///
 // Build config stuff
-#define RUN_TESTS 0
+#define RUN_TESTS 1
 
 // When we need very debug
 // #define CONFIGURATION VERY_DEBUG

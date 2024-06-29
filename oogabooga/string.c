@@ -73,6 +73,12 @@ string alloc_string(u64 count) {
 void dealloc_string(string s) {
 	dealloc(s.data);
 }
+string talloc_string(u64 count) {
+	push_temp_allocator();
+	string s = alloc_string(count);
+	pop_allocator();
+	return s;
+}
 
 // context.allocator !
 string string_concat(const string left, const string right) {
@@ -97,13 +103,12 @@ char *temp_convert_to_null_terminated_string(const string s) {
 	pop_allocator();
 	return c;
 }
-
 bool strings_match(string a, string b) {
 	if (a.count != b.count) return false;
 	
 	// Count match, pointer match: they are the same
 	if (a.data == b.data) return true;
-	
+
 	return memcmp(a.data, b.data, a.count) == 0;
 }
 

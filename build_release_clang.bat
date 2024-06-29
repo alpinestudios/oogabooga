@@ -7,7 +7,7 @@ pushd build
 mkdir release
 pushd release
 
-clang -o cgame.exe ../../build.c -Ofast -std=c11 -Wextra -Wno-incompatible-library-redeclaration  -Wno-sign-compare -Wno-unused-parameter -lgdi32 -luser32 -lopengl32
+clang -o cgame.exe ../../build.c -Ofast -std=c11 -Wextra -Wno-incompatible-library-redeclaration  -Wno-sign-compare -Wno-unused-parameter -Wno-builtin-requires-header -lgdi32 -luser32 -lopengl32 -lwinmm
 
 popd
 popd

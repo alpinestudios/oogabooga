@@ -264,6 +264,8 @@ bool os_grow_program_memory(u64 new_size) {
 			return false;
 		}
 		program_memory_size = aligned_size;
+		
+		memset(program_memory, 0xBA, program_memory_size);
 	} else {
 		void* tail = (u8*)program_memory + program_memory_size;
 		u64 m = ((u64)program_memory_size % os.granularity);
@@ -276,6 +278,7 @@ bool os_grow_program_memory(u64 new_size) {
 		assert(m == 0, "amount_to_allocate is not aligned to granularity!");
 		// Just keep allocating at the tail of the current chunk
 		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		memset(result, 0xBA, amount_to_allocate);
 		if (result == 0) { 
 			os_unlock_mutex(program_memory_mutex); // #Sync
 			return false;
@@ -294,31 +297,15 @@ bool os_grow_program_memory(u64 new_size) {
 	return true;
 }
 
-Mutex_Handle os_make_mutex() {
-	return CreateMutex(0, FALSE, 0);
-}
-void os_destroy_mutex(Mutex_Handle m) {
-	CloseHandle(m);
-}
-void os_lock_mutex(Mutex_Handle m) {
-	DWORD wait_result = WaitForSingleObject(m, INFINITE);
-	
-	switch (wait_result) {
-        case WAIT_OBJECT_0:
-            break;
 
-        case WAIT_ABANDONED:
-            break;
+///
+///
+// Threading
+///
 
-        default:
-        	assert(false, "Unexpected mutex lock result");
-            break;
-    }
-}
-void os_unlock_mutex(Mutex_Handle m) {
-	BOOL result = ReleaseMutex(m);
-	assert(result, "Unlock mutex failed");
-}
+
+///
+// Thread primitive
 
 DWORD WINAPI win32_thread_invoker(LPVOID param) {
 	Thread *t = (Thread*)param;
@@ -353,56 +340,37 @@ void os_join_thread(Thread *t) {
 	CloseHandle(t->os_handle);
 }
 
-void os_sleep(u32 ms) {
-    Sleep(ms);
-}
+///
+// Mutex primitive
 
-void os_yield_thread() {
-    SwitchToThread();
+Mutex_Handle os_make_mutex() {
+	return CreateMutex(0, FALSE, 0);
 }
-
-#include <intrin.h>
-u64 os_get_current_cycle_count() {
-	return __rdtsc();
+void os_destroy_mutex(Mutex_Handle m) {
+	CloseHandle(m);
 }
-
-float64 os_get_current_time_in_seconds() {
-    LARGE_INTEGER frequency, counter;
-    if (!QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&counter)) {
-        return -1.0;
-    }
-    return (double)counter.QuadPart / (double)frequency.QuadPart;
-}
-
-
-Dynamic_Library_Handle os_load_dynamic_library(string path) {
-	return LoadLibraryA(temp_convert_to_null_terminated_string(path));
-}
-void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier) {
-	return GetProcAddress(l, temp_convert_to_null_terminated_string(identifier));
-}
-void os_unload_dynamic_library(Dynamic_Library_Handle l) {
-	FreeLibrary(l);
-}
-
-
-void os_write_string_to_stdout(string s) {
-	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-	if (win32_stdout == INVALID_HANDLE_VALUE) return;
+void os_lock_mutex(Mutex_Handle m) {
+	DWORD wait_result = WaitForSingleObject(m, INFINITE);
 	
-	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
+	switch (wait_result) {
+        case WAIT_OBJECT_0:
+            break;
+
+        case WAIT_ABANDONED:
+            break;
+
+        default:
+        	assert(false, "Unexpected mutex lock result");
+            break;
+    }
+}
+void os_unlock_mutex(Mutex_Handle m) {
+	BOOL result = ReleaseMutex(m);
+	assert(result, "Unlock mutex failed");
 }
 
-void* os_get_stack_base() {
-	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
-    return tib->StackBase;
-}
-void* os_get_stack_limit() {
-	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
-    return tib->StackLimit;
-}
-
-
+///
+// Spinlock "primitive"
 
 Spinlock *os_make_spinlock() {
 	Spinlock *l = cast(Spinlock*)alloc(sizeof(Spinlock));
@@ -427,6 +395,10 @@ void os_spinlock_unlock(Spinlock *l) {
     assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
 }
 
+
+///
+// Concurrency utilities
+
 bool os_compare_and_swap_8(u8 *a, u8 b, u8 old) {
 	// #Portability not sure how portable this is.
     return _InterlockedCompareExchange8((volatile CHAR*)a, (CHAR)b, (CHAR)old) == (CHAR)old;
@@ -447,6 +419,226 @@ bool os_compare_and_swap_64(u64 *a, u64 b, u64 old) {
 bool os_compare_and_swap_bool(bool *a, bool b, bool old) {
 	return os_compare_and_swap_8(cast(u8*)a, cast(u8)b, cast(u8)old);
 }
+
+
+
+void os_sleep(u32 ms) {
+    Sleep(ms);
+}
+
+void os_yield_thread() {
+    SwitchToThread();
+}
+
+void os_high_precision_sleep(f64 ms) {
+	
+	const f64 s = ms/1000.0;
+	
+	f64 start = os_get_current_time_in_seconds();
+	f64 end = start + (f64)s;
+	u32 sleep_time = (u32)((end-start)-1.0);
+	bool do_sleep = sleep_time >= 1;
+	
+	timeBeginPeriod(1); // I don't see a reason to reset this
+	
+	if (do_sleep)  os_sleep(sleep_time);
+	
+	while (os_get_current_time_in_seconds() < end) {
+		os_yield_thread();
+	}
+}
+
+
+///
+///
+// Time
+///
+
+#include <intrin.h> // #Cdep
+u64 os_get_current_cycle_count() {
+	return __rdtsc();
+}
+
+float64 os_get_current_time_in_seconds() {
+    LARGE_INTEGER frequency, counter;
+    if (!QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&counter)) {
+        return -1.0;
+    }
+    return (double)counter.QuadPart / (double)frequency.QuadPart;
+}
+
+
+///
+///
+// Dynamic Libraries
+///
+
+Dynamic_Library_Handle os_load_dynamic_library(string path) {
+	return LoadLibraryA(temp_convert_to_null_terminated_string(path));
+}
+void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier) {
+	return GetProcAddress(l, temp_convert_to_null_terminated_string(identifier));
+}
+void os_unload_dynamic_library(Dynamic_Library_Handle l) {
+	FreeLibrary(l);
+}
+
+
+///
+///
+// IO
+///
+
+const File OS_INVALID_FILE = INVALID_HANDLE_VALUE;
+void os_write_string_to_stdout(string s) {
+	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (win32_stdout == INVALID_HANDLE_VALUE) return;
+	
+	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
+}
+
+// context.allocator
+u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8) {
+    u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
+    
+    u16 *utf16_str = (u16 *)alloc((utf16_length + 1) * sizeof(u16));
+
+    int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
+    if (result == 0) {
+        dealloc(utf16_str);
+        return NULL;
+    }
+
+    utf16_str[utf16_length] = 0;
+
+    return utf16_str;
+}
+u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
+	push_temp_allocator();
+	u16 *result = win32_fixed_utf8_to_null_terminated_wide(utf8);
+	pop_allocator();
+	return result;
+}
+
+File os_file_open(string path, Os_Io_Open_Flags flags) {
+    DWORD access = GENERIC_READ;
+    DWORD creation = 0;
+
+    if (flags & O_WRITE) {
+        access |= GENERIC_WRITE;
+    }
+    if (flags & O_CREATE) {
+        creation = CREATE_ALWAYS;
+    } else {
+        creation = OPEN_EXISTING;
+    }
+    
+    u16 *wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+
+    return CreateFileW(wide, access, 0, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+}
+
+void os_file_close(File f) {
+    CloseHandle(f);
+}
+
+bool os_file_delete(string path) {
+	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+	return (bool)DeleteFileW(path_wide);
+}
+
+bool os_file_write_string(File f, string s) {
+    DWORD written;
+    BOOL result = WriteFile(f, s.data, s.count, &written, NULL);
+    return result && (written == s.count);
+}
+
+bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes) {
+    DWORD written;
+    BOOL result = WriteFile(f, buffer, (DWORD)size_in_bytes, &written, NULL);
+    return result && (written == size_in_bytes);
+}
+
+bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes) {
+    DWORD read;
+    BOOL result = ReadFile(f, buffer, (DWORD)bytes_to_read, &read, NULL);
+    if (actual_read_bytes) {
+        *actual_read_bytes = read;
+    }
+    return result;
+}
+
+bool os_write_entire_file_handle(File f, string data) {
+    return os_file_write_string(f, data);
+}
+
+bool os_write_entire_file(string path, string data) {
+    File file = os_file_open(path, O_WRITE | O_CREATE);
+    if (file == OS_INVALID_FILE) {
+        return false;
+    }
+    bool result = os_file_write_string(file, data);
+    os_file_close(file);
+    return result;
+}
+
+bool os_read_entire_file_handle(File f, string *result) {
+    LARGE_INTEGER file_size;
+    if (!GetFileSizeEx(f, &file_size)) {
+        return false;
+    }
+
+    result->data = (u8*)alloc(file_size.QuadPart);
+    if (!result->data) {
+        return false;
+    }
+
+    result->count = file_size.QuadPart;
+    return os_file_read(f, result->data, file_size.QuadPart, NULL);
+}
+
+bool os_read_entire_file(string path, string *result) {
+    File file = os_file_open(path, O_READ);
+    if (file == OS_INVALID_FILE) {
+        return false;
+    }
+    bool res = os_read_entire_file_handle(file, result);
+    os_file_close(file);
+    return res;
+}
+
+void fprints(File f, string fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	fprint_va_list_buffered(f, fmt, args);
+	va_end(args);
+}
+void fprintf(File f, const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	string s;
+	s.data = cast(u8*)fmt;
+	s.count = strlen(fmt);
+	fprint_va_list_buffered(f, s, args);
+	va_end(args);
+}
+
+///
+///
+// Memory
+///
+
+void* os_get_stack_base() {
+	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    return tib->StackBase;
+}
+void* os_get_stack_limit() {
+	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    return tib->StackLimit;
+}
+
+
+
 
 
 void os_update() {
@@ -509,7 +701,7 @@ void os_update() {
 	memcpy(win32_key_states, input_frame.key_states, sizeof(input_frame.key_states));
 	input_frame.number_of_events = 0;
 	
-	
+	// #Simd ?
 	for (u64 i = 0; i < INPUT_KEY_CODE_COUNT; i++) {
 		win32_key_states[i] &= ~(INPUT_STATE_REPEAT);
 		win32_key_states[i] &= ~(INPUT_STATE_JUST_PRESSED);

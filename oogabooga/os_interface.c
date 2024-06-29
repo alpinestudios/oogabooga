@@ -5,18 +5,21 @@
 	typedef HANDLE Thread_Handle;
 	typedef HMODULE Dynamic_Library_Handle;
 	typedef HWND Window_Handle;
+	typedef HANDLE File;
 	
 #elif defined(__linux__)
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
 	typedef SOMETHING Dynamic_Library_Handle;
 	typedef SOMETHING Window_Handle;
+	typedef SOMETHING File;
 	#error "Linux is not supported yet";
 #elif defined(__APPLE__) && defined(__MACH__)
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
 	typedef SOMETHING Dynamic_Library_Handle;
 	typedef SOMETHING Window_Handle;
+	typedef SOMETHING File;
 	#error "Mac is not supported yet";
 #else
 	#error "Current OS not supported!";
@@ -128,8 +131,7 @@ Thread* os_make_thread(Thread_Proc proc);
 void os_start_thread(Thread* t);
 void os_join_thread(Thread* t);
 
-void os_sleep(u32 ms);
-void os_yield_thread();
+
 
 ///
 // Mutex primitive
@@ -148,7 +150,7 @@ void os_spinlock_lock(Spinlock* l);
 void os_spinlock_unlock(Spinlock* l);
 
 ///
-// Sync utilities
+// Concurrency utilities
 
 bool os_compare_and_swap_8   (u8   *a, u8   b, u8   old);
 bool os_compare_and_swap_16  (u16  *a, u16  b, u16  old);
@@ -156,6 +158,9 @@ bool os_compare_and_swap_32  (u32  *a, u32  b, u32  old);
 bool os_compare_and_swap_64  (u64  *a, u64  b, u64  old);
 bool os_compare_and_swap_bool(bool *a, bool b, bool old);
 
+void os_sleep(u32 ms);
+void os_yield_thread();
+void os_high_precision_sleep(f64 ms);
 
 ///
 ///
@@ -182,7 +187,63 @@ void os_unload_dynamic_library(Dynamic_Library_Handle l);
 // IO
 ///
 
+forward_global const File OS_INVALID_FILE;
+
 void os_write_string_to_stdout(string s);
+
+typedef enum Os_Io_Open_Flags {
+	O_READ   = 0,
+	O_CREATE = 1<<0, // Will replace existing file and start writing from 0 (if writing)
+	O_WRITE  = 1<<1,
+	
+	// To append, pass WRITE flag without CREATE flag
+} Os_Io_Open_Flags;
+
+File os_file_open(string path, Os_Io_Open_Flags flags);
+void os_file_close(File f);
+bool os_file_delete(string path);
+
+bool os_file_write_string(File f, string s);
+bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
+
+bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes);
+
+bool os_write_entire_file_handle(File f, string data);
+bool os_write_entire_file(string path, string data);
+bool os_read_entire_file_handle(File f, string *result);
+bool os_read_entire_file(string path, string *result);
+
+
+void fprints(File f, string fmt, ...);
+void fprintf(File f, const char* fmt, ...);
+#define fprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  fprints, \
+                           default: fprintf \
+                          )(__VA_ARGS__)
+
+void fprint_va_list_buffered(File f, const string fmt, va_list args) {
+
+	string current = fmt;
+
+	char buffer[PRINT_BUFFER_SIZE];
+	
+	while (true) {
+		u64 size = min(current.count, PRINT_BUFFER_SIZE-1);
+		if (current.count <= 0) break;
+		
+		memcpy(buffer, current.data, size);
+		
+		char fmt_cstring[PRINT_BUFFER_SIZE+1];
+		memcpy(fmt_cstring, current.data, size);
+		fmt_cstring[size] = 0;
+		
+		string s = sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, PRINT_BUFFER_SIZE);
+		os_file_write_string(f, s);
+		
+		current.count -= size;
+		current.data += size;
+	}
+}
 
 
 ///
