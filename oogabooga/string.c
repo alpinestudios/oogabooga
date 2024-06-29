@@ -11,7 +11,7 @@ Usage:
 	
 	string balls = const_string("balls");
 	// tprint for temporary allocation
-	string b = tprint(const_string("Hello, %s!\n"), balls); // %s for string
+	string b = tprint("Hello, %s!\n", balls); // %s for string
 	
 	// Allocate a new string of length 12 (with context allocator)
 	string c = alloc_string(12);

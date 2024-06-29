@@ -21,6 +21,8 @@ typedef u8 bool;
 
 #define thread_local _Thread_local
 
+#define local_persist static
+
 #define ifnt(x) if (!(x))
 
 #ifdef _MSC_VER
@@ -40,10 +42,12 @@ void printf(const char* fmt, ...);
 #define assert_line(line, cond, ...) if (!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
 #define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
 
-#ifdef RELEASE
+#if CONFIGRATION == RELEASE
 #undef assert
 #define assert(...)
 #endif
+
+#define panic(...) { print(__VA_ARGS__); os_break(); }
 
 #define cast(t) (t)
 
@@ -51,6 +55,7 @@ void printf(const char* fmt, ...);
 
 ///
 // Compiler specific stuff
+// We make inline actually inline.
 #ifdef _MSC_VER
     // Microsoft Visual C++
     #define inline __forceinline

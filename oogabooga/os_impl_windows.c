@@ -5,8 +5,49 @@
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
+// Persistent
+Input_State_Flags win32_key_states[INPUT_KEY_CODE_COUNT];
 
+void win32_send_key_event(Input_Key_Code code, Input_State_Flags state) {
+	Input_Event e;
+	e.kind = INPUT_EVENT_KEY;
+	e.key_code = code;
+	e.key_state = state;
+	input_frame.events[input_frame.number_of_events] = e;
+	input_frame.number_of_events += 1;
+}
 
+void win32_handle_key_up(Input_Key_Code code) {
+	if (code == KEY_UNKNOWN) return;
+	
+	Input_State_Flags last_state = win32_key_states[code];
+	Input_State_Flags state = 0;
+	
+	if (last_state & INPUT_STATE_DOWN)  state |= INPUT_STATE_JUST_RELEASED;
+	
+	win32_key_states[code] = state;
+	
+	win32_send_key_event(code, state);
+}
+void win32_handle_key_down(Input_Key_Code code) {
+	if (code == KEY_UNKNOWN) return;
+	
+	Input_State_Flags last_state = win32_key_states[code];
+	Input_State_Flags state = INPUT_STATE_DOWN;
+	
+	if (!(last_state & INPUT_STATE_DOWN))  state |= INPUT_STATE_JUST_PRESSED;
+	
+	win32_key_states[code] = state;
+	
+	win32_send_key_event(code, state);
+}
+void win32_handle_key_repeat(Input_Key_Code code) {
+	if (code == KEY_UNKNOWN) return;
+	
+	win32_key_states[code] |= INPUT_STATE_REPEAT;
+	
+	win32_send_key_event(code, win32_key_states[code]);
+}
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
 	if (window._initialized) {
@@ -15,12 +56,76 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 	
     switch (message) {
         case WM_CLOSE:
+        	window.should_close = true;
             DestroyWindow(window._os_handle);
+			
             break;
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
+        case WM_KEYDOWN:
+        	bool is_repeat = (lparam & 0x40000000) != 0;
+        	
+        	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam));
+	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam));
+	        goto DEFAULT_HANDLE;
+	    case WM_KEYUP:
+	        win32_handle_key_up(os_key_to_key_code((void*)wparam));
+	        goto DEFAULT_HANDLE;
+	    case WM_LBUTTONDOWN:
+	        win32_handle_key_down(MOUSE_BUTTON_LEFT);
+	        goto DEFAULT_HANDLE;
+	    case WM_RBUTTONDOWN:
+	        win32_handle_key_down(MOUSE_BUTTON_RIGHT);
+	        goto DEFAULT_HANDLE;
+	    case WM_MBUTTONDOWN:
+	        win32_handle_key_down(MOUSE_BUTTON_MIDDLE);
+	        goto DEFAULT_HANDLE;
+	    case WM_LBUTTONUP:
+	        win32_handle_key_up(MOUSE_BUTTON_LEFT);
+	        goto DEFAULT_HANDLE;
+	    case WM_RBUTTONUP:
+	        win32_handle_key_up(MOUSE_BUTTON_RIGHT);
+	        goto DEFAULT_HANDLE;
+	    case WM_MBUTTONUP:
+			win32_handle_key_up(MOUSE_BUTTON_MIDDLE);
+	        goto DEFAULT_HANDLE;
+	    case WM_MOUSEWHEEL: {
+	        int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+	        int ticks = delta / WHEEL_DELTA;
+	        Input_Event e;
+	        e.kind = INPUT_EVENT_SCROLL;
+	        e.yscroll = (float64)delta/(float64)WHEEL_DELTA;
+	        e.xscroll = 0;
+	        input_frame.events[input_frame.number_of_events] = e;
+			input_frame.number_of_events += 1;
+	        goto DEFAULT_HANDLE;
+	    }
+	    case WM_MOUSEHWHEEL: {
+	        int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+	        Input_Event e;
+	        e.kind = INPUT_EVENT_SCROLL;
+	        e.yscroll = 0;
+	        e.xscroll = (float64)delta/(float64)WHEEL_DELTA;
+	        input_frame.events[input_frame.number_of_events] = e;
+			input_frame.number_of_events += 1;
+	        goto DEFAULT_HANDLE;
+	    }
+	    case WM_CHAR: {
+	        wchar_t utf16 = (wchar_t)wparam;
+	        
+	        Input_Event e;
+	        e.kind = INPUT_EVENT_TEXT;
+	        utf16_to_utf32(&utf16, 1, &e.utf32);
+	        
+	        input_frame.events[input_frame.number_of_events] = e;
+			input_frame.number_of_events += 1;
+	        
+	        goto DEFAULT_HANDLE;
+	    }
         default:
+        
+        DEFAULT_HANDLE:
             return DefWindowProc(passed_window, message, wparam, lparam);
     }
     return 0;
@@ -346,7 +451,7 @@ bool os_compare_and_swap_bool(bool *a, bool b, bool old) {
 
 void os_update() {
 
-	static Os_Window last_window;
+	local_persist Os_Window last_window;
 
 	if (!strings_match(last_window.title, window.title)) {
 		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
@@ -400,9 +505,20 @@ void os_update() {
 	last_window = window;
 	
 	
-
+	// Reflect what the backend did to input state before we query for OS inputs
+	memcpy(win32_key_states, input_frame.key_states, sizeof(input_frame.key_states));
+	input_frame.number_of_events = 0;
+	
+	
+	for (u64 i = 0; i < INPUT_KEY_CODE_COUNT; i++) {
+		win32_key_states[i] &= ~(INPUT_STATE_REPEAT);
+		win32_key_states[i] &= ~(INPUT_STATE_JUST_PRESSED);
+		win32_key_states[i] &= ~(INPUT_STATE_JUST_RELEASED);
+	}
+	
 	MSG msg;
-	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+	while (input_frame.number_of_events < MAX_EVENTS_PER_FRAME 
+			&& PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
             window.should_close = true;
             break;
@@ -410,4 +526,128 @@ void os_update() {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    
+	memcpy(input_frame.key_states, win32_key_states, sizeof(input_frame.key_states));
+	POINT p;
+	GetCursorPos(&p);
+	ScreenToClient(window._os_handle, &p);
+	p.y = window.height - p.y;
+	input_frame.mouse_x = (float32)p.x;
+	input_frame.mouse_y = (float32)p.y;
+	
+	if (window.should_close) {
+		win32_window_proc(window._os_handle, WM_CLOSE, 0, 0);
+	}
+}
+
+Input_Key_Code os_key_to_key_code(void* os_key) {
+
+	UINT win32_key = (UINT)(u64)os_key;
+
+	if (win32_key >= 'A' && win32_key <= 'Z') {
+        return (Input_Key_Code)win32_key;
+    }
+    if (win32_key >= '0' && win32_key <= '9') {
+        return (Input_Key_Code)win32_key;
+    }
+
+    switch (win32_key) {
+        case VK_BACK:         return KEY_BACKSPACE;
+        case VK_TAB:          return KEY_TAB;
+        case VK_RETURN:       return KEY_ENTER;
+        case VK_ESCAPE:       return KEY_ESCAPE;
+        case VK_SPACE:        return KEY_SPACEBAR;
+        case VK_DELETE:       return KEY_DELETE;
+        case VK_UP:           return KEY_ARROW_UP;
+        case VK_DOWN:         return KEY_ARROW_DOWN;
+        case VK_LEFT:         return KEY_ARROW_LEFT;
+        case VK_RIGHT:        return KEY_ARROW_RIGHT;
+        case VK_PRIOR:        return KEY_PAGE_UP;
+        case VK_NEXT:         return KEY_PAGE_DOWN;
+        case VK_HOME:         return KEY_HOME;
+        case VK_END:          return KEY_END;
+        case VK_INSERT:       return KEY_INSERT;
+        case VK_PAUSE:        return KEY_PAUSE;
+        case VK_SCROLL:       return KEY_SCROLL_LOCK;
+        case VK_MENU:         return KEY_ALT;
+        case VK_CONTROL:      return KEY_CTRL;
+        case VK_SHIFT:        return KEY_SHIFT;
+        case VK_LWIN:         return KEY_CMD;
+        case VK_RWIN:         return KEY_CMD;
+        case VK_F1:           return KEY_F1;
+        case VK_F2:           return KEY_F2;
+        case VK_F3:           return KEY_F3;
+        case VK_F4:           return KEY_F4;
+        case VK_F5:           return KEY_F5;
+        case VK_F6:           return KEY_F6;
+        case VK_F7:           return KEY_F7;
+        case VK_F8:           return KEY_F8;
+        case VK_F9:           return KEY_F9;
+        case VK_F10:          return KEY_F10;
+        case VK_F11:          return KEY_F11;
+        case VK_F12:          return KEY_F12;
+        case VK_SNAPSHOT:     return KEY_PRINT_SCREEN;
+        case VK_LBUTTON:      return MOUSE_BUTTON_LEFT;
+        case VK_MBUTTON:      return MOUSE_BUTTON_MIDDLE;
+        case VK_RBUTTON:      return MOUSE_BUTTON_RIGHT;
+        default:              return KEY_UNKNOWN;
+    }
+}
+
+void* key_code_to_os_key(Input_Key_Code key_code) {
+
+	if (key_code >= 'A' && key_code <= 'Z') {
+        return (void*)key_code;
+    }
+    if (key_code >= '0' && key_code <= '9') {
+        return (void*)key_code;
+    }
+
+    switch (key_code) {
+        case KEY_BACKSPACE:       return (void*)VK_BACK;
+        case KEY_TAB:             return (void*)VK_TAB;
+        case KEY_ENTER:           return (void*)VK_RETURN;
+        case KEY_ESCAPE:          return (void*)VK_ESCAPE;
+        case KEY_SPACEBAR:        return (void*)VK_SPACE;
+        case KEY_DELETE:          return (void*)VK_DELETE;
+        case KEY_ARROW_UP:        return (void*)VK_UP;
+        case KEY_ARROW_DOWN:      return (void*)VK_DOWN;
+        case KEY_ARROW_LEFT:      return (void*)VK_LEFT;
+        case KEY_ARROW_RIGHT:     return (void*)VK_RIGHT;
+        case KEY_PAGE_UP:         return (void*)VK_PRIOR;
+        case KEY_PAGE_DOWN:       return (void*)VK_NEXT;
+        case KEY_HOME:            return (void*)VK_HOME;
+        case KEY_END:             return (void*)VK_END;
+        case KEY_INSERT:          return (void*)VK_INSERT;
+        case KEY_PAUSE:           return (void*)VK_PAUSE;
+        case KEY_SCROLL_LOCK:     return (void*)VK_SCROLL;
+        case KEY_ALT:             return (void*)VK_MENU;
+        case KEY_CTRL:            return (void*)VK_CONTROL;
+        case KEY_SHIFT:           return (void*)VK_SHIFT;
+        case KEY_CMD:             return (void*)VK_LWIN; // Assuming left win key for both
+        case KEY_F1:              return (void*)VK_F1;
+        case KEY_F2:              return (void*)VK_F2;
+        case KEY_F3:              return (void*)VK_F3;
+        case KEY_F4:              return (void*)VK_F4;
+        case KEY_F5:              return (void*)VK_F5;
+        case KEY_F6:              return (void*)VK_F6;
+        case KEY_F7:              return (void*)VK_F7;
+        case KEY_F8:              return (void*)VK_F8;
+        case KEY_F9:              return (void*)VK_F9;
+        case KEY_F10:             return (void*)VK_F10;
+        case KEY_F11:             return (void*)VK_F11;
+        case KEY_F12:             return (void*)VK_F12;
+        case KEY_PRINT_SCREEN:    return (void*)VK_SNAPSHOT;
+        case MOUSE_BUTTON_LEFT:   return (void*)VK_LBUTTON;
+        case MOUSE_BUTTON_MIDDLE: return (void*)VK_MBUTTON;
+        case MOUSE_BUTTON_RIGHT:  return (void*)VK_RBUTTON;
+        
+        
+        case INPUT_KEY_CODE_COUNT:
+        case KEY_UNKNOWN: 
+        	break;
+    }
+    
+    panic("Invalid key code %d", key_code);
+    return 0;
 }

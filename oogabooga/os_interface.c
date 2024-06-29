@@ -58,7 +58,7 @@ inline int crt_vprintf(const char* fmt, va_list args) {
 	return os.crt_vprintf(fmt, args);
 }
 
-#if !defined(COMPILER_HAS_MEMCPY_INTRINSICS) || defined(DEBUG)
+#if !defined(COMPILER_HAS_MEMCPY_INTRINSICS) || CONFIGURATION == DEBUG
 	inline void* naive_memcpy(void* dest, const void* source, size_t size) {
 		for (u64 i = 0; i < (u64)size; i++) ((u8*)dest)[i] = ((u8*)source)[i];
 		return dest;
@@ -139,7 +139,7 @@ void os_lock_mutex(Mutex_Handle m);
 void os_unlock_mutex(Mutex_Handle m);
 
 ///
-// Spinlock primitive
+// Spinlock "primitive"
 typedef struct Spinlock {
 	bool locked;
 } Spinlock;

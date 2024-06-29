@@ -2,8 +2,10 @@
 
 ///
 // Build config stuff
-#define VERY_DEBUG 0
 #define RUN_TESTS 0
+
+// When we need very debug
+// #define CONFIGURATION VERY_DEBUG
 
 typedef struct Context_Extra {
 	int monkee;

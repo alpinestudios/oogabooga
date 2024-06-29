@@ -7,7 +7,7 @@ pushd build
 mkdir release
 pushd release
 
-cl ../../build.c /Zi /Fecgame.exe /Ox /DRELEASE /MD /std:c11
+cl.exe /Fe:cgame.exe ..\..\build.c /Ox /std:c11 /W4 /wd4273 /wd4018 /wd4100 gdi32.lib user32.lib opengl32.lib
 
 popd
 popd

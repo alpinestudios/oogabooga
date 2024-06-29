@@ -25,12 +25,16 @@ void lodepng_free(void* ptr) {
 
 /////
 
-#if !defined(DEBUG) && !defined(RELEASE)
+#define DEBUG 0
+#define VERY_DEBUG 1
+#define RELEASE 2
+
+#if !defined(CONFIGURATION)
 
 	#ifdef _DEBUG
-		#define DEBUG
+		#define CONFIGURATION DEBUG
 	#elif defined(NDEBUG)
-		#define RELEASE
+		#define CONFIGURATION RELEASE
 	#endif
 
 #endif
@@ -76,6 +80,7 @@ void lodepng_free(void* ptr) {
 
 
 #include "string.c"
+#include "unicode.c"
 #include "string_format.c"
 
 #include "os_interface.c"

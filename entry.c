@@ -15,15 +15,30 @@ int start(int argc, char **argv) {
 		reset_temporary_storage();
 		context.allocator = temp;
 		
-		os_update();
+		os_update(); 
 		
 		float64 now = os_get_current_time_in_seconds();
 		float64 delta = now - last_time;
 		last_time = now;
+		
+		if (is_key_just_released(KEY_ESCAPE)) {
+			window.should_close = true;
+		}
+		
+		if (is_key_just_released('E')) {
+			print("Mouse pos: %f, %f\n", input_frame.mouse_x, input_frame.mouse_y);
+		}
+		
+		for (u64 i = 0; i < input_frame.number_of_events; i++) {
+			Input_Event e = input_frame.events[i];
 			
-		// Print some random FPS samples every now and then
-		if ((get_random() % 4000) == 3)
-			print("%2.f FPS\n", 1.0/delta);
+			switch (e.kind) {
+				case INPUT_EVENT_KEY:    print("Key event key code %d\n", e.key_code); break;
+				case INPUT_EVENT_SCROLL: print("Scroll event, x: %.3f, y: %.3f\n", e.xscroll, e.yscroll);  break;
+				case INPUT_EVENT_TEXT:   print("Text event, utf32: %d, ascii: %c\n", e.utf32, e.ascii); break;
+			}
+		}
+		
 		
 		draw_rect_rotated(v2(-.25f, -.25f), v2(.5f, .5f), COLOR_RED, v2(.25, .25), (f32)now);
 		
