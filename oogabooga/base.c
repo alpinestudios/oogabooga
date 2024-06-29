@@ -40,7 +40,14 @@ void printf(const char* fmt, ...);
 #define assert_line(line, cond, ...) if (!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
 #define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
 
+#ifdef RELEASE
+#undef assert
+#define assert(...)
+#endif
+
 #define cast(t) (t)
+
+#define ZERO(t) (t){0}
 
 ///
 // Compiler specific stuff
@@ -106,6 +113,7 @@ typedef struct Nothing {int nothing;} Nothing;
 typedef enum Allocator_Message {
 	ALLOCATOR_ALLOCATE,
 	ALLOCATOR_DEALLOCATE,
+	ALLOCATOR_REALLOCATE,
 } Allocator_Message;
 typedef void*(*Allocator_Proc)(u64, void*, Allocator_Message);
 

@@ -28,6 +28,9 @@ void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message
 		case ALLOCATOR_DEALLOCATE: {
 			return 0;
 		}
+		case ALLOCATOR_REALLOCATE: {
+			return 0;
+		}
 	}
 	return 0;
 }
@@ -373,6 +376,29 @@ void heap_dealloc(void *p) {
 	os_spinlock_unlock(heap_lock);
 }
 
+void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
+	switch (message) {
+		case ALLOCATOR_ALLOCATE: {
+			return heap_alloc(size);
+			break;
+		}
+		case ALLOCATOR_DEALLOCATE: {
+		assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator deallocate");
+			heap_dealloc(p);
+			return 0;
+		}
+		case ALLOCATOR_REALLOCATE: {
+			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator reallocate");
+			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)((u64)p)-sizeof(Heap_Allocation_Metadata);
+			void *new = heap_alloc(size);
+			memcpy(new, p, min(size, meta->size));
+			heap_dealloc(p);
+			return new;
+		}
+	}
+	return 0;
+}
+
 ///
 ///
 // Temporary storage
@@ -399,6 +425,9 @@ void* temp_allocator_proc(u64 size, void *p, Allocator_Message message) {
 			break;
 		}
 		case ALLOCATOR_DEALLOCATE: {
+			return 0;
+		}
+		case ALLOCATOR_REALLOCATE: {
 			return 0;
 		}
 	}

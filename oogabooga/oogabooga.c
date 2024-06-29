@@ -1,4 +1,30 @@
 
+// This needs to be included before dependencies
+#include "base.c"
+
+
+///
+///
+// Dependencies
+///
+
+#include <math.h>
+
+// Custom allocators for lodepng
+void* lodepng_malloc(size_t size) {
+	return context.allocator.proc((u64)size, 0, ALLOCATOR_ALLOCATE);
+}
+void* lodepng_realloc(void* ptr, size_t new_size) {
+	return context.allocator.proc((u64)new_size, 0, ALLOCATOR_REALLOCATE);
+}
+void lodepng_free(void* ptr) {
+	context.allocator.proc(0, ptr, ALLOCATOR_DEALLOCATE);
+}
+#define LODEPNG_NO_COMPILE_ALLOCATORS
+#include "third_party/lodepng.c"
+
+/////
+
 #if !defined(DEBUG) && !defined(RELEASE)
 
 	#ifdef _DEBUG
@@ -28,11 +54,33 @@
 	#error "Current OS not supported!";
 #endif
 
-#include "base.c"
+#define GFX_RENDERER_D3D11  0
+#define GFX_RENDERER_VULKAN 1
+#define GFX_RENDERER_METAL  2
+#define GFX_RENDERER_LEGACY_OPENGL  3 // #Temporary #Cleanup
+
+// #Temporary #Cleanup
+#undef GFX_RENDERER
+#define GFX_RENDERER GFX_RENDERER_LEGACY_OPENGL
+
+#ifndef GFX_RENDERER
+// #Portability
+	#ifdef OS_WINDOWS
+		#define GFX_RENDERER GFX_RENDERER_D3D11
+	#elif defined (OS_LINUX)
+		#define GFX_RENDERER GFX_RENDERER_VULKAN
+	#elif defined (OS_MAC)
+		#define GFX_RENDERER GFX_RENDERER_METAL
+	#endif
+#endif
+
+
 #include "string.c"
 #include "string_format.c"
 
 #include "os_interface.c"
+
+#include "random.c"
 
 #include "linmath.c"
 
@@ -40,6 +88,19 @@
 #include "input.c"
 
 #include "drawing.c"
+
+// #Portability
+#if GFX_RENDERER == GFX_RENDERER_D3D11
+	#include "gfx_impl_d3d11.c"
+#elif GFX_RENDERER == GFX_RENDERER_VULKAN
+	#error "We only have a D3D11 renderer at the moment"
+#elif GFX_RENDERER == GFX_RENDERER_METAL
+	#error "We only have a D3D11 renderer at the moment"
+#elif GFX_RENDERER == GFX_RENDERER_LEGACY_OPENGL
+	#include "gfx_impl_legacy_opengl.c"
+#else
+	#error "Unknown renderer defined in GFX_RENDERER"
+#endif
 
 #ifdef OS_WINDOWS
 	#include "os_impl_windows.c"
@@ -54,6 +115,7 @@
 
 void oogabooga_init(u64 program_memory_size) {
 	os_init(program_memory_size);
+	gfx_init();
 	heap_init();
 	temporary_storage_init();
 }

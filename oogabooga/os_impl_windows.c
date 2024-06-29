@@ -5,19 +5,7 @@
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
-void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
-	switch (message) {
-		case ALLOCATOR_ALLOCATE: {
-			return heap_alloc(size);
-			break;
-		}
-		case ALLOCATOR_DEALLOCATE: {
-			heap_dealloc(p);
-			return 0;
-		}
-	}
-	return 0;
-}
+
 
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
@@ -32,22 +20,13 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
-        case WM_SIZE:
-            break;
-        case WM_MOVE:
-            break;
         default:
             return DefWindowProc(passed_window, message, wparam, lparam);
     }
     return 0;
 }
 
-// #Temporary #Cleanup
-// #Temporary #Cleanup
-// #Temporary #Cleanup
-// #Temporary #Cleanup
-#include "GL/gl.h"
-HDC hdc;
+
 void os_init(u64 program_memory_size) {
 	
 	SYSTEM_INFO si;
@@ -153,34 +132,7 @@ void os_init(u64 program_memory_size) {
     
     
     
-    // #Temporary #Cleanup
-    // #Temporary #Cleanup
-    // #Temporary #Cleanup
-    // #Temporary #Cleanup
     
-    PIXELFORMATDESCRIPTOR pfd = {
-        sizeof(PIXELFORMATDESCRIPTOR),
-        1,
-        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-        PFD_TYPE_RGBA,
-        32,
-        0, 0, 0, 0, 0, 0,
-        0, 0,
-        0, 0, 0, 0, 0,
-        24,
-        8,
-        0,
-        PFD_MAIN_PLANE,
-        0,
-        0, 0, 0
-    };
-
-    hdc = GetDC(window._os_handle);
-    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
-    SetPixelFormat(hdc, pixelFormat, &pfd);
-
-    HGLRC hglrc = wglCreateContext(hdc);
-    wglMakeCurrent(hdc, hglrc);
 }
 
 bool os_grow_program_memory(u64 new_size) {
@@ -447,10 +399,7 @@ void os_update() {
 	
 	last_window = window;
 	
-	SwapBuffers(hdc);
-	glClearColor(window.clear_color.r, window.clear_color.g, window.clear_color.b, window.clear_color.a);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glViewport(0, 0, window.width, window.height);
+	
 
 	MSG msg;
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
