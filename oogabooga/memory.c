@@ -12,7 +12,7 @@ u64 program_memory_size = 0;
 u8 init_memory_arena[INIT_MEMORY_SIZE];
 u8 *init_memory_head = init_memory_arena;
 
-void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message) {
+void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message, void *data) {
 	switch (message) {
 		case ALLOCATOR_ALLOCATE: {
 			p = init_memory_head;
@@ -33,6 +33,12 @@ void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message
 		}
 	}
 	return 0;
+}
+
+Allocator get_initialization_allocator() {
+	Allocator a;
+	a.proc = initialization_allocator_proc;
+	return a;
 }
 
 ///
@@ -206,7 +212,7 @@ void heap_init() {
 	if (heap_initted) return;
 	heap_initted = true;
 	heap_head = make_heap_block(0, DEFAULT_HEAP_BLOCK_SIZE);
-	heap_lock = os_make_spinlock();
+	heap_lock = os_make_spinlock(get_initialization_allocator());
 }
 
 void *heap_alloc(u64 size) {
@@ -376,7 +382,7 @@ void heap_dealloc(void *p) {
 	os_spinlock_unlock(heap_lock);
 }
 
-void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
+void* heap_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
 	switch (message) {
 		case ALLOCATOR_ALLOCATE: {
 			return heap_alloc(size);
@@ -421,7 +427,7 @@ Allocator get_heap_allocator() {
 #endif
 
 void* talloc(u64);
-void* temp_allocator_proc(u64 size, void *p, Allocator_Message message);
+void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void*);
 
 thread_local void * temporary_storage = 0;
 thread_local bool   temporary_storage_initted = false;
@@ -430,7 +436,7 @@ thread_local bool   has_warned_temporary_storage_overflow = false;
 thread_local Allocator temp;
 
 
-void* temp_allocator_proc(u64 size, void *p, Allocator_Message message) {
+void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
 	switch (message) {
 		case ALLOCATOR_ALLOCATE: {
 			return talloc(size);
@@ -457,6 +463,8 @@ void temporary_storage_init() {
 	temp.data = 0;
 	
 	temporary_storage_initted = true;
+	
+	temp.proc = temp_allocator_proc;
 }
 
 void* talloc(u64 size) {
@@ -487,8 +495,3 @@ void reset_temporary_storage() {
 	has_warned_temporary_storage_overflow = true;
 }
 
-// So we can do this in code included before this.
-void push_temp_allocator() {
-	if (!temporary_storage_initted) temporary_storage_init();
-	push_allocator(temp);
-}

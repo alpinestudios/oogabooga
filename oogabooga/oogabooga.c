@@ -32,16 +32,22 @@
 
 #include <math.h>
 
+Allocator get_heap_allocator();
+
 // Custom allocators for lodepng
+Allocator lodepng_allocator = {0};
 void* lodepng_malloc(size_t size) {
-	return context.allocator.proc((u64)size, 0, ALLOCATOR_ALLOCATE);
+	if (lodepng_allocator.proc) return alloc(lodepng_allocator, size);
+	return alloc(get_heap_allocator(), size);
 }
 void* lodepng_realloc(void* ptr, size_t new_size) {
-	return context.allocator.proc((u64)new_size, ptr, ALLOCATOR_REALLOCATE);
+	if (lodepng_allocator.proc) return lodepng_allocator.proc(new_size, ptr, ALLOCATOR_REALLOCATE, lodepng_allocator.data);
+	return get_heap_allocator().proc(new_size, ptr, ALLOCATOR_REALLOCATE, get_heap_allocator().data);
 }
 void lodepng_free(void* ptr) {
 	if (!ptr) return;
-	context.allocator.proc(0, ptr, ALLOCATOR_DEALLOCATE);
+	if (lodepng_allocator.proc) dealloc(lodepng_allocator, ptr);
+	else dealloc(get_heap_allocator(), ptr);
 }
 #define LODEPNG_NO_COMPILE_ALLOCATORS
 //#define LODEPNG_NO_COMPILE_ANCILLARY_CHUNKS
@@ -124,7 +130,7 @@ void lodepng_free(void* ptr) {
 #undef near
 #endif
 #ifdef far
-#undef far
+#undef far 
 #endif
 
 #include "random.c"
@@ -161,10 +167,11 @@ void lodepng_free(void* ptr) {
 
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;
+	temp = get_initialization_allocator();
 	os_init(program_memory_size);
-	gfx_init();
 	heap_init();
 	temporary_storage_init();
+	gfx_init();
 }
 
 #ifndef INITIAL_PROGRAM_MEMORY_SIZE
@@ -178,7 +185,6 @@ void oogabooga_init(u64 program_memory_size) {
 int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
-	context.allocator.proc = initialization_allocator_proc;
 	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
 	printf("Ooga booga program started\n");
 	

@@ -127,7 +127,7 @@ typedef struct Thread {
 
 ///
 // Thread primitive
-Thread* os_make_thread(Thread_Proc proc);
+Thread* os_make_thread(Thread_Proc proc, Allocator allocator);
 void os_start_thread(Thread* t);
 void os_join_thread(Thread* t);
 
@@ -145,7 +145,7 @@ void os_unlock_mutex(Mutex_Handle m);
 typedef struct Spinlock {
 	bool locked;
 } Spinlock;
-Spinlock *os_make_spinlock();
+Spinlock *os_make_spinlock(Allocator allocator);
 void os_spinlock_lock(Spinlock* l);
 void os_spinlock_unlock(Spinlock* l);
 
@@ -210,8 +210,8 @@ bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_byte
 
 bool os_write_entire_file_handle(File f, string data);
 bool os_write_entire_file(string path, string data);
-bool os_read_entire_file_handle(File f, string *result);
-bool os_read_entire_file(string path, string *result);
+bool os_read_entire_file_handle(File f, string *result, Allocator allocator);
+bool os_read_entire_file(string path, string *result, Allocator allocator);
 
 bool os_is_file(string path);
 bool os_is_directory(string path);

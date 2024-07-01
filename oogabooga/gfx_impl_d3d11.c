@@ -313,7 +313,7 @@ void gfx_init() {
 #if OOGABOOGA_DEV
 	
 	string source;
-	bool source_ok = os_read_entire_file(fxstr("oogabooga/dev/d3d11_image_shader.hlsl"), &source);
+	bool source_ok = os_read_entire_file(fxstr("oogabooga/dev/d3d11_image_shader.hlsl"), &source, get_heap_allocator()); // #Leak
 	assert(source_ok, "Could not open d3d11_image_shader source");
 	
 	// Compile vertex shader

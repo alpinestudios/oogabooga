@@ -102,24 +102,24 @@ string sprint_va_list_to_buffer(const string fmt, va_list args, void* buffer, u6
 	char* fmt_cstring = temp_convert_to_null_terminated_string(fmt);
 	return sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, count);
 }
-// context.allocator
-string sprint_va_list(const string fmt, va_list args) {
+
+string sprint_va_list(Allocator allocator, const string fmt, va_list args) {
 
     char* fmt_cstring = temp_convert_to_null_terminated_string(fmt);
     u64 count = format_string_to_buffer(NULL, 0, fmt_cstring, args) + 1; 
 
     char* buffer = NULL;
 
-    buffer = (char*)alloc(count);
+    buffer = (char*)alloc(allocator, count);
 
     return sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, count);
 }
 
-// context.allocator
-string sprints(const string fmt, ...) {
+
+string sprints(Allocator allocator, const string fmt, ...) {
 	va_list args = 0;
 	va_start(args, fmt);
-	string s = sprint_va_list(fmt, args);
+	string s = sprint_va_list(allocator, fmt, args);
 	va_end(args);
 	return s;
 }
@@ -128,22 +128,20 @@ string sprints(const string fmt, ...) {
 string tprints(const string fmt, ...) {
 	va_list args = 0;
 	va_start(args, fmt);
-	push_temp_allocator();
-	string s = sprint_va_list(fmt, args);
-	pop_allocator();
+	string s = sprint_va_list(temp, fmt, args);
 	va_end(args);
 	return s;
 }
 
-// context.allocator
-string sprintf(const char *fmt, ...) {
+
+string sprintf(Allocator allocator, const char *fmt, ...) {
 	string sfmt;
 	sfmt.data = cast(u8*)fmt;
 	sfmt.count = strlen(fmt);
 	
 	va_list args;
 	va_start(args, fmt);
-	string s = sprint_va_list(sfmt, args);
+	string s = sprint_va_list(allocator, sfmt, args);
 	va_end(args);
 	
 	return s;
@@ -156,20 +154,10 @@ string tprintf(const char *fmt, ...) {
 	
 	va_list args;
 	va_start(args, fmt);
-	push_temp_allocator();
-	string s = sprint_va_list(sfmt, args);
-	pop_allocator();
+	string s = sprint_va_list(temp, sfmt, args);
 	va_end(args);
 	
 	return s;
-}
-
-
-// context.allocator (alloc & dealloc)
-void print_va_list(const string fmt, va_list args) {
-	string s = sprint_va_list(fmt, args);
-	os_write_string_to_stdout(s);
-	dealloc(s.data);
 }
 
 // print for 'string' and printf for 'char*'
@@ -203,14 +191,14 @@ void print_va_list_buffered(const string fmt, va_list args) {
 }
 
 
-// context.allocator (alloc & dealloc)
+
 void prints(const string fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	print_va_list_buffered(fmt, args);
 	va_end(args);	
 }
-// context.allocator (alloc & dealloc)
+
 void printf(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);

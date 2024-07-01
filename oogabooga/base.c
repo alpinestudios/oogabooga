@@ -101,11 +101,12 @@ void printf(const char* fmt, ...);
 
 
 #define FIRST_ARG(arg1, ...) arg1
+#define SECOND_ARG(arg1, arg2, ...) arg2
 #define print(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
                            string:  prints, \
                            default: printf \
                           )(__VA_ARGS__)
-#define sprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+#define sprint(...) _Generic((SECOND_ARG(__VA_ARGS__)), \
                            string:  sprints, \
                            default: sprintf \
                           )(__VA_ARGS__)
@@ -125,7 +126,7 @@ typedef enum Allocator_Message {
 	ALLOCATOR_DEALLOCATE,
 	ALLOCATOR_REALLOCATE,
 } Allocator_Message;
-typedef void*(*Allocator_Proc)(u64, void*, Allocator_Message);
+typedef void*(*Allocator_Proc)(u64, void*, Allocator_Message, void*);
 
 typedef enum Log_Level {
 	LOG_ERROR,
@@ -142,7 +143,6 @@ typedef struct Allocator {
 } Allocator;
 
 typedef struct Context {
-	Allocator allocator;
 	void *logger; // void(*Logger_Proc)(Log_Level level, string fmt, ...)
 	
 	CONTEXT_EXTRA extra;
@@ -154,8 +154,14 @@ thread_local Context context;
 thread_local Context context_stack[CONTEXT_STACK_MAX];
 thread_local u64 num_contexts = 0;
 
-void* alloc(u64 size) { return context.allocator.proc(size, NULL, ALLOCATOR_ALLOCATE); }
-void dealloc(void *p) { context.allocator.proc(0, p, ALLOCATOR_DEALLOCATE); }
+forward_global thread_local Allocator temp;
+
+void* alloc(Allocator allocator, u64 size) {
+	return allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);	
+}
+void dealloc(Allocator allocator, void *p) {
+	allocator.proc(0, p, ALLOCATOR_DEALLOCATE, allocator.data);
+}
 
 void push_context(Context c) {
 	assert(num_contexts < CONTEXT_STACK_MAX, "Context stack overflow");
@@ -169,12 +175,5 @@ void pop_context() {
 	num_contexts -= 1;
 	context = context_stack[num_contexts];
 }
-
-void push_allocator(Allocator a) {
-	Context c = context;
-	c.allocator = a;
-	push_context(c);
-}
-void pop_allocator() { pop_context(); }
 
 

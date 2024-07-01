@@ -18,9 +18,9 @@ int start(int argc, char **argv) {
 
 	window.clear_color = hex_to_rgba(0x2a2d3aff);
 	
-	Gfx_Image *bush_image = load_image_from_disk(fixed_string("berry_bush.png"));
+	Gfx_Image *bush_image = load_image_from_disk(fixed_string("berry_bush.png"), get_heap_allocator());
 	assert(bush_image, "Failed loading berry_bush.png");
-	Gfx_Image *hammer_image = load_image_from_disk(fixed_string("hammer.png"));
+	Gfx_Image *hammer_image = load_image_from_disk(fixed_string("hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
 	seed_for_random = os_get_current_cycle_count();
@@ -33,7 +33,6 @@ int start(int argc, char **argv) {
 	float64 last_time = os_get_current_time_in_seconds();
 	while (!window.should_close) {
 		reset_temporary_storage();
-		context.allocator = temp;
 		
 		float64 now = os_get_current_time_in_seconds();
 		float64 delta = now - last_time;
@@ -58,11 +57,9 @@ int start(int argc, char **argv) {
 		}
 		
 		if (is_key_just_released('Q')) {
-			push_allocator(get_heap_allocator());
 			delete_image(bush_image);
-			bush_image = load_image_from_disk(fixed_string("berry_bush.png"));
+			bush_image = load_image_from_disk(fixed_string("berry_bush.png"), get_heap_allocator());
 			assert(bush_image, "Failed loading berry_bush.png");
-			pop_allocator();
 		}
 		
 		const float32 cam_move_speed = 4.0;

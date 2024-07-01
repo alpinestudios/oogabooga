@@ -1,41 +1,6 @@
 
 /*
-Usage:
 
-	// We need to use macro const_string to convert literal to string
-	string fmt = const_string("Pointer address: 0x%x");
-	print(fmt, cast(u64)&a); // Print to stdout
-	
-	// Format a string and allocate with context.allocator
-	string a = sprint("Hello, %cs!\n", "balls"); // %cs for char*
-	
-	string balls = const_string("balls");
-	// tprint for temporary allocation
-	string b = tprint("Hello, %s!\n", balls); // %s for string
-	
-	// Allocate a new string of length 12 (with context allocator)
-	string c = alloc_string(12);
-	dealloc_string(c);
-	
-	// We can use raw char* for format with printf/sprintf/tprintf
-	printf("Hello, %!\n", balls);
-	
-	// concatenation
-	string concatenated = string_concat(a, b);
-	
-	// Use temporary memory to make a null-terminated copy of fixed-length string
-	char* cstring = temp_convert_to_null_terminated_string(balls);
-	
-	// To convert a cstring to string (using same memory)
-	string s;
-	s.data = (u8*)cstring;
-	s.count = strlen(cstring);
-	
-	// String matching
-	bool match = strings_match(a, b);
-	
-	// View into "Hello, balls!\n" from index 7 with a count of 5; "balls"
-	string balls2 = string_view(a, 7, 5);
 	
 	
 */
@@ -47,8 +12,6 @@ typedef struct string {
 	u64 count;
 	u8 *data;
 } string;
-
-void push_temp_allocator();
 
 // Not sure what to call this lol
 #define fxstr fixed_string
@@ -65,43 +28,37 @@ inline u64 length_of_null_terminated_string(const char* cstring) {
 	return len;
 }
 
-string alloc_string(u64 count) {
+string alloc_string(Allocator allocator, u64 count) {
 	string s;
 	s.count = count;
-	s.data = cast(u8*)alloc(count);
+	s.data = cast(u8*)alloc(allocator, count);
 	return s;
 }
-void dealloc_string(string s) {
-	dealloc(s.data);
+void dealloc_string(Allocator allocator, string s) {
+	dealloc(allocator, s.data);
 }
 string talloc_string(u64 count) {
-	push_temp_allocator();
-	string s = alloc_string(count);
-	pop_allocator();
+	string s = alloc_string(temp, count);
 	return s;
 }
 
-// context.allocator !
-string string_concat(const string left, const string right) {
+string string_concat(const string left, const string right, Allocator allocator) {
 	string result;
 	result.count = left.count + right.count;
-	result.data = cast(u8*)alloc(result.count);
+	result.data = cast(u8*)alloc(allocator, result.count);
 	memcpy(result.data, left.data, left.count);
 	memcpy(result.data+left.count, right.data, right.count);
 	return result;
 }
-// context.allocator !
-char *convert_to_null_terminated_string(const string s) {
-	char *cstring = cast(char*)alloc(s.count+1);
+char *convert_to_null_terminated_string(const string s, Allocator allocator) {
+	char *cstring = cast(char*)alloc(allocator, s.count+1);
 	memcpy(cstring, s.data, s.count);
 	cstring[s.count] = 0;
 	return cstring;
 }
 
 char *temp_convert_to_null_terminated_string(const string s) {
-	push_temp_allocator();
-	char *c = convert_to_null_terminated_string(s);
-	pop_allocator();
+	char *c = convert_to_null_terminated_string(s, temp);
 	return c;
 }
 bool strings_match(string a, string b) {

@@ -162,7 +162,6 @@ void os_init(u64 program_memory_size) {
 	
 	
 	heap_init();
-	context.allocator = get_heap_allocator();
 	
 	os.crt = os_load_dynamic_library(const_string("msvcrt.dll"));
 	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
@@ -308,8 +307,8 @@ DWORD WINAPI win32_thread_invoker(LPVOID param) {
 	return 0;
 }
 
-Thread* os_make_thread(Thread_Proc proc) {
-	Thread *t = (Thread*)alloc(sizeof(Thread));
+Thread* os_make_thread(Thread_Proc proc, Allocator allocator) {
+	Thread *t = (Thread*)alloc(allocator, sizeof(Thread));
 	t->id = 0; // This is set when we start it
 	t->proc = proc;
 	t->initial_context = context;
@@ -365,8 +364,9 @@ void os_unlock_mutex(Mutex_Handle m) {
 ///
 // Spinlock "primitive"
 
-Spinlock *os_make_spinlock() {
-	Spinlock *l = cast(Spinlock*)alloc(sizeof(Spinlock));
+Spinlock *os_make_spinlock(Allocator allocator) {
+	// #Memory #Cleanup do we need to heap allocate this ?
+	Spinlock *l = cast(Spinlock*)alloc(allocator, sizeof(Spinlock));
 	l->locked = false;
 	return l;
 }
@@ -490,15 +490,14 @@ void os_write_string_to_stdout(string s) {
 	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
 }
 
-// context.allocator
-u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8) {
+u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
     u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
     
-    u16 *utf16_str = (u16 *)alloc((utf16_length + 1) * sizeof(u16));
+    u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
 
     int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
     if (result == 0) {
-        dealloc(utf16_str);
+        dealloc(allocator, utf16_str);
         return NULL;
     }
 
@@ -507,19 +506,16 @@ u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8) {
     return utf16_str;
 }
 u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
-	push_temp_allocator();
-	u16 *result = win32_fixed_utf8_to_null_terminated_wide(utf8);
-	pop_allocator();
-	return result;
+	return win32_fixed_utf8_to_null_terminated_wide(utf8, temp);
 }
-string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
+string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
     u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
 
-    u8 *utf8_str = (u8 *)alloc(utf8_length * sizeof(u8));
+    u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
 
     int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
     if (result == 0) {
-        dealloc(utf8_str);
+        dealloc(allocator, utf8_str);
         return (string){0, 0};
     }
 
@@ -531,10 +527,7 @@ string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
 }
 
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
-    push_temp_allocator();
-    string result = win32_null_terminated_wide_to_fixed_utf8(utf16);
-    pop_allocator();
-    return result;
+    return win32_null_terminated_wide_to_fixed_utf8(utf16, temp);
 }
 
 
@@ -600,19 +593,19 @@ bool os_write_entire_file(string path, string data) {
     return result;
 }
 
-bool os_read_entire_file_handle(File f, string *result) {
+bool os_read_entire_file_handle(File f, string *result, Allocator allocator) {
     LARGE_INTEGER file_size;
     if (!GetFileSizeEx(f, &file_size)) {
         return false;
     }
     
     u64 actual_read = 0;
-    result->data = (u8*)alloc(file_size.QuadPart);
+    result->data = (u8*)alloc(allocator, file_size.QuadPart);
     result->count = file_size.QuadPart;
     
     bool ok = os_file_read(f, result->data, file_size.QuadPart, &actual_read);
     if (!ok) {
-		dealloc(result->data);
+		dealloc(allocator, result->data);
 		result->data = 0;
 		return false;
 	}
@@ -620,12 +613,12 @@ bool os_read_entire_file_handle(File f, string *result) {
     return actual_read == file_size.QuadPart;
 }
 
-bool os_read_entire_file(string path, string *result) {
+bool os_read_entire_file(string path, string *result, Allocator allocator) {
     File file = os_file_open(path, O_READ);
     if (file == OS_INVALID_FILE) {
         return false;
     }
-    bool res = os_read_entire_file_handle(file, result);
+    bool res = os_read_entire_file_handle(file, result, allocator);
     os_file_close(file);
     return res;
 }

@@ -185,15 +185,16 @@ Draw_Quad *draw_image_xform(Gfx_Image *image, Matrix4 xform, Vector2 size, Vecto
 #define COLOR_WHITE ((Vector4){1.0, 1.0, 1.0, 1.0})
 #define COLOR_BLACK ((Vector4){0.0, 0.0, 0.0, 1.0})
 
-// context.allocator
-Gfx_Image *load_image_from_disk(string path) {
+Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
 	string png;
-	bool ok = os_read_entire_file(path, &png);
+	bool ok = os_read_entire_file(path, &png, allocator);
 	if (!ok) return 0;
 
-	Gfx_Image *image = alloc(sizeof(Gfx_Image));
+	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
 	
 	// This is fucking terrible I gotta write my own decoder
+
+	lodepng_allocator = allocator;
 
 	LodePNGState state;
 	lodepng_state_init(&state);
@@ -214,7 +215,7 @@ Gfx_Image *load_image_from_disk(string path) {
 	
 	lodepng_state_cleanup(&state);
 	
-	dealloc_string(png);
+	dealloc_string(allocator, png);
 	
 	if (error) {
 		return 0;
@@ -222,7 +223,7 @@ Gfx_Image *load_image_from_disk(string path) {
 	
 	// We need to flip the image
 	u32 row_bytes = image->width * 4;  // #Magicvalue assuming 4 bytes
-    u8* temp_row = (u8*)alloc(row_bytes);
+    u8* temp_row = (u8*)alloc(temp, row_bytes);
     for (u32 i = 0; i < image->height / 2; i++) {
         u8* top_row = image->data + i * row_bytes;
         u8* bottom_row = image->data + (image->height - i - 1) * row_bytes;
@@ -232,17 +233,18 @@ Gfx_Image *load_image_from_disk(string path) {
         memcpy(top_row, bottom_row, row_bytes);
         memcpy(bottom_row, temp_row, row_bytes);
     }
-    dealloc(temp_row);
 	
 	image->gfx_handle = GFX_INVALID_HANDLE; // This is handled in gfx
+	
+	image->allocator = allocator;
 	
 	return image;
 }
 void delete_image(Gfx_Image *image) {
-	dealloc(image->data);
+	dealloc(image->allocator, image->data);
 	image->width = 0;
 	image->height = 0;
 	draw_frame.garbage_stack[draw_frame.garbage_stack_count] = image->gfx_handle;
 	draw_frame.garbage_stack_count += 1;
-	dealloc(image);
+	dealloc(image->allocator, image);
 }
