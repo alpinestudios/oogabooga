@@ -123,12 +123,14 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	return &draw_frame.current->quad_buffer[draw_frame.current->num_quads-1];
 }
 Draw_Quad *draw_quad(Draw_Quad quad) {
-	return draw_quad_projected(quad, m4_multiply(m4_inverse(draw_frame.view), draw_frame.projection));
+	return draw_quad_projected(quad, m4_multiply(draw_frame.projection, m4_inverse(draw_frame.view)));
 }
 
 Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform) {
-	Matrix4 world_to_clip = m4_multiply(m4_inverse(draw_frame.view), xform);
+	Matrix4 world_to_clip = m4_scalar(1.0);
 	world_to_clip         = m4_multiply(world_to_clip, draw_frame.projection);
+	world_to_clip         = m4_multiply(world_to_clip, m4_inverse(draw_frame.view));
+	world_to_clip         = m4_multiply(world_to_clip, xform);
 	return draw_quad_projected(quad, world_to_clip);
 }
 
