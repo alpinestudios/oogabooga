@@ -37,13 +37,40 @@ void* lodepng_malloc(size_t size) {
 	return context.allocator.proc((u64)size, 0, ALLOCATOR_ALLOCATE);
 }
 void* lodepng_realloc(void* ptr, size_t new_size) {
-	return context.allocator.proc((u64)new_size, 0, ALLOCATOR_REALLOCATE);
+	return context.allocator.proc((u64)new_size, ptr, ALLOCATOR_REALLOCATE);
 }
 void lodepng_free(void* ptr) {
+	if (!ptr) return;
 	context.allocator.proc(0, ptr, ALLOCATOR_DEALLOCATE);
 }
 #define LODEPNG_NO_COMPILE_ALLOCATORS
+//#define LODEPNG_NO_COMPILE_ANCILLARY_CHUNKS
+#define LODEPNG_NO_COMPILE_DISK
+#define LODEPNG_NO_COMPILE_ERROR_TEXT
+#define LODEPNG_NO_COMPILE_ENCODER
+// One day I might write my own png decoder so we don't even need this
+#include "third_party/lodepng.h" 
 #include "third_party/lodepng.c"
+/*
+	To decode a png file:
+	
+	// 1. Read to memory
+	string path = fixed_string("my_image.png");
+	string png;
+	os_read_entire_file(path, &png);
+	
+	// 2. Decode
+	u8 *image;
+	u32 width;
+	u32 height;
+	u32 error = lodepng_decode32(&image, &width, &height, png.data, png.count);
+	
+	// Cleanup
+	dealloc_string(png);
+	dealloc(image);
+*/
+
+
 
 /////
 
@@ -52,14 +79,17 @@ void lodepng_free(void* ptr) {
 #ifdef _WIN32
 	#include <Windows.h>
 	#define TARGET_OS WINDOWS
+	#define OS_PATHS_HAVE_BACKSLASH 1
 #elif defined(__linux__)
 	// Include whatever #Incomplete #Portability
 	#define TARGET_OS LINUX
 	#error "Linux is not supported yet";
+	#define OS_PATHS_HAVE_BACKSLASH 0
 #elif defined(__APPLE__) && defined(__MACH__)
 	// Include whatever #Incomplete #Portability
 	#define TARGET_OS MACOS
 	#error "Mac is not supported yet";
+	#define OS_PATHS_HAVE_BACKSLASH 1
 #else
 	#error "Current OS not supported!";
 #endif
@@ -67,11 +97,6 @@ void lodepng_free(void* ptr) {
 #define GFX_RENDERER_D3D11  0
 #define GFX_RENDERER_VULKAN 1
 #define GFX_RENDERER_METAL  2
-#define GFX_RENDERER_LEGACY_OPENGL  3 // #Temporary #Cleanup
-
-// #Temporary #Cleanup
-#undef GFX_RENDERER
-#define GFX_RENDERER GFX_RENDERER_LEGACY_OPENGL
 
 #ifndef GFX_RENDERER
 // #Portability
@@ -88,8 +113,18 @@ void lodepng_free(void* ptr) {
 #include "string.c"
 #include "unicode.c"
 #include "string_format.c"
+#include "path_utils.c"
 
 #include "os_interface.c"
+#include "gfx_interface.c"
+
+// I hope whoever caused this @ microsoft is fired.
+#ifdef near
+#undef near
+#endif
+#ifdef far
+#undef far
+#endif
 
 #include "random.c"
 
@@ -110,7 +145,7 @@ void lodepng_free(void* ptr) {
 #elif GFX_RENDERER == GFX_RENDERER_LEGACY_OPENGL
 	#include "gfx_impl_legacy_opengl.c"
 #else
-	#error "Unknown renderer defined in GFX_RENDERER"
+	#error "Unknown renderer GFX_RENDERER defined"
 #endif
 
 #if TARGET_OS == WINDOWS
@@ -125,6 +160,7 @@ void lodepng_free(void* ptr) {
 
 
 void oogabooga_init(u64 program_memory_size) {
+	context.logger = default_logger;
 	os_init(program_memory_size);
 	gfx_init();
 	heap_init();
@@ -157,3 +193,4 @@ int main(int argc, char **argv) {
 	
 	return code;
 }
+

@@ -51,9 +51,10 @@ typedef struct string {
 void push_temp_allocator();
 
 // Not sure what to call this lol
+#define fxstr fixed_string
 #define fixed_string const_string
 #define cstr const_string
-#define const_string(s) ((string){ length_of_null_terminated_string(s), (u8*)s })
+#define const_string(s) ((string){ length_of_null_terminated_string((const char*)s), (u8*)s })
 
 inline u64 length_of_null_terminated_string(const char* cstring) {
 	u64 len = 0;
@@ -124,3 +125,24 @@ string string_view(string s, u64 start_index, u64 count) {
 	return result;
 }
 
+// Returns first index from left where "sub" matches in "s". Returns -1 if no match is found.
+s64 string_find_from_left(string s, string sub) {
+	for (s64 i = 0; i <= s.count-sub.count; i++) {
+		if (strings_match(string_view(s, i, sub.count), sub)) {
+			return i;
+		}
+	}
+	
+	return -1;
+}
+
+// Returns first index from right where "sub" matches in "s" Returns -1 if no match is found.
+s64 string_find_from_right(string s, string sub) {
+	for (s64 i = s.count-sub.count; i >= 0 ; i--) {
+		if (strings_match(string_view(s, i, sub.count), sub)) {
+			return i;
+		}
+	}
+	
+	return -1;
+}

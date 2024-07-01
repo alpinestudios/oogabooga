@@ -24,17 +24,16 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
             	// We extend the standard formatting and add %cs so we can format c strings if we need to
                 p += 2;
                 char* s = va_arg(args, char*);
-                assert(is_pointer_valid(s), "You passed an invalid pointer to %%cs");
                 u64 len = 0;
                 while (*s != '\0' && (bufp - buffer) < count - 1) {
-                	assert(is_pointer_valid(s) && len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+                	assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
                 	if (buffer) {
                 		*bufp = *s;
                 	}
                 	s += 1;
                     bufp += 1;
                     len += 1;
-                    assert(is_pointer_valid(s) && len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+                    assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
                 }
             } else {
                 // Fallback to standard vsnprintf
@@ -222,3 +221,25 @@ void printf(const char* fmt, ...) {
 	va_end(args);
 }
 
+
+
+
+typedef void(*Logger_Proc)(Log_Level level, string s);
+#define LOG_BASE(level, ...) If context.logger then ((Logger_Proc)context.logger)(level, tprint(__VA_ARGS__))
+
+
+#define log_verbose(...) LOG_BASE(LOG_VERBOSE, __VA_ARGS__)
+#define log_info(...)    LOG_BASE(LOG_INFO,    __VA_ARGS__)
+#define log_warning(...) LOG_BASE(LOG_WARNING, __VA_ARGS__)
+#define log_error(...)   LOG_BASE(LOG_ERROR,   __VA_ARGS__)
+
+#define log(...) LOG_BASE(LOG_INFO, __VA_ARGS__)
+
+void default_logger(Log_Level level, string s) {
+	switch (level) {
+		case LOG_VERBOSE: print("[VERBOSE]: %s\n", s); break;
+		case LOG_INFO:    print("[INFO]:    %s\n", s); break;
+		case LOG_WARNING: print("[WARNING]: %s\n", s); break;
+		case LOG_ERROR:   print("[ERROR]:   %s\n", s); break;
+	}
+}

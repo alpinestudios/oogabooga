@@ -7,6 +7,8 @@
 HDC hdc;
 typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALEXTPROC) (int interval);
 
+const Gfx_Handle GFX_INVALID_HANDLE = 0;
+
 void gfx_init() {
 	// #Temporary #Cleanup
     // #Temporary #Cleanup
@@ -56,11 +58,13 @@ void gfx_update() {
 		for (u64 i = 0; i < block->num_quads; i++) {
 			Draw_Quad q = block->quad_buffer[i];
 			
-			glColor4f(q.color.r, q.color.g, q.color.b, q.color.a);
+			
+			glColor4f(v4_expand(q.color));
 			glVertex2f(v2_expand(q.bottom_left));
 			glVertex2f(v2_expand(q.top_left));
 			glVertex2f(v2_expand(q.top_right));
 			glVertex2f(v2_expand(q.bottom_right));
+			
 		}
 		
 		block = block->next;

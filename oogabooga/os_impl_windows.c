@@ -160,13 +160,9 @@ void os_init(u64 program_memory_size) {
 	program_memory_mutex = os_make_mutex();
 	os_grow_program_memory(program_memory_size);
 	
-	Allocator heap_allocator;
-	
-	heap_allocator.proc = heap_allocator_proc;
-	heap_allocator.data = 0;
 	
 	heap_init();
-	context.allocator = heap_allocator;
+	context.allocator = get_heap_allocator();
 	
 	os.crt = os_load_dynamic_library(const_string("msvcrt.dll"));
 	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
@@ -255,9 +251,6 @@ bool os_grow_program_memory(u64 new_size) {
 		u64 aligned_size = (new_size+os.granularity) & ~(os.granularity);
 		void* aligned_base = (void*)(((u64)VIRTUAL_MEMORY_BASE+os.granularity) & ~(os.granularity-1));
 
-		u64 m = aligned_size & os.granularity;
-		assert(m == 0);
-		
 		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 		if (program_memory == 0) { 
 			os_unlock_mutex(program_memory_mutex); // #Sync
@@ -519,6 +512,31 @@ u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
 	pop_allocator();
 	return result;
 }
+string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
+    u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
+
+    u8 *utf8_str = (u8 *)alloc(utf8_length * sizeof(u8));
+
+    int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
+    if (result == 0) {
+        dealloc(utf8_str);
+        return (string){0, 0};
+    }
+
+    string utf8;
+    utf8.data = utf8_str;
+    utf8.count = utf8_length-1;
+
+    return utf8;
+}
+
+string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
+    push_temp_allocator();
+    string result = win32_null_terminated_wide_to_fixed_utf8(utf16);
+    pop_allocator();
+    return result;
+}
+
 
 File os_file_open(string path, Os_Io_Open_Flags flags) {
     DWORD access = GENERIC_READ;
@@ -587,14 +605,19 @@ bool os_read_entire_file_handle(File f, string *result) {
     if (!GetFileSizeEx(f, &file_size)) {
         return false;
     }
-
+    
+    u64 actual_read = 0;
     result->data = (u8*)alloc(file_size.QuadPart);
-    if (!result->data) {
-        return false;
-    }
-
     result->count = file_size.QuadPart;
-    return os_file_read(f, result->data, file_size.QuadPart, NULL);
+    
+    bool ok = os_file_read(f, result->data, file_size.QuadPart, &actual_read);
+    if (!ok) {
+		dealloc(result->data);
+		result->data = 0;
+		return false;
+	}
+    
+    return actual_read == file_size.QuadPart;
 }
 
 bool os_read_entire_file(string path, string *result) {
@@ -605,6 +628,38 @@ bool os_read_entire_file(string path, string *result) {
     bool res = os_read_entire_file_handle(file, result);
     os_file_close(file);
     return res;
+}
+
+bool os_is_file(string path) {
+	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+	assert(path_wide, "Invalid path string");
+    if (path_wide == NULL) {
+        return false;
+    }
+
+    DWORD attributes = GetFileAttributesW(path_wide);
+
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        return false;
+    }
+
+    return !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+bool os_is_directory(string path) {
+    u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+	assert(path_wide, "Invalid path string");
+    if (path_wide == NULL) {
+        return false;
+    }
+
+    DWORD attributes = GetFileAttributesW(path_wide);
+
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        return false;
+    }
+
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
 void fprints(File f, string fmt, ...) {
@@ -622,6 +677,10 @@ void fprintf(File f, const char* fmt, ...) {
 	fprint_va_list_buffered(f, s, args);
 	va_end(args);
 }
+
+
+
+
 
 ///
 ///

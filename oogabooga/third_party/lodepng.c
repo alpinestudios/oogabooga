@@ -28,16 +28,7 @@ The manual and changelog are in the header file "lodepng.h"
 Rename this file to lodepng.cpp to use it for C++, or to lodepng.c to use it for C.
 */
 
-/*
-
-MODIFICATION NOTICE:
-
-Commented out '#include "lodepng.h"' since we are not using the header.
-- Charlie Malmqvist 2024-06-29
-
-*/
-
-//#include "lodepng.h"
+#include "lodepng.h"
 
 #ifdef LODEPNG_COMPILE_DISK
 #include <limits.h> /* LONG_MAX */
@@ -312,7 +303,7 @@ static void string_cleanup(char** out) {
 }
 
 /*also appends null termination character*/
-static char* alloc_string_sized(const char* in, size_t insize) {
+static char* lodepng_alloc_string_sized(const char* in, size_t insize) {
   char* out = (char*)lodepng_malloc(insize + 1);
   if(out) {
     lodepng_memcpy(out, in, insize);
@@ -322,8 +313,8 @@ static char* alloc_string_sized(const char* in, size_t insize) {
 }
 
 /* dynamically allocates a new string with a copy of the null terminated input text */
-static char* alloc_string(const char* in) {
-  return alloc_string_sized(in, lodepng_strlen(in));
+static char* lodepng_alloc_string(const char* in) {
+  return lodepng_alloc_string_sized(in, lodepng_strlen(in));
 }
 #endif /*LODEPNG_COMPILE_ANCILLARY_CHUNKS*/
 #endif /*LODEPNG_COMPILE_PNG*/
@@ -3188,8 +3179,8 @@ static unsigned lodepng_add_text_sized(LodePNGInfo* info, const char* key, const
   if(!new_keys || !new_strings) return 83; /*alloc fail*/
 
   ++info->text_num;
-  info->text_keys[info->text_num - 1] = alloc_string(key);
-  info->text_strings[info->text_num - 1] = alloc_string_sized(str, size);
+  info->text_keys[info->text_num - 1] = lodepng_alloc_string(key);
+  info->text_strings[info->text_num - 1] = lodepng_alloc_string_sized(str, size);
   if(!info->text_keys[info->text_num - 1] || !info->text_strings[info->text_num - 1]) return 83; /*alloc fail*/
 
   return 0;
@@ -3261,10 +3252,10 @@ static unsigned lodepng_add_itext_sized(LodePNGInfo* info, const char* key, cons
 
   ++info->itext_num;
 
-  info->itext_keys[info->itext_num - 1] = alloc_string(key);
-  info->itext_langtags[info->itext_num - 1] = alloc_string(langtag);
-  info->itext_transkeys[info->itext_num - 1] = alloc_string(transkey);
-  info->itext_strings[info->itext_num - 1] = alloc_string_sized(str, size);
+  info->itext_keys[info->itext_num - 1] = lodepng_alloc_string(key);
+  info->itext_langtags[info->itext_num - 1] = lodepng_alloc_string(langtag);
+  info->itext_transkeys[info->itext_num - 1] = lodepng_alloc_string(transkey);
+  info->itext_strings[info->itext_num - 1] = lodepng_alloc_string_sized(str, size);
 
   return 0;
 }
@@ -3278,7 +3269,7 @@ unsigned lodepng_add_itext(LodePNGInfo* info, const char* key, const char* langt
 static unsigned lodepng_assign_icc(LodePNGInfo* info, const char* name, const unsigned char* profile, unsigned profile_size) {
   if(profile_size == 0) return 100; /*invalid ICC profile size*/
 
-  info->iccp_name = alloc_string(name);
+  info->iccp_name = lodepng_alloc_string(name);
   info->iccp_profile = (unsigned char*)lodepng_malloc(profile_size);
 
   if(!info->iccp_name || !info->iccp_profile) return 83; /*alloc fail*/

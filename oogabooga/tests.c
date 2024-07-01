@@ -407,6 +407,23 @@ void test_file_io() {
     read_entire_result = os_read_entire_file(fixed_string("balls.txt"), &hello_balls);
     assert(read_entire_result, "Failed: could not read balls.txt");
     assert(strings_match(hello_balls, fixed_string("Hello, Balls!")), "Failed: balls read/write mismatch. Expected 'Hello, Balls!', got '%s'", hello_balls);
+    
+    u64 integers[4096];
+    for (u64 i = 0; i < 4096; i++) {
+    	integers[i] = get_random();
+    }
+    string integers_data;
+    integers_data.data = (u8*)integers;
+    integers_data.count = 4096*sizeof(u64);
+    bool ok = os_write_entire_file(fxstr("integers"), integers_data);
+    assert(ok, "write integers fail");
+    
+    string integers_read;
+    ok = os_read_entire_file(fxstr("integers"), &integers_read);
+    assert(ok, "read integers fail");
+    u64 *new_integers = (u64*)integers_data.data;
+    assert(integers_read.count == integers_data.count, "Failed: big file read/write mismatch. Read was %d and written was %d", integers_read.count, integers_data.count);
+    assert(strings_match(integers_data, integers_read), "Failed: big file read/write mismatch");
 
     // Clean up test files
     bool delete_ok = false;

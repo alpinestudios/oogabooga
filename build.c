@@ -2,7 +2,10 @@
 
 ///
 // Build config stuff
-#define RUN_TESTS 1
+#define RUN_TESTS 0
+
+// This is only for people developing oogabooga!
+#define OOGABOOGA_DEV 1
 
 // When we need very debug
 // #define CONFIGURATION VERY_DEBUG

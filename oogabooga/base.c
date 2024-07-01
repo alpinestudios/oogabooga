@@ -25,12 +25,15 @@ typedef u8 bool;
 
 #define forward_global extern
 
-#define ifnt(x) if (!(x))
+// Haters gonna hate
+#define If if (
+#define then )
+// If cond then {}
 
 #ifdef _MSC_VER
 	inline void os_break() {
 		__debugbreak();
-		int *a = 0;
+		volatile int *a = 0;
 		*a = 5;
 	}
 #else
@@ -41,7 +44,7 @@ typedef u8 bool;
 void printf(const char* fmt, ...);
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
-#define assert_line(line, cond, ...) if (!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
+#define assert_line(line, cond, ...) if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
 #define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
 
 #if CONFIGURATION == RELEASE
@@ -124,6 +127,15 @@ typedef enum Allocator_Message {
 } Allocator_Message;
 typedef void*(*Allocator_Proc)(u64, void*, Allocator_Message);
 
+typedef enum Log_Level {
+	LOG_ERROR,
+	LOG_INFO,
+	LOG_WARNING,
+	LOG_VERBOSE
+} Log_Level;
+
+
+
 typedef struct Allocator {
 	Allocator_Proc proc;
 	void *data;	
@@ -131,6 +143,7 @@ typedef struct Allocator {
 
 typedef struct Context {
 	Allocator allocator;
+	void *logger; // void(*Logger_Proc)(Log_Level level, string fmt, ...)
 	
 	CONTEXT_EXTRA extra;
 } Context;
@@ -141,11 +154,8 @@ thread_local Context context;
 thread_local Context context_stack[CONTEXT_STACK_MAX];
 thread_local u64 num_contexts = 0;
 
-
 void* alloc(u64 size) { return context.allocator.proc(size, NULL, ALLOCATOR_ALLOCATE); }
 void dealloc(void *p) { context.allocator.proc(0, p, ALLOCATOR_DEALLOCATE); }
-
-
 
 void push_context(Context c) {
 	assert(num_contexts < CONTEXT_STACK_MAX, "Context stack overflow");

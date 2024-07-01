@@ -213,6 +213,9 @@ bool os_write_entire_file(string path, string data);
 bool os_read_entire_file_handle(File f, string *result);
 bool os_read_entire_file(string path, string *result);
 
+bool os_is_file(string path);
+bool os_is_directory(string path);
+
 
 void fprints(File f, string fmt, ...);
 void fprintf(File f, const char* fmt, ...);

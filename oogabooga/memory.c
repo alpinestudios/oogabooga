@@ -383,11 +383,14 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
 			break;
 		}
 		case ALLOCATOR_DEALLOCATE: {
-		assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator deallocate");
+			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator deallocate");
 			heap_dealloc(p);
 			return 0;
 		}
 		case ALLOCATOR_REALLOCATE: {
+			if (!p) {
+				return heap_alloc(size);
+			}
 			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator reallocate");
 			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)((u64)p)-sizeof(Heap_Allocation_Metadata);
 			void *new = heap_alloc(size);
@@ -397,6 +400,15 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message) {
 		}
 	}
 	return 0;
+}
+
+Allocator get_heap_allocator() {
+	Allocator heap_allocator;
+	
+	heap_allocator.proc = heap_allocator_proc;
+	heap_allocator.data = 0;
+	
+	return heap_allocator;
 }
 
 ///
