@@ -1,4 +1,11 @@
 
+Vector4 hex_to_rgba(s64 hex) {
+	u8 r = (hex>>24) & 0x000000FF;
+	u8 g = (hex>>16) & 0x000000FF;
+	u8 b = (hex>>8) & 0x000000FF;
+	u8 a = (hex>>0) & 0x000000FF;
+	return (Vector4){r/255.0, g/255.0, b/255.0, a/255.0};
+}
 
 
 int start(int argc, char **argv) {
@@ -8,6 +15,8 @@ int start(int argc, char **argv) {
 	window.height = 720;
 	window.x = 200;
 	window.y = 200;
+
+	window.clear_color = hex_to_rgba(0x2a2d3aff);
 	
 	Gfx_Image *bush_image = load_image_from_disk(fixed_string("berry_bush.png"));
 	assert(bush_image, "Failed loading berry_bush.png");
