@@ -1,5 +1,7 @@
 @echo off
-rmdir /S /Q build
+if exist build (
+  rmdir /s /q build
+)
 mkdir build
 
 pushd build
