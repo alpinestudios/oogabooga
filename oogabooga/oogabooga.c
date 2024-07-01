@@ -115,6 +115,7 @@ void lodepng_free(void* ptr) {
 #include "string_format.c"
 #include "path_utils.c"
 
+#include "linmath.c"
 #include "os_interface.c"
 #include "gfx_interface.c"
 
@@ -128,7 +129,6 @@ void lodepng_free(void* ptr) {
 
 #include "random.c"
 
-#include "linmath.c"
 
 #include "memory.c"
 #include "input.c"

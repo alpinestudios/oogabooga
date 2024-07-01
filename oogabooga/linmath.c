@@ -197,14 +197,15 @@ inline Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
 }
 
 
-Matrix4 m4_make_orthographic_projection(float left, float right, float bottom, float top, float near, float far) {
+// _near & _far because microsoft...
+Matrix4 m4_make_orthographic_projection(float left, float right, float bottom, float top, float _near, float _far) {
     Matrix4 m = m4_scalar(1.0f);
     m.m[0][0] = 2.0f / (right - left);
     m.m[1][1] = 2.0f / (top - bottom);
-    m.m[2][2] = -2.0f / (far - near);
+    m.m[2][2] = -2.0f / (_far - _near);
     m.m[0][3] = -(right + left) / (right - left);
     m.m[1][3] = -(top + bottom) / (top - bottom);
-    m.m[2][3] = -(far + near) / (far - near);
+    m.m[2][3] = -(_far + _near) / (_far - _near);
     m.m[3][3] = 1.0f;
     return m;
 }

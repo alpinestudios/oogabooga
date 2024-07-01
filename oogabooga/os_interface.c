@@ -270,9 +270,7 @@ typedef struct Os_Window {
 	u32 height;
 	u32 x;
 	u32 y;
-	struct {
-		float32 r, g, b, a;
-	} clear_color;
+	Vector4 clear_color;
 	
 	bool should_close;
 	
