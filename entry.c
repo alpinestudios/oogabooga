@@ -4,8 +4,8 @@
 int start(int argc, char **argv) {
 	
 	window.title = fixed_string("My epic game");
-	window.width = 700;
-	window.height = 400;
+	window.width = 1280;
+	window.height = 720;
 	window.x = 200;
 	window.y = 200;
 	
