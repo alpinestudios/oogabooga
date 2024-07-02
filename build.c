@@ -26,4 +26,4 @@ typedef struct Context_Extra {
 // Includes for game goes here	
 // ...
 
-#include "entry.c"
+#include "test_game.c"
