@@ -7,7 +7,7 @@ pushd build
 mkdir release
 pushd release
 
-cl.exe /Fe:cgame.exe ..\..\build.c /Ox /std:c11 /W4 /wd4273 /wd4018 /wd4100 gdi32.lib user32.lib opengl32.lib
+clang -o cgame.exe ../../build.c -Ofast -std=c11 -Wextra -Wno-incompatible-library-redeclaration  -Wno-sign-compare -Wno-unused-parameter -Wno-builtin-requires-header -lgdi32 -luser32  -lwinmm -ld3d11 -ldxguid -ld3dcompiler
 
 popd
 popd

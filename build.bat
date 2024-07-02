@@ -1,9 +1,11 @@
 @echo off
-rmdir /S /Q build
+if exist build (
+  rmdir /s /q build
+)
 mkdir build
 
 pushd build
 
-cl.exe /Fe:cgame.exe ..\build.c /Od /std:c11 /W4 /wd4273 /wd4018 /wd4100 /Zi gdi32.lib user32.lib opengl32.lib
+clang -g -o cgame.exe ../build.c -O0 -std=c11 -Wextra -Wno-incompatible-library-redeclaration  -Wno-sign-compare -Wno-unused-parameter -Wno-builtin-requires-header -lgdi32 -luser32  -lwinmm -ld3d11 -ldxguid -ld3dcompiler
 
 popd
