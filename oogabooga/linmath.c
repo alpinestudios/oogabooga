@@ -81,6 +81,13 @@ inline Vector3 v3_div(Vector3 a, Vector3 b) {
 inline Vector4 v4_div(Vector4 a, Vector4 b) {
 	return v4(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
 }
+inline Vector2 v2_normalize(Vector2 a) {
+    float length = sqrt(a.x * a.x + a.y * a.y);
+    if (length == 0) {
+        return (Vector2){0, 0};
+    }
+    return (Vector2){a.x / length, a.y / length};
+}
 
 
 Vector2 v2_rotate_point_around_pivot(Vector2 point, Vector2 pivot, float rotation_radians) {
