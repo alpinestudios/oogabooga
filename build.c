@@ -18,12 +18,12 @@ typedef struct Context_Extra {
 
 #define GFX_RENDERER GFX_RENDERER_D3D11
 
-#define ENTRY_PROC start // This is "entry" by default but we're not like all the other girls so we call it start
-
 #include "oogabooga/oogabooga.c"
 
 
-// Includes for game goes here	
-// ...
+//
+// Comment & Uncomment to swap projects
 
-#include "test_game.c"
+#include "entry_engine_test.c"
+// #include "entry_minimal_example.c"
+// #include "entry_randygame.c"

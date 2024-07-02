@@ -1,16 +1,8 @@
 
-Vector4 hex_to_rgba(s64 hex) {
-	u8 r = (hex>>24) & 0x000000FF;
-	u8 g = (hex>>16) & 0x000000FF;
-	u8 b = (hex>>8) & 0x000000FF;
-	u8 a = (hex>>0) & 0x000000FF;
-	return (Vector4){r/255.0, g/255.0, b/255.0, a/255.0};
-}
 
-
-int start(int argc, char **argv) {
+int entry(int argc, char **argv) {
 	
-	window.title = fixed_string("My epic game");
+	window.title = fixed_string("Engine Testing Example");
 	window.width = 1280;
 	window.height = 720;
 	window.x = 200;
