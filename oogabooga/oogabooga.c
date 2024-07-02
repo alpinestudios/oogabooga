@@ -134,7 +134,7 @@ void lodepng_free(void* ptr) {
 #endif
 
 #include "random.c"
-
+#include "color.c"
 
 #include "memory.c"
 #include "input.c"
