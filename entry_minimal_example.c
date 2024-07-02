@@ -1,7 +1,7 @@
 
 int entry(int argc, char **argv) {
 	
-	window.title = fixed_string("Minimal Game Example");
+	window.title = STR("Minimal Game Example");
 	window.width = 1280;
 	window.height = 720;
 	window.x = 200;

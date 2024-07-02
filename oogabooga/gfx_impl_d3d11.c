@@ -44,6 +44,53 @@ ID3D11InputLayout  *d3d11_image_vertex_layout = 0;
 
 ID3D11Buffer *d3d11_quad_vbo = 0;
 u32 d3d11_quad_vbo_size = 0;
+void *d3d11_staging_quad_buffer = 0;
+
+const char* d3d11_stringify_category(D3D11_MESSAGE_CATEGORY category) {
+    switch (category) {
+    case D3D11_MESSAGE_CATEGORY_APPLICATION_DEFINED: return "Application Defined";
+    case D3D11_MESSAGE_CATEGORY_MISCELLANEOUS: return "Miscellaneous";
+    case D3D11_MESSAGE_CATEGORY_INITIALIZATION: return "Initialization";
+    case D3D11_MESSAGE_CATEGORY_CLEANUP: return "Cleanup";
+    case D3D11_MESSAGE_CATEGORY_COMPILATION: return "Compilation";
+    case D3D11_MESSAGE_CATEGORY_STATE_CREATION: return "State Creation";
+    case D3D11_MESSAGE_CATEGORY_STATE_SETTING: return "State Setting";
+    case D3D11_MESSAGE_CATEGORY_STATE_GETTING: return "State Getting";
+    case D3D11_MESSAGE_CATEGORY_RESOURCE_MANIPULATION: return "Resource Manipulation";
+    case D3D11_MESSAGE_CATEGORY_EXECUTION: return "Execution";
+    default: return "Unknown";
+    }
+}
+
+const char* d3d11_stringify_severity(D3D11_MESSAGE_SEVERITY severity) {
+    switch (severity) {
+    case D3D11_MESSAGE_SEVERITY_CORRUPTION: return "Corruption";
+    case D3D11_MESSAGE_SEVERITY_ERROR: return "Error";
+    case D3D11_MESSAGE_SEVERITY_WARNING: return "Warning";
+    case D3D11_MESSAGE_SEVERITY_INFO: return "Info";
+    case D3D11_MESSAGE_SEVERITY_MESSAGE: return "Message";
+    default: return "Unknown";
+    }
+}
+
+void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAGE_SEVERITY severity, D3D11_MESSAGE_ID id, const char* description)
+{
+	string msg = tprint("D3D11 MESSAGE [Category: %cs, Severity: %cs, id: %d]: %cs", d3d11_stringify_category(category), d3d11_stringify_severity(severity), id, description);
+	
+	switch (severity) {
+		case D3D11_MESSAGE_SEVERITY_CORRUPTION:
+		case D3D11_MESSAGE_SEVERITY_ERROR:
+			log_error(msg);
+		case D3D11_MESSAGE_SEVERITY_WARNING:
+			log_warning(msg);
+		case D3D11_MESSAGE_SEVERITY_INFO:
+			log_info(msg);
+		case D3D11_MESSAGE_SEVERITY_MESSAGE:
+			log_verbose(msg);
+		default:
+			log("Ligma");
+	}
+}
 
 #define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
 void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
@@ -313,7 +360,7 @@ void gfx_init() {
 #if OOGABOOGA_DEV
 	
 	string source;
-	bool source_ok = os_read_entire_file(fxstr("oogabooga/dev/d3d11_image_shader.hlsl"), &source, get_heap_allocator()); // #Leak
+	bool source_ok = os_read_entire_file("oogabooga/dev/d3d11_image_shader.hlsl", &source, get_heap_allocator()); // #Leak
 	assert(source_ok, "Could not open d3d11_image_shader source");
 	
 	// Compile vertex shader
@@ -336,28 +383,28 @@ void gfx_init() {
     
     ///
     // Dump blobs to the .c
-    File blob_file = os_file_open(fxstr("oogabooga/d3d11_image_shader_bytecode.c"), O_WRITE | O_CREATE);
-    os_file_write_string(blob_file, fxstr("/*\n"));
-    os_file_write_string(blob_file, fxstr("<<<<<< Bytecode compiled from HLSL code below: >>>>>>\n\n"));
+    File blob_file = os_file_open("oogabooga/d3d11_image_shader_bytecode.c", O_WRITE | O_CREATE);
+    os_file_write_string(blob_file, STR("/*\n"));
+    os_file_write_string(blob_file, STR("<<<<<< Bytecode compiled fro HLSL code below: >>>>>>\n\n"));
     os_file_write_string(blob_file, source);
-    os_file_write_string(blob_file, fxstr("\n*/\n\n"));
+    os_file_write_string(blob_file, STR("\n*/\n\n"));
     
-    os_file_write_string(blob_file, fxstr("const u8 IMAGE_SHADER_VERTEX_BLOB_BYTES[] = {\n"));
+    os_file_write_string(blob_file, STR("const u8 IMAGE_SHADER_VERTEX_BLOB_BYTES[]= {\n"));
     for (u64 i = 0; i < vs_size; i++) {
     	os_file_write_string(blob_file, tprint("0x%02x", (int)((u8*)vs_buffer)[i]));
-    	if (i < vs_size-1) os_file_write_string(blob_file, fxstr(", "));
-    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, fxstr("\n"));
-    }
-    os_file_write_string(blob_file, fxstr("\n};\n"));
+    	if (i < vs_size-1) os_file_write_string(blob_file, STR(", "));
+    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, STR("\n"));
+}
+    os_file_write_string(blob_file, STR("\n};\n"));
     
-    os_file_write_string(blob_file, fxstr("const u8 IMAGE_SHADER_PIXEL_BLOB_BYTES[] = {\n"));
+    os_file_write_string(blob_file, STR("const u8 IMAGE_SHADER_PIXEL_BLOB_BYTES[]= {\n"));
     for (u64 i = 0; i < ps_size; i++) {
     	os_file_write_string(blob_file, tprint("0x%02x", (int)((u8*)ps_buffer)[i]));
-    	if (i < ps_size-1) os_file_write_string(blob_file, fxstr(", "));
-    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, fxstr("\n"));
-    }
-    os_file_write_string(blob_file, fxstr("\n};\n"));
-    os_file_close(blob_file);
+    	if (i < ps_size-1) os_file_write_string(blob_file, STR(", "));
+    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, STR("\n"));
+}
+    os_file_write_string(blob_file, STR("\n};\n"));
+ os_file_close(blob_file);
     
     
 #else
@@ -451,7 +498,6 @@ void gfx_update() {
 	
 	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 
-	f64 rest_before  = os_get_current_time_in_seconds();
 
 	HRESULT hr;
 
@@ -487,9 +533,11 @@ void gfx_update() {
 	///
 	// Maybe grow quad vbo
 	u32 required_size = sizeof(D3D11_Vertex) * draw_frame.num_blocks*QUADS_PER_BLOCK*6;
+
 	if (required_size > d3d11_quad_vbo_size) {
 		if (d3d11_quad_vbo) {
 			D3D11Release(d3d11_quad_vbo);
+			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
 		desc.Usage = D3D11_USAGE_DYNAMIC; 
@@ -500,126 +548,146 @@ void gfx_update() {
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
 		d3d11_quad_vbo_size = required_size;
 		
+		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
 
+	f64 rest_before  = os_get_current_time_in_seconds();
 	if (draw_frame.num_blocks > 0) {
 		///
 		// Render geometry from into vbo quad list
-	    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-		VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
+	    
 		
 		ID3D11ShaderResourceView *textures[32];
 		ID3D11ShaderResourceView *last_texture = 0;
 		u64 num_textures = 0;
 		
-		D3D11_Vertex* head = buffer_mapping.pData;
+		D3D11_Vertex* head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
 		D3D11_Vertex* pointer = head;
 		u64 number_of_rendered_quads = 0;
-		Draw_Quad_Block *block = &draw_frame.first_block;
-		while (block != 0) {
-			
-			for (u64 i = 0; i < block->num_quads; i++) {
-				Draw_Quad *q = &block->quad_buffer[i];
-				
-				int texture_index = -1;
-				
-				if (q->image) {
-					if (!q->image->gfx_handle) {
-						D3D11_TEXTURE2D_DESC desc = ZERO(D3D11_TEXTURE2D_DESC);
-						desc.Width = q->image->width;
-						desc.Height = q->image->height;
-						desc.MipLevels = 1;
-						desc.ArraySize = 1;
-						desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-						desc.SampleDesc.Count = 1;
-						desc.SampleDesc.Quality = 0;
-						desc.Usage = D3D11_USAGE_DEFAULT;
-						desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-						desc.CPUAccessFlags = 0;
-						desc.MiscFlags = 0;
+		Draw_Quad_Block *block = &first_block;
+		
+		tm_scope_cycles("Quad processing") {
+			while (block != 0 && block->num_quads > 0) tm_scope_cycles("ad2As") {
+				for (u64 i = 0; i < block->num_quads; i++) tm_scope_cycles("Single quad") {
+					
+					Draw_Quad *q = &block->quad_buffer[i];
+					
+					int texture_index = -1;
+					
+					if (q->image) {
+						if (!q->image->gfx_handle) {
+							D3D11_TEXTURE2D_DESC desc = ZERO(D3D11_TEXTURE2D_DESC);
+							desc.Width = q->image->width;
+							desc.Height = q->image->height;
+							desc.MipLevels = 1;
+							desc.ArraySize = 1;
+							desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+							desc.SampleDesc.Count = 1;
+							desc.SampleDesc.Quality = 0;
+							desc.Usage = D3D11_USAGE_DEFAULT;
+							desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+							desc.CPUAccessFlags = 0;
+							desc.MiscFlags = 0;
+							
+							D3D11_SUBRESOURCE_DATA data = ZERO(D3D11_SUBRESOURCE_DATA);
+							data.pSysMem = q->image->data;
+							data.SysMemPitch  = q->image->width * 4; // #Magicvalue assuming 4 channels
+							
+							ID3D11Texture2D* texture = 0;
+							HRESULT hr = VTABLE(CreateTexture2D, d3d11_device, &desc, &data, &texture);
+							win32_check_hr(hr);
+							
+							hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &q->image->gfx_handle);
+							win32_check_hr(hr);
+							
+							log_verbose("Created an image of width %d and height %d.", q->image->width, q->image->height);
+						}
 						
-						D3D11_SUBRESOURCE_DATA data = ZERO(D3D11_SUBRESOURCE_DATA);
-						data.pSysMem = q->image->data;
-						data.SysMemPitch  = q->image->width * 4; // #Magicvalue assuming 4 channels
-						
-						ID3D11Texture2D* texture = 0;
-						HRESULT hr = VTABLE(CreateTexture2D, d3d11_device, &desc, &data, &texture);
-						win32_check_hr(hr);
-						
-						hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &q->image->gfx_handle);
-						win32_check_hr(hr);
-						
-						log_verbose("Created an image of width %d and height %d.", q->image->width, q->image->height);
+						if (last_texture == q->image->gfx_handle) {
+							texture_index = (int)(num_textures-1);
+						} else {
+							// First look if texture is already bound
+							for (u64 j = 0; j < num_textures; j++) {
+								if (textures[j] == q->image->gfx_handle) {
+									texture_index = (int)j;
+									break;
+								}
+							}
+							// Otherwise use a new slot
+							if (texture_index <= -1) {
+								if (num_textures >= 32) {
+									// If max textures reached, make a draw call and start over
+									D3D11_MAPPED_SUBRESOURCE buffer_mapping;
+									VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &buffer_mapping);
+									memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
+									VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
+									d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
+									head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
+									num_textures = 0;
+									texture_index = 0;
+									number_of_rendered_quads = 0;
+									pointer = head;
+								} else {
+									texture_index = (int)num_textures;
+									num_textures += 1;
+								}
+							}
+						}
+						textures[texture_index] = q->image->gfx_handle;
+						last_texture = q->image->gfx_handle;
 					}
 					
-					if (last_texture == q->image->gfx_handle) {
-						texture_index = (int)(num_textures-1);
-					} else {
-						// First look if texture is already bound
-						for (u64 j = 0; j < num_textures; j++) {
-							if (textures[j] == q->image->gfx_handle) {
-								texture_index = (int)j;
-								break;
-							}
-						}
-						// Otherwise use a new slot
-						if (texture_index <= -1) {
-							if (num_textures >= 32) {
-								// If max textures reached, make a draw call and start over
-								d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
-								num_textures = 0;
-								texture_index = 0;
-								number_of_rendered_quads = 0;
-								pointer = head;
-							} else {
-								texture_index = (int)num_textures;
-								num_textures += 1;
-							}
-						}
+					// We will write to 6 vertices for the one quad (two tris)
+					 {
+					
+						D3D11_Vertex* BL  = pointer + 0;
+						D3D11_Vertex* TL  = pointer + 1;
+						D3D11_Vertex* TR  = pointer + 2;
+						D3D11_Vertex* BL2 = pointer + 3;
+						D3D11_Vertex* TR2 = pointer + 4;
+						D3D11_Vertex* BR  = pointer + 5;
+						pointer += 6;
+						
+						BL->position = v4(q->bottom_left.x,  q->bottom_left.y,  0, 1);
+						TL->position = v4(q->top_left.x,     q->top_left.y,     0, 1);
+						TR->position = v4(q->top_right.x,    q->top_right.y,    0, 1);
+						BR->position = v4(q->bottom_right.x, q->bottom_right.y, 0, 1);
+						
+						BL->uv = v2(q->uv.x1, q->uv.y1);
+						TL->uv = v2(q->uv.x1, q->uv.y2);
+						TR->uv = v2(q->uv.x2, q->uv.y2);
+						BR->uv = v2(q->uv.x2, q->uv.y1);
+						
+						BL->color = TL->color = TR->color = BR->color = q->color;
+						
+						BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
+						
+						*BL2 = *BL;
+						*TR2 = *TR;
+						
+						number_of_rendered_quads += 1;
 					}
-					textures[texture_index] = q->image->gfx_handle;
-					last_texture = q->image->gfx_handle;
 				}
 				
-				// We will write to 6 vertices for the one quad (two tris)
-				D3D11_Vertex* BL  = pointer + 0;
-				D3D11_Vertex* TL  = pointer + 1;
-				D3D11_Vertex* TR  = pointer + 2;
-				D3D11_Vertex* BL2 = pointer + 3;
-				D3D11_Vertex* TR2 = pointer + 4;
-				D3D11_Vertex* BR  = pointer + 5;
-				pointer += 6;
 				
-				BL->position = v4(q->bottom_left.x,  q->bottom_left.y,  0, 1);
-				TL->position = v4(q->top_left.x,     q->top_left.y,     0, 1);
-				TR->position = v4(q->top_right.x,    q->top_right.y,    0, 1);
-				BR->position = v4(q->bottom_right.x, q->bottom_right.y, 0, 1);
-				
-				BL->uv = v2(q->uv.x1, q->uv.y1);
-				TL->uv = v2(q->uv.x1, q->uv.y2);
-				TR->uv = v2(q->uv.x2, q->uv.y2);
-				BR->uv = v2(q->uv.x2, q->uv.y1);
-				
-				BL->color = TL->color = TR->color = BR->color = q->color;
-				
-				BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
-				
-				*BL2 = *BL;
-				*TR2 = *TR;
-				
-				number_of_rendered_quads += 1;
+				block = block->next;
 			}
-			
-			block = block->next;
 		}
-	    
+		
+	    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
+		VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &buffer_mapping);
+		memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
 		VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 		
 		///
 		// Draw call
 		
+		u64 before_draw = os_get_current_cycle_count();
 		d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
+		u64 after_draw = os_get_current_cycle_count();
+		//log("Draw call took %llu cycles", after_draw-before_draw);
     }
     
     f64 rest_after  = os_get_current_time_in_seconds();
@@ -633,5 +701,27 @@ void gfx_update() {
     	log("Present took %.2fms", (after-before_present)*1000.0);
 	win32_check_hr(hr);
 	
+#if CONFIGURATION == DEBUG
+	///
+	// Check debug messages, output to stdout
+	ID3D11InfoQueue* info_q = 0;
+	hr = VTABLE(QueryInterface, d3d11_device, &IID_ID3D11InfoQueue, (void**)&info_q);
+	if (SUCCEEDED(hr)) {
+		u64 msg_count = VTABLE(GetNumStoredMessagesAllowedByRetrievalFilter, info_q);
+		for (u64 i = 0; i < msg_count; i++) {
+		    SIZE_T msg_size = 0;
+		    VTABLE(GetMessage, info_q, i, 0, &msg_size);
+		
+		    D3D11_MESSAGE* msg = (D3D11_MESSAGE*)talloc(msg_size);
+		    if (msg) {
+		        VTABLE(GetMessage, info_q, i, msg, &msg_size); // Get the actual message
+		        
+		        d3d11_debug_callback(msg->Category, msg->Severity, msg->ID, msg->pDescription);
+		    }
+		}
+	}
+#endif
+	
 	reset_draw_frame(&draw_frame);
+	
 }

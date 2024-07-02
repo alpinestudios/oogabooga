@@ -83,24 +83,24 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
     
     return bufp - buffer;
 }
-string sprint_null_terminated_string_va_list_to_buffer(const char *fmt, va_list args, void* buffer, u64 count) {
-    u64 formatted_length = format_string_to_buffer((char*)buffer, count, fmt, args);
+string sprint_null_terminated_string_va_list_to_buffer(const char *fmt, va_list args, void* buffer, u64 buffer_size) {
+    u64 formatted_length = format_string_to_buffer((char*)buffer, buffer_size, fmt, args);
     
     string result;
     result.data = (u8*)buffer;
     
-    if (formatted_length >= 0 && formatted_length < count) {
+    if (formatted_length >= 0 && formatted_length < buffer_size) {
         result.count = formatted_length; 
     } else {
-        result.count = count - 1; 
+        result.count = buffer_size - 1; 
     }
 
     return result;
 }
-string sprint_va_list_to_buffer(const string fmt, va_list args, void* buffer, u64 count) {
+string sprint_va_list_to_buffer(const string fmt, va_list args, void* buffer, u64 buffer_size) {
 	
 	char* fmt_cstring = temp_convert_to_null_terminated_string(fmt);
-	return sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, count);
+	return sprint_null_terminated_string_va_list_to_buffer(fmt_cstring, args, buffer, buffer_size);
 }
 
 string sprint_va_list(Allocator allocator, const string fmt, va_list args) {
@@ -231,3 +231,94 @@ void default_logger(Log_Level level, string s) {
 		case LOG_ERROR:   print("[ERROR]:   %s\n", s); break;
 	}
 }
+
+
+typedef struct String_Builder {
+	union {
+		struct {u64 count;u8 *buffer;};
+		string result;
+	};
+	u64 buffer_capacity;
+	Allocator allocator;
+} String_Builder;
+
+
+void string_builder_reserve(String_Builder *b, u64 required_capacity) {
+	if (b->buffer_capacity >= required_capacity) return;
+	
+	u64 new_capacity = max(b->buffer_capacity*2, (u64)(required_capacity*1.5));
+	u8 *new_buffer = alloc(b->allocator, new_capacity);
+	if (b->buffer) {
+		memcpy(new_buffer, b->buffer, b->count);
+		dealloc(b->allocator, b->buffer);
+	}
+	b->buffer = new_buffer;
+	b->buffer_capacity = new_capacity;
+}
+void string_builder_init_reserve(String_Builder *b, u64 reserved_capacity, Allocator allocator) {
+	reserved_capacity = max(reserved_capacity, 128);
+	b->allocator = allocator;
+	b->buffer_capacity = 0;
+	b->buffer = 0;
+	string_builder_reserve(b, reserved_capacity);
+	b->count = 0;
+}
+void string_builder_init(String_Builder *b, Allocator allocator) {
+	string_builder_init_reserve(b, 128, allocator);
+}
+void string_builder_append(String_Builder *b, string s) {
+	assert(b->allocator.proc, "String_Builder is missing allocator");
+	string_builder_reserve(b, b->count+s.count);
+	
+	memcpy(b->buffer+b->count, s.data, s.count);
+	b->count += s.count;
+}
+
+void string_builder_prints(String_Builder *b, string fmt, ...) {
+	assert(b->allocator.proc, "String_Builder is missing allocator");
+	
+	va_list args1 = 0;
+	va_start(args1, fmt);
+	va_list args2 = 0;
+	va_copy(args2, args1);
+	
+	u64 formatted_count = format_string_to_buffer(0, 0, temp_convert_to_null_terminated_string(fmt), args1);
+	
+	va_end(args1);
+	
+	string_builder_reserve(b, b->count+formatted_count+1);
+	
+	format_string_to_buffer((char*)b->buffer+b->count, b->count+formatted_count+1, temp_convert_to_null_terminated_string(fmt), args2);
+	b->count += formatted_count;
+	
+	va_end(args2);
+}
+void string_builder_printf(String_Builder *b, const char *fmt, ...) {
+	assert(b->allocator.proc, "String_Builder is missing allocator");
+	
+	va_list args1 = 0;
+	va_start(args1, fmt);
+	va_list args2 = 0;
+	va_copy(args2, args1);
+	
+	u64 formatted_count = format_string_to_buffer(0, 0, fmt, args1);
+	
+	va_end(args1);
+	
+	string_builder_reserve(b, b->count+formatted_count+1);
+	
+	format_string_to_buffer((char*)b->buffer+b->count, b->buffer_capacity-b->count+1, fmt, args2);
+	b->count += formatted_count;
+	
+	va_end(args2);
+}
+
+#define string_builder_print(...) _Generic((SECOND_ARG(__VA_ARGS__)), \
+                           string:  string_builder_prints, \
+                           default: string_builder_printf \
+                          )(__VA_ARGS__)
+
+string string_builder_get_string(String_Builder *b) {
+	return b->result;
+}
+

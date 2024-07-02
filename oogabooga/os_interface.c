@@ -199,9 +199,11 @@ typedef enum Os_Io_Open_Flags {
 	// To append, pass WRITE flag without CREATE flag
 } Os_Io_Open_Flags;
 
-File os_file_open(string path, Os_Io_Open_Flags flags);
+File os_file_open_s(string path, Os_Io_Open_Flags flags);
 void os_file_close(File f);
-bool os_file_delete(string path);
+bool os_file_delete_s(string path);
+
+bool os_make_directory_s(string path, bool recursive);
 
 bool os_file_write_string(File f, string s);
 bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
@@ -209,12 +211,56 @@ bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
 bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes);
 
 bool os_write_entire_file_handle(File f, string data);
-bool os_write_entire_file(string path, string data);
+bool os_write_entire_file_s(string path, string data);
 bool os_read_entire_file_handle(File f, string *result, Allocator allocator);
-bool os_read_entire_file(string path, string *result, Allocator allocator);
+bool os_read_entire_file_s(string path, string *result, Allocator allocator);
 
-bool os_is_file(string path);
-bool os_is_directory(string path);
+bool os_is_file_s(string path);
+bool os_is_directory_s(string path);
+
+// It's a little unfortunate that we need to do this but I can't think of a better solution
+
+inline File os_file_open_f(const char *path, Os_Io_Open_Flags flags) {return os_file_open_s(STR(path), flags);}
+#define os_file_open(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_file_open_s, \
+                           default: os_file_open_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_file_delete_f(const char *path) {return os_file_delete_s(STR(path));}
+#define os_file_delete(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_file_delete_s, \
+                           default: os_file_delete_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_make_directory_f(const char *path, bool recursive) { return os_make_directory_s(STR(path), recursive); }
+#define os_make_directory(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_make_directory_s, \
+                           default: os_make_directory_f \
+                          )(__VA_ARGS__)
+
+inline bool os_write_entire_file_f(const char *path, string data) {return os_write_entire_file_s(STR(path), data);}
+#define os_write_entire_file(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_write_entire_file_s, \
+                           default: os_write_entire_file_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_read_entire_file_f(const char *path, string *result, Allocator allocator) {return os_read_entire_file_s(STR(path), result, allocator);}
+#define os_read_entire_file(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_read_entire_file_s, \
+                           default: os_read_entire_file_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_is_file_f(const char *path) {return os_is_file_s(STR(path));}
+#define os_is_file(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_is_file_s, \
+                           default: os_is_file_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_is_directory_f(const char *path) {return os_is_directory_s(STR(path));}
+#define os_is_directory(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_is_directory_s, \
+                           default: os_is_directory_f \
+                          )(__VA_ARGS__)
 
 
 void fprints(File f, string fmt, ...);

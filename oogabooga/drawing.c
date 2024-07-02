@@ -64,6 +64,7 @@ typedef struct Draw_Quad {
 	Vector4 uv;
 } Draw_Quad;
 
+
 typedef struct Draw_Quad_Block {
 	Draw_Quad quad_buffer[QUADS_PER_BLOCK];
 	u64 num_quads;
@@ -71,8 +72,12 @@ typedef struct Draw_Quad_Block {
 	struct Draw_Quad_Block *next;
 } Draw_Quad_Block;
 
+// I made these blocks part of the frame at first so they were temp allocated BUT I think 
+// that was a mistake because these blocks  are accessed a lot so we want it to just be
+// persistent memory that's super hot all the time.
+Draw_Quad_Block first_block = {0};
+
 typedef struct Draw_Frame {
-	Draw_Quad_Block first_block;
 	Draw_Quad_Block *current;
 	u64 num_blocks;
 	
@@ -89,6 +94,9 @@ Draw_Frame draw_frame = ZERO(Draw_Frame);
 void reset_draw_frame(Draw_Frame *frame) {
 	*frame = (Draw_Frame){0};
 	
+	frame->current = &first_block;
+	frame->current->num_quads = 0;
+	
 	float32 aspect = (float32)window.width/(float32)window.height;
 	
 	frame->projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
@@ -101,17 +109,20 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.top_right    = m4_transform(world_to_clip, v4(v2_expand(quad.top_right), 0, 1)).xy;
 	quad.bottom_right = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_right), 0, 1)).xy;
 
-	if (!draw_frame.current) draw_frame.current = &draw_frame.first_block;
+	if (!draw_frame.current) draw_frame.current = &first_block;
 	
-	if (draw_frame.current == &draw_frame.first_block)  draw_frame.num_blocks = 1;
+	if (draw_frame.current == &first_block)  draw_frame.num_blocks = 1;
 	
 	assert(draw_frame.current->num_quads <= QUADS_PER_BLOCK);
 	
 	if (draw_frame.current->num_quads == QUADS_PER_BLOCK) {
-		draw_frame.current->next = cast(Draw_Quad_Block*)talloc(sizeof(Draw_Quad_Block));
-		draw_frame.current = draw_frame.current->next;
 		
-		draw_frame.current->next = 0;
+		if (!draw_frame.current->next) {
+			draw_frame.current->next = cast(Draw_Quad_Block*)alloc(get_heap_allocator(), sizeof(Draw_Quad_Block));
+			*draw_frame.current->next = ZERO(Draw_Quad_Block);
+		}
+		
+		draw_frame.current = draw_frame.current->next;
 		draw_frame.current->num_quads = 0;
 		
 		draw_frame.num_blocks += 1;

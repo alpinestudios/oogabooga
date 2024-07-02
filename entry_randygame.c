@@ -1,14 +1,14 @@
 
 int entry(int argc, char **argv) {
 	
-	window.title = fixed_string("Randy's Game");
+	window.title = STR("Randy's Game");
 	window.width = 1280;
 	window.height = 720;
 	window.x = 200;
 	window.y = 200;
 	window.clear_color = hex_to_rgba(0x2a2d3aff);
 
-	Gfx_Image* player = load_image_from_disk(fixed_string("player.png"), get_heap_allocator());
+	Gfx_Image* player = load_image_from_disk(STR("player.png"), get_heap_allocator());
 	assert(player, "fuckie wucky happen");
 
 	Vector2 player_pos = v2(0, 0);

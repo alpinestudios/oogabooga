@@ -11,3 +11,7 @@ u64 get_random() {
     seed_for_random = seed_for_random * MULTIPLIER + INCREMENT;
     return seed_for_random;
 }
+
+f32 get_random_float32() {
+	return (float32)get_random()/(float32)UINT64_MAX;
+}

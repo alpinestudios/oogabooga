@@ -42,10 +42,12 @@ typedef u8 bool;
 	
 	
 void printf(const char* fmt, ...);
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-#define assert_line(line, cond, ...) if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
+#define ASSERT_STR_HELPER(x) #x
+#define ASSERT_STR(x) ASSERT_STR_HELPER(x)
+#define assert_line(line, cond, ...) if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
 #define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
+
+#define DEFER(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
 
 #if CONFIGURATION == RELEASE
 #undef assert
@@ -65,35 +67,73 @@ void printf(const char* fmt, ...);
     // Microsoft Visual C++
     #define inline __forceinline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    #include <intrin.h>
+    #pragma intrinsic(__rdtsc)
+    inline u64 rdtsc() {
+        return __rdtsc();
+    }
 #elif defined(__GNUC__) || defined(__GNUG__)
     // GNU GCC/G++
     #define inline __attribute__((always_inline)) inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+        return ((u64)hi << 32) | lo;
+    }
 #elif defined(__clang__)
     // Clang/LLVM
     #define inline __attribute__((always_inline)) inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+        return ((u64)hi << 32) | lo;
+    }
 #elif defined(__INTEL_COMPILER) || defined(__ICC)
     // Intel C++ Compiler
     #define inline __forceinline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline u64 rdtsc() {
+        return __rdtsc();
+    }
 #elif defined(__BORLANDC__)
     // Borland C++
     #define inline __inline
-#elif defined(__MINGW32__) || defined(__MINGW64__)
-    // MinGW (Minimalist GNU for Windows)
-    #define inline __attribute__((always_inline)) inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        __asm {
+            rdtsc
+            mov lo, eax
+            mov hi, edx
+        }
+        return ((u64)hi << 32) | lo;
+    }
 #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
     // Oracle Solaris Studio
     #define inline inline __attribute__((always_inline))
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
+        return ((u64)hi << 32) | lo;
+    }
 #elif defined(__IBMC__) || defined(__IBMCPP__)
     // IBM XL C/C++ Compiler
     #define inline __attribute__((always_inline)) inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+        return ((u64)hi << 32) | lo;
+    }
 #elif defined(__PGI)
     // Portland Group Compiler
     #define inline inline __attribute__((always_inline))
+    inline u64 rdtsc() {
+        unsigned int lo, hi;
+        asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
+        return ((u64)hi << 32) | lo;
+    }
 #else
     // Fallback for unknown compilers
     #define inline inline

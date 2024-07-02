@@ -134,6 +134,11 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 
 void os_init(u64 program_memory_size) {
 	
+	timeBeginPeriod(1);
+#if CONFIGURATION == RELEASE
+	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+#endif
+	
 	SYSTEM_INFO si;
     GetSystemInfo(&si);
 	os.granularity = cast(u64)si.dwAllocationGranularity;
@@ -163,22 +168,22 @@ void os_init(u64 program_memory_size) {
 	
 	heap_init();
 	
-	os.crt = os_load_dynamic_library(const_string("msvcrt.dll"));
+	os.crt = os_load_dynamic_library(STR("msvcrt.dll"));
 	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
-	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vsnprintf"));
+	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
 	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
-	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vprintf"));
+	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vprintf"));
 	assert(os.crt_vprintf, "Missing vprintf in crt");
-	os.crt_vsprintf = (Crt_Vsprintf_Proc)os_dynamic_library_load_symbol(os.crt, const_string("vsprintf"));
+	os.crt_vsprintf = (Crt_Vsprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsprintf"));
 	assert(os.crt_vsprintf, "Missing vsprintf in crt");
-	os.crt_memcpy = (Crt_Memcpy_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcpy"));
+	os.crt_memcpy = (Crt_Memcpy_Proc)os_dynamic_library_load_symbol(os.crt, STR("memcpy"));
 	assert(os.crt_memcpy, "Missing memcpy in crt");
-	os.crt_memcmp = (Crt_Memcmp_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memcmp"));
+	os.crt_memcmp = (Crt_Memcmp_Proc)os_dynamic_library_load_symbol(os.crt, STR("memcmp"));
 	assert(os.crt_memcmp, "Missing crt_memcmp in crt");
-	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, const_string("memset"));
+	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, STR("memset"));
 	assert(os.crt_memset, "Missing memset in crt");
 	
-	window.title = fixed_string("Unnamed Window");
+	window.title = STR("Unnamed Window");
 	window.width = 1280;
 	window.height = 720;
 	window.x = 0;
@@ -300,6 +305,12 @@ bool os_grow_program_memory(u64 new_size) {
 // Thread primitive
 
 DWORD WINAPI win32_thread_invoker(LPVOID param) {
+
+	timeBeginPeriod(1);
+#if CONFIGURATION == RELEASE
+	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+#endif
+
 	Thread *t = (Thread*)param;
 	temporary_storage_init();
 	context = t->initial_context;
@@ -447,9 +458,9 @@ void os_high_precision_sleep(f64 ms) {
 // Time
 ///
 
-#include <intrin.h> // #Cdep
+
 u64 os_get_current_cycle_count() {
-	return __rdtsc();
+	return rdtsc();
 }
 
 float64 os_get_current_time_in_seconds() {
@@ -531,7 +542,7 @@ string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
 }
 
 
-File os_file_open(string path, Os_Io_Open_Flags flags) {
+File os_file_open_s(string path, Os_Io_Open_Flags flags) {
     DWORD access = GENERIC_READ;
     DWORD creation = 0;
 
@@ -553,7 +564,7 @@ void os_file_close(File f) {
     CloseHandle(f);
 }
 
-bool os_file_delete(string path) {
+bool os_file_delete_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	return (bool)DeleteFileW(path_wide);
 }
@@ -583,8 +594,8 @@ bool os_write_entire_file_handle(File f, string data) {
     return os_file_write_string(f, data);
 }
 
-bool os_write_entire_file(string path, string data) {
-    File file = os_file_open(path, O_WRITE | O_CREATE);
+bool os_write_entire_file_s(string path, string data) {
+    File file = os_file_open_s(path, O_WRITE | O_CREATE);
     if (file == OS_INVALID_FILE) {
         return false;
     }
@@ -613,8 +624,8 @@ bool os_read_entire_file_handle(File f, string *result, Allocator allocator) {
     return actual_read == file_size.QuadPart;
 }
 
-bool os_read_entire_file(string path, string *result, Allocator allocator) {
-    File file = os_file_open(path, O_READ);
+bool os_read_entire_file_s(string path, string *result, Allocator allocator) {
+    File file = os_file_open_s(path, O_READ);
     if (file == OS_INVALID_FILE) {
         return false;
     }
@@ -623,7 +634,7 @@ bool os_read_entire_file(string path, string *result, Allocator allocator) {
     return res;
 }
 
-bool os_is_file(string path) {
+bool os_is_file_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	assert(path_wide, "Invalid path string");
     if (path_wide == NULL) {
@@ -639,7 +650,7 @@ bool os_is_file(string path) {
     return !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-bool os_is_directory(string path) {
+bool os_is_directory_s(string path) {
     u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	assert(path_wide, "Invalid path string");
     if (path_wide == NULL) {

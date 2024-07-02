@@ -2,17 +2,17 @@
 
 int entry(int argc, char **argv) {
 	
-	window.title = fixed_string("Engine Testing Example");
+	window.title = STR("My epic game");
 	window.width = 1280;
 	window.height = 720;
 	window.x = 200;
-	window.y = 200;
+	window.y = 0;
 
 	window.clear_color = hex_to_rgba(0x2a2d3aff);
 	
-	Gfx_Image *bush_image = load_image_from_disk(fixed_string("berry_bush.png"), get_heap_allocator());
+	Gfx_Image *bush_image = load_image_from_disk(STR("berry_bush.png"), get_heap_allocator());
 	assert(bush_image, "Failed loading berry_bush.png");
-	Gfx_Image *hammer_image = load_image_from_disk(fixed_string("hammer.png"), get_heap_allocator());
+	Gfx_Image *hammer_image = load_image_from_disk(STR("hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
 	seed_for_random = os_get_current_cycle_count();
@@ -23,7 +23,7 @@ int entry(int argc, char **argv) {
 	Matrix4 camera_view = m4_scalar(1.0);
 	
 	float64 last_time = os_get_current_time_in_seconds();
-	while (!window.should_close) {
+	while (!window.should_close) tm_scope_cycles("Frame") {
 		reset_temporary_storage();
 		
 		float64 now = os_get_current_time_in_seconds();
@@ -50,7 +50,7 @@ int entry(int argc, char **argv) {
 		
 		if (is_key_just_released('Q')) {
 			delete_image(bush_image);
-			bush_image = load_image_from_disk(fixed_string("berry_bush.png"), get_heap_allocator());
+			bush_image = load_image_from_disk(STR("berry_bush.png"), get_heap_allocator());
 			assert(bush_image, "Failed loading berry_bush.png");
 		}
 		
@@ -70,10 +70,24 @@ int entry(int argc, char **argv) {
 		}
 		
 		Vector2 cam_move = v2_mulf(cam_move_axis, delta * cam_move_speed);
-		
 		camera_view = m4_translate(camera_view, v3(v2_expand(cam_move), 0));
-		
 		draw_frame.view = camera_view;
+		
+		seed_for_random = 69;
+		for (u64 i = 0; i < 100000; i++) {
+			float32 aspect = (float32)window.width/(float32)window.height;
+			float min_x = -aspect;
+			float max_x = aspect;
+			float min_y = -1;
+			float max_y = 1;
+			
+			float x = get_random_float32() * (max_x-min_x) + min_x;
+			float y = get_random_float32() * (max_y-min_y) + min_y;
+			
+			draw_image(bush_image, v2(x, y), v2(0.1, 0.1), COLOR_WHITE);
+		}
+		seed_for_random = os_get_current_cycle_count();
+		
 		
 		Matrix4 hammer_xform = m4_scalar(1.0);
 		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);

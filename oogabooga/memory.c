@@ -19,7 +19,7 @@ void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message
 			init_memory_head += size;
 			
 			if (init_memory_head >= ((u8*)init_memory_arena+INIT_MEMORY_SIZE)) {
-				os_write_string_to_stdout(cstr("Out of initialization memory! Please provide more by increasing INIT_MEMORY_SIZE"));
+				os_write_string_to_stdout(STR("Out of initialization memory! Please provide more by increasing INIT_MEMORY_SIZE"));
 				os_break();
 			}
 			return p;
@@ -478,7 +478,7 @@ void* talloc(u64 size) {
 	
 	if ((u8*)temporary_storage_pointer >= (u8*)temporary_storage+TEMPORARY_STORAGE_SIZE) {
 		if (!has_warned_temporary_storage_overflow) {
-			os_write_string_to_stdout(cstr("WARNING: temporary storage was overflown, we wrap around at the start.\n"));
+			os_write_string_to_stdout(STR("WARNING: temporary storage was overflown, we wrap around at the start.\n"));
 		}
 		temporary_storage_pointer = temporary_storage;
 		return talloc(size);;

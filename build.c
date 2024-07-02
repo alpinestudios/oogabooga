@@ -7,6 +7,8 @@
 // This is only for people developing oogabooga!
 #define OOGABOOGA_DEV 1
 
+#define ENABLE_PROFILING 0
+
 // When we need very debug
 // #define CONFIGURATION VERY_DEBUG
 
@@ -24,6 +26,6 @@ typedef struct Context_Extra {
 //
 // Comment & Uncomment to swap projects
 
-// #include "entry_engine_test.c"
+//  #include "entry_engine_test.c"
 // #include "entry_minimal_example.c"
-#include "entry_randygame.c"
+ #include "entry_randygame.c"

@@ -13,11 +13,7 @@ typedef struct string {
 	u8 *data;
 } string;
 
-// Not sure what to call this lol
-#define fxstr fixed_string
-#define fixed_string const_string
-#define cstr const_string
-#define const_string(s) ((string){ length_of_null_terminated_string((const char*)s), (u8*)s })
+#define STR(s) ((string){ length_of_null_terminated_string((const char*)s), (u8*)s })
 
 inline u64 length_of_null_terminated_string(const char* cstring) {
 	u64 len = 0;
@@ -103,3 +99,5 @@ s64 string_find_from_right(string s, string sub) {
 	
 	return -1;
 }
+
+
