@@ -88,6 +88,8 @@ Cpu_Capabilities query_cpu_capabilities() {
     return result;
 }
 
+void* memcpy(void* dest, const void* source, size_t size);
+
 void (*simd_add_float32_64 )(float32 *a, float32 *b, float32* result) = 0;
 void (*simd_add_float32_128)(float32 *a, float32 *b, float32* result) = 0;
 void (*simd_add_float32_256)(float32 *a, float32 *b, float32* result) = 0;
@@ -347,33 +349,23 @@ inline void basic_mul_int32_512(s32 *a, s32 *b, s32* result) {
 	
 	// SSE 1 float32
 inline void sse1_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "addps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse1_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -381,33 +373,23 @@ inline void sse1_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse1_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse1_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -415,33 +397,23 @@ inline void sse1_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse1_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse1_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -449,33 +421,23 @@ inline void sse1_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse1_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse1_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -484,33 +446,23 @@ inline void sse1_div_float32_128(float32 *a, float32 *b, float32* result) {
 
 // SSE 2 float32
 inline void sse2_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "addps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse2_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -518,33 +470,23 @@ inline void sse2_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse2_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse2_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -552,33 +494,23 @@ inline void sse2_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse2_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a), "r" (b), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse2_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -586,33 +518,23 @@ inline void sse2_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse2_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse2_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -658,33 +580,23 @@ inline void sse2_mul_int32_128(s32 *a, s32 *b, s32* result) {
 
 // SSE 3 float32
 inline void sse3_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "addps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse3_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -692,33 +604,23 @@ inline void sse3_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse3_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse3_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -726,33 +628,23 @@ inline void sse3_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse3_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse3_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -760,33 +652,23 @@ inline void sse3_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse3_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse3_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -795,33 +677,23 @@ inline void sse3_div_float32_128(float32 *a, float32 *b, float32* result) {
 
 // SSSE 3 float32
 inline void ssse3_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "addps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void ssse3_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -829,33 +701,23 @@ inline void ssse3_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void ssse3_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void ssse3_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -863,33 +725,23 @@ inline void ssse3_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void ssse3_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void ssse3_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -897,33 +749,23 @@ inline void ssse3_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void ssse3_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void ssse3_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -932,33 +774,23 @@ inline void ssse3_div_float32_128(float32 *a, float32 *b, float32* result) {
 
 // SSE4.1 float32
 inline void sse41_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "addps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse41_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -966,33 +798,23 @@ inline void sse41_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse41_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse41_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1000,33 +822,23 @@ inline void sse41_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse41_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse41_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1034,33 +846,23 @@ inline void sse41_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse41_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse41_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1069,33 +871,23 @@ inline void sse41_div_float32_128(float32 *a, float32 *b, float32* result) {
 
 // SSE4.2 float32
 inline void sse42_add_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "addss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"  // Load 2 floats from a into xmm0
+        "movups (%1), %%xmm1\n\t"  // Load 2 floats from b into xmm1
+        "addps %%xmm1, %%xmm0\n\t" // Add xmm1 to xmm0 (packed single precision)
+        "movups %%xmm0, (%2)\n\t"  // Store result from xmm0 to result
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse42_add_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "addps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1103,33 +895,23 @@ inline void sse42_add_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse42_sub_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "subss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "subps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse42_sub_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "subps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1138,33 +920,23 @@ inline void sse42_sub_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse42_mul_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "mulss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "mulps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse42_mul_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "mulps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
@@ -1172,33 +944,23 @@ inline void sse42_mul_float32_128(float32 *a, float32 *b, float32* result) {
 }
 
 inline void sse42_div_float32_64(float32 *a, float32 *b, float32* result) {
-	float a128[2];
-	a128[0] = *a;
-	a128[1] = 0;
-	float b128[2];
-	b128[0] = *b;
-	b128[1] = 0;
-	float r128[2];
-	r128[0] = *result;
-	r128[1] = 0;
     __asm__ (
-        "movss (%0), %%xmm0\n\t"
-        "movss (%1), %%xmm1\n\t"
-        "divss %%xmm1, %%xmm0\n\t"
-        "movss %%xmm0, (%2)\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
+        "divps %%xmm1, %%xmm0\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
-        : "r" (a128), "r" (b128), "r" (r128)
+        : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"
     );
-    *result = r128[0];
 }
 
 inline void sse42_div_float32_128(float32 *a, float32 *b, float32* result) {
     __asm__ (
-        "movaps (%0), %%xmm0\n\t"
-        "movaps (%1), %%xmm1\n\t"
+        "movups (%0), %%xmm0\n\t"
+        "movups (%1), %%xmm1\n\t"
         "divps %%xmm1, %%xmm0\n\t"
-        "movaps %%xmm0, (%2)\n\t"
+        "movups %%xmm0, (%2)\n\t"
         :
         : "r" (a), "r" (b), "r" (result)
         : "xmm0", "xmm1"

@@ -64,27 +64,31 @@ inline Vector2 v2_divf(Vector2 a, float32 s) {
 }
 
 inline Vector3 v3_add(Vector3 a, Vector3 b) {
-	simd_add_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
-	a.z += b.z;
-	return a;
+	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+	simd_add_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	return a128.xyz;
 }
 inline Vector3 v3_sub(Vector3 a, Vector3 b) {
-	simd_sub_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
-	a.z -= b.z;
-	return a;
+	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+	simd_sub_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	return a128.xyz;
 }
 inline Vector3 v3_mul(Vector3 a, Vector3 b) {
-	simd_sub_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
-	a.z *= b.z;
-	return a;
+	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+	simd_mul_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	return a128.xyz;
 }
 inline Vector3 v3_mulf(Vector3 a, float32 s) {
 	return v3_mul(a, v3(s, s, s));
 }
 inline Vector3 v3_div(Vector3 a, Vector3 b) {
-	simd_sub_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
-	a.z /= b.z;
-	return a;
+	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+	simd_div_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	return a128.xyz;
 }
 inline Vector3 v3_divf(Vector3 a, float32 s) {
 	return v3_div(a, v3(s, s, s));
