@@ -196,7 +196,15 @@ thread_local u64 num_contexts = 0;
 
 forward_global thread_local Allocator temp;
 
+void* memset(void* dest, int value, size_t amount);
 void* alloc(Allocator allocator, u64 size) {
+	void *p = allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);
+#if DO_ZERO_INITIALIZATION
+	memset(p, 0, size);
+#endif
+	return p;
+}
+void* alloc_uninitialized(Allocator allocator, u64 size) {
 	return allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);	
 }
 void dealloc(Allocator allocator, void *p) {

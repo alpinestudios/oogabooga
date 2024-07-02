@@ -1,6 +1,6 @@
 
 
-#define VIRTUAL_MEMORY_BASE ((void*)0x0000010000000000ULL)
+#define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 
 void* heap_alloc(u64);
 void heap_dealloc(void*);
@@ -240,6 +240,48 @@ void os_init(u64 program_memory_size) {
     
 }
 
+void s64_to_null_terminated_string_reverse(char str[], int length)
+{
+    int start = 0;
+    int end = length - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        end--;
+        start++;
+    }
+}
+
+void s64_to_null_terminated_string(s64 num, char* str, int base)
+{
+    int i = 0;
+    bool neg = false;
+ 
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
+    }
+ 
+    if (num < 0 && base == 10) {
+        neg = true;
+        num = -num;
+    }
+ 
+    while (num != 0) {
+        int rem = num % base;
+        str[i++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
+        num = num / base;
+    }
+ 
+    if (neg)
+        str[i++] = '-';
+ 
+    str[i] = '\0';
+    s64_to_null_terminated_string_reverse(str, i);
+}
+
 bool os_grow_program_memory(u64 new_size) {
 	os_lock_mutex(program_memory_mutex); // #Sync
 	if (program_memory_size >= new_size) {
@@ -275,6 +317,10 @@ bool os_grow_program_memory(u64 new_size) {
 		assert(m == 0, "amount_to_allocate is not aligned to granularity!");
 		// Just keep allocating at the tail of the current chunk
 		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		assert(result == tail);
+#if CONFIGURATION == DEBUG
+		volatile u8 a = *(u8*)tail = 69;
+#endif
 		memset(result, 0xBA, amount_to_allocate);
 		if (result == 0) { 
 			os_unlock_mutex(program_memory_mutex); // #Sync
@@ -289,7 +335,12 @@ bool os_grow_program_memory(u64 new_size) {
 	}
 
 	
+	char size_str[32];
+	s64_to_null_terminated_string(program_memory_size/1024, size_str, 10);
 	
+	os_write_string_to_stdout(STR("Program memory grew to "));
+	os_write_string_to_stdout(STR(size_str));
+	os_write_string_to_stdout(STR(" kb\n"));
 	os_unlock_mutex(program_memory_mutex); // #Sync
 	return true;
 }
@@ -440,7 +491,7 @@ void os_high_precision_sleep(f64 ms) {
 	
 	f64 start = os_get_current_time_in_seconds();
 	f64 end = start + (f64)s;
-	u32 sleep_time = (u32)((end-start)-1.0);
+	s32 sleep_time = (s32)((end-start)-1.0);
 	bool do_sleep = sleep_time >= 1;
 	
 	timeBeginPeriod(1); // I don't see a reason to reset this

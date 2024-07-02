@@ -1,4 +1,5 @@
 
+
 #define DEBUG 0
 #define VERY_DEBUG 1
 #define RELEASE 2
@@ -15,6 +16,10 @@
 
 #ifndef ENTRY_PROC
 	#define ENTRY_PROC entry
+#endif
+
+#ifndef DO_ZERO_INITIALIZATION
+	#define DO_ZERO_INITIALIZATION 1
 #endif
 
 #define WINDOWS 0
@@ -213,7 +218,7 @@ void oogabooga_init(u64 program_memory_size) {
 }
 
 #ifndef INITIAL_PROGRAM_MEMORY_SIZE
-	#define INITIAL_PROGRAM_MEMORY_SIZE (1024ULL * 1024ULL * 100ULL) // Start with 100mb program memory
+	#define INITIAL_PROGRAM_MEMORY_SIZE (max((1024ULL * 1024ULL * 100ULL), TEMPORARY_STORAGE_SIZE*2))
 #endif
 #ifndef RUN_TESTS
 	#define RUN_TESTS 0
@@ -223,8 +228,12 @@ void oogabooga_init(u64 program_memory_size) {
 int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
-	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
+
+
 	printf("Ooga booga program started\n");
+	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
+	
+	assert(main != ENTRY_PROC, "You've ooga'd your last booga");
 	
 	// This can be disabled in build.c
 	#if RUN_TESTS

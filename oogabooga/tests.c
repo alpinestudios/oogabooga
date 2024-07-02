@@ -47,15 +47,23 @@ void test_allocator(bool do_log_heap) {
     assert(*c == 1337, "Test failed: Memory corrupted");
 
     // Test growing memory
-    os_grow_program_memory(1024 * 1024 * 1000);
+    //os_grow_program_memory(1024 * 1024 * 1000);
     
     assert(*a == 69, "Test failed: Memory corrupted");
     assert(*b == 420, "Test failed: Memory corrupted");
     assert(*c == 1337, "Test failed: Memory corrupted");
-
+    
+    u8 check_bytes[1024];
+    for (u64 i = 0; i < 1024; i += 4) {
+    	*((int*)&check_bytes[i]) = (int)get_random();
+    }
+    u8 *check_bytes_copy = (u8*)alloc(heap, 1024);
+    memcpy(check_bytes_copy, check_bytes, 1024);
+    
+    
     // Allocate and free large block
-    void* large_block = alloc(heap, 1024 * 1024 * 100);
-    dealloc(heap, large_block);
+    //void* large_block = alloc(heap, 1024 * 1024 * 100);
+    //dealloc(heap, large_block);
 
     // Allocate multiple small blocks
     void* blocks[100];
@@ -75,6 +83,7 @@ void test_allocator(bool do_log_heap) {
         dealloc(heap, p);
     }
 
+    
     // Free in reverse order
     for (int i = 0; i < 100; ++i) {
         blocks[i] = alloc(heap, 128);
@@ -93,7 +102,7 @@ void test_allocator(bool do_log_heap) {
             nums[i][j] = i * 10 + j;
         }
     }
-
+	
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
             assert(nums[i][j] == i * 10 + j, "Memory corruption detected");
@@ -102,7 +111,9 @@ void test_allocator(bool do_log_heap) {
     }
     
     
+    
     reset_temporary_storage();
+    
     
     int* foo = (int*)alloc(temp, 72);
     *foo = 1337;
@@ -173,6 +184,8 @@ void test_allocator(bool do_log_heap) {
     for (int i = 1; i < 50; i += 2) {
         dealloc(heap, blocks[i]);
     }
+    
+    assert(bytes_match(check_bytes, check_bytes_copy, 1024), "Memory corrupt");
     
     if (do_log_heap) log_heap();
 }

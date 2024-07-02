@@ -10,9 +10,9 @@ int entry(int argc, char **argv) {
 
 	window.clear_color = hex_to_rgba(0x2a2d3aff);
 	
-	Gfx_Image *bush_image = load_image_from_disk(STR("berry_bush.png"), get_heap_allocator());
+	Gfx_Image *bush_image = load_image_from_disk(STR("oogabooga/examples/berry_bush.png"), get_heap_allocator());
 	assert(bush_image, "Failed loading berry_bush.png");
-	Gfx_Image *hammer_image = load_image_from_disk(STR("hammer.png"), get_heap_allocator());
+	Gfx_Image *hammer_image = load_image_from_disk(STR("oogabooga/examples/hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
 	seed_for_random = os_get_current_cycle_count();
@@ -50,7 +50,7 @@ int entry(int argc, char **argv) {
 		
 		if (is_key_just_released('Q')) {
 			delete_image(bush_image);
-			bush_image = load_image_from_disk(STR("berry_bush.png"), get_heap_allocator());
+			bush_image = load_image_from_disk(STR("oogabooga/examples/berry_bush.png"), get_heap_allocator());
 			assert(bush_image, "Failed loading berry_bush.png");
 		}
 		

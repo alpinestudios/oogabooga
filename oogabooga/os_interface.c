@@ -91,6 +91,8 @@ inline int crt_vprintf(const char* fmt, va_list args) {
 	}
 #endif
 
+inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
+
 inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
 	return os.crt_vsnprintf(buffer, n, fmt, args);
 }

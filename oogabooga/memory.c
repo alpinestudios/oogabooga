@@ -1,11 +1,15 @@
 
 
+#define KB(x) (x*1024ull)
+#define MB(x) ((KB(x))*1024ull)
+#define GB(x) ((MB(x))*1024ull)
+
 
 void* program_memory = 0;
 u64 program_memory_size = 0;
 
 #ifndef INIT_MEMORY_SIZE
-	#define INIT_MEMORY_SIZE (1024*50)
+	#define INIT_MEMORY_SIZE KB(50)
 #endif
 // We may need to allocate stuff in initialization time before the heap is ready.
 // That's what this is for.
@@ -50,7 +54,8 @@ Allocator get_initialization_allocator() {
 // We could fix it by merging free nodes every now and then
 // BUT: We aren't really supposed to allocate/deallocate directly on the heap too much anyways...
 
-#define DEFAULT_HEAP_BLOCK_SIZE min((os.page_size * 1024ULL * 50ULL), program_memory_size)
+#define MAX_HEAP_BLOCK_SIZE ((MB(500)+os.page_size)& ~(os.page_size-1))
+#define DEFAULT_HEAP_BLOCK_SIZE (min(MAX_HEAP_BLOCK_SIZE, program_memory_size))
 #define HEAP_ALIGNMENT (sizeof(Heap_Free_Node))
 typedef struct Heap_Free_Node Heap_Free_Node;
 typedef struct Heap_Block Heap_Block;
@@ -187,7 +192,7 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 	// #Speed #Cleanup
 	if (((u8*)block)+size >= ((u8*)program_memory)+program_memory_size) {
 		u64 minimum_size = ((u8*)block+size) - (u8*)program_memory + 1;
-		u64 new_program_size = (cast(u64)(minimum_size * 1.5));
+		u64 new_program_size = max((cast(u64)(minimum_size*2)), program_memory_size*2);
 		assert(new_program_size >= minimum_size, "Bröd");
 		const u64 ATTEMPTS = 1000;
 		for (u64 i = 0; i <= ATTEMPTS; i++) {
@@ -226,7 +231,7 @@ void *heap_alloc(u64 size) {
 	
 	size = (size+HEAP_ALIGNMENT) & ~(HEAP_ALIGNMENT-1);
 	
-	assert(size < DEFAULT_HEAP_BLOCK_SIZE, "Past Charlie has been lazy and did not handle large allocations like this. I apologize on behalf of past Charlie. A quick fix could be to increase the heap block size for now.");
+	assert(size < MAX_HEAP_BLOCK_SIZE, "Past Charlie has been lazy and did not handle large allocations like this. I apologize on behalf of past Charlie. A quick fix could be to increase the heap block size for now.");
 	
 	Heap_Block *block = heap_head;
 	Heap_Block *last_block = 0;
@@ -237,6 +242,13 @@ void *heap_alloc(u64 size) {
 	// #Speed
 	// Maybe instead of going through EVERY free node to find best fit we do a good-enough fit
 	while (block != 0) {
+	
+		if (block->size < size) {
+			last_block = block;
+			block = block->next;
+			continue;
+		}
+	
 		Heap_Search_Result result = search_heap_block(block, size);
 		Heap_Free_Node *node = result.best_fit;
 		if (node) {
@@ -263,7 +275,7 @@ void *heap_alloc(u64 size) {
 	}
 	
 	if (!best_fit) {
-		block = make_heap_block(last_block, DEFAULT_HEAP_BLOCK_SIZE);
+		block = make_heap_block(last_block, max(DEFAULT_HEAP_BLOCK_SIZE, size));
 		previous = 0;
 		best_fit = block->free_head;
 		best_fit_block = block;
@@ -423,7 +435,7 @@ Allocator get_heap_allocator() {
 ///
 
 #ifndef TEMPORARY_STORAGE_SIZE
-	#define TEMPORARY_STORAGE_SIZE (1024ULL*1024ULL*16ULL) // 16mb
+	#define TEMPORARY_STORAGE_SIZE (1024ULL*1024ULL*2ULL) // 2mb
 #endif
 
 void* talloc(u64);
