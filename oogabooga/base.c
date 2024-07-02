@@ -60,85 +60,26 @@ void printf(const char* fmt, ...);
 
 #define ZERO(t) (t){0}
 
-///
-// Compiler specific stuff
-// We make inline actually inline.
-#ifdef _MSC_VER
-    // Microsoft Visual C++
-    #define inline __forceinline
+
+#ifdef __clang__
+    // Clang/LLVM
+    #define inline __attribute__((always_inline)) inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    #include <intrin.h>
-    #pragma intrinsic(__rdtsc)
-    inline u64 rdtsc() {
-        return __rdtsc();
-    }
+    #define COMPILER_CLANG 1
 #elif defined(__GNUC__) || defined(__GNUG__)
     // GNU GCC/G++
     #define inline __attribute__((always_inline)) inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-        return ((u64)hi << 32) | lo;
-    }
-#elif defined(__clang__)
-    // Clang/LLVM
-    #define inline __attribute__((always_inline)) inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-        return ((u64)hi << 32) | lo;
-    }
-#elif defined(__INTEL_COMPILER) || defined(__ICC)
-    // Intel C++ Compiler
+    #define COMPILER_GCC 1
+#elif defined(_MSC_VER)
+    // Microsoft Visual C++
     #define inline __forceinline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline u64 rdtsc() {
-        return __rdtsc();
-    }
-#elif defined(__BORLANDC__)
-    // Borland C++
-    #define inline __inline
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        __asm {
-            rdtsc
-            mov lo, eax
-            mov hi, edx
-        }
-        return ((u64)hi << 32) | lo;
-    }
-#elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
-    // Oracle Solaris Studio
-    #define inline inline __attribute__((always_inline))
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
-        return ((u64)hi << 32) | lo;
-    }
-#elif defined(__IBMC__) || defined(__IBMCPP__)
-    // IBM XL C/C++ Compiler
-    #define inline __attribute__((always_inline)) inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-        return ((u64)hi << 32) | lo;
-    }
-#elif defined(__PGI)
-    // Portland Group Compiler
-    #define inline inline __attribute__((always_inline))
-    inline u64 rdtsc() {
-        unsigned int lo, hi;
-        asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
-        return ((u64)hi << 32) | lo;
-    }
+    #define COMPILER_MSVC 1
 #else
-    // Fallback for unknown compilers
     #define inline inline
+    #define COMPILER_HAS_MEMCPY_INTRINSICS 0
 #endif
-
 
 #define FIRST_ARG(arg1, ...) arg1
 #define SECOND_ARG(arg1, arg2, ...) arg2

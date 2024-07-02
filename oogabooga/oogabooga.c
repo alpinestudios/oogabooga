@@ -22,6 +22,11 @@
 	#define DO_ZERO_INITIALIZATION 1
 #endif
 
+#ifndef ENABLE_SIMD
+	#define ENABLE_SIMD 1
+#endif
+
+
 #define WINDOWS 0
 #define LINUX   1
 #define MACOS   2
@@ -68,7 +73,7 @@ void lodepng_free(void* ptr) {
 
 /////
 
-
+#include "cpu.c"
 
 #ifdef _WIN32
 	#include <Windows.h>
@@ -211,10 +216,21 @@ void _profiler_report_time_cycles(string name, u64 count, u64 start) {
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;
 	temp = get_initialization_allocator();
+	init_cpu_specific();
+	Cpu_Capabilities features = query_cpu_capabilities();
 	os_init(program_memory_size);
 	heap_init();
 	temporary_storage_init();
 	gfx_init();
+	log_verbose("CPU has sse1: %cs", features.sse1 ? "true" : "false");
+	log_verbose("CPU has sse2: %cs", features.sse2 ? "true" : "false");
+	log_verbose("CPU has sse3: %cs", features.sse3 ? "true" : "false");
+	log_verbose("CPU has ssse3: %cs", features.ssse3 ? "true" : "false");
+	log_verbose("CPU has sse41: %cs", features.sse41 ? "true" : "false");
+	log_verbose("CPU has sse42: %cs", features.sse42 ? "true" : "false");
+	log_verbose("CPU has avx: %cs", features.avx ? "true" : "false");
+	log_verbose("CPU has avx2: %cs", features.avx2 ? "true" : "false");
+	log_verbose("CPU has avx512: %cs", features.avx512 ? "true" : "false");
 }
 
 #ifndef INITIAL_PROGRAM_MEMORY_SIZE
@@ -228,7 +244,6 @@ void oogabooga_init(u64 program_memory_size) {
 int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
-
 
 	printf("Ooga booga program started\n");
 	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 

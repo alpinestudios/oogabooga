@@ -539,8 +539,202 @@ void test_file_io() {
     delete_ok = os_file_delete("integers");
     assert(delete_ok, "Failed: could not delete integers"); 
 }
+void test_simd() {
 
+	u64 start = os_get_current_cycle_count();
+
+    // Setup test data
+    float32 a_f32[32], b_f32[32], result_f32[32];
+    s32 a_i32[16], b_i32[16], result_i32[16];
+    
+    for (int i = 0; i < 16; ++i) {
+        a_f32[i] = i * 1.0f;
+        b_f32[i] = (i + 1) * 2.0f;
+        a_i32[i] = i;
+        b_i32[i] = i + 1;
+    }
+    
+    // Test function pointers setup
+    query_cpu_capabilities();
+    
+    // Test float32 add
+    simd_add_float32_64(a_f32, b_f32, result_f32);
+    assert(result_f32[0] == a_f32[0]+b_f32[0], "SIMD add float32 64 failed");
+
+    simd_add_float32_128(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 128 failed");
+    }
+
+    simd_add_float32_256(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 256 failed");
+    }
+
+    simd_add_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 512 failed");
+    }
+
+    // Test float32 subtract
+    simd_sub_float32_64(a_f32, b_f32, result_f32);
+    assert(result_f32[0] == a_f32[0]-b_f32[0], "SIMD sub float32 64 failed");
+
+    simd_sub_float32_128(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 128 failed");
+    }
+
+    simd_sub_float32_256(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 256 failed");
+    }
+
+    simd_sub_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 512 failed");
+    }
+
+    // Test float32 multiply
+    simd_mul_float32_64(a_f32, b_f32, result_f32);
+    assert(result_f32[0] == a_f32[0]*b_f32[0], "SIMD mul float32 64 failed");
+
+    simd_mul_float32_128(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 128 failed");
+    }
+
+    simd_mul_float32_256(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 256 failed");
+    }
+
+    simd_mul_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 512 failed");
+    }
+
+    // Test float32 divide
+    simd_div_float32_64(a_f32, b_f32, result_f32);
+    assert(result_f32[0] == a_f32[0]/b_f32[0], "SIMD div float32 64 failed");
+
+    simd_div_float32_128(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 128 failed");
+    }
+
+    simd_div_float32_256(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 256 failed");
+    }
+
+    simd_div_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 512 failed");
+    }
+
+    // Test int32 add
+    simd_add_int32_128(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_i32[i] == a_i32[i] + b_i32[i], "SIMD add int32 128 failed");
+    }
+
+    simd_add_int32_256(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_i32[i] == a_i32[i] + b_i32[i], "SIMD add int32 256 failed");
+    }
+
+    simd_add_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] + b_i32[i], "SIMD add int32 512 failed");
+    }
+
+    // Test int32 subtract
+    simd_sub_int32_128(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_i32[i] == a_i32[i] - b_i32[i], "SIMD sub int32 128 failed");
+    }
+
+    simd_sub_int32_256(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_i32[i] == a_i32[i] - b_i32[i], "SIMD sub int32 256 failed");
+    }
+
+    simd_sub_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] - b_i32[i], "SIMD sub int32 512 failed");
+    }
+
+    // Test int32 multiply
+    simd_mul_int32_128(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 4; ++i) {
+        assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 128 failed");
+    }
+
+    simd_mul_int32_256(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 8; ++i) {
+        assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 256 failed");
+    }
+
+    simd_mul_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 512 failed");
+    }
+
+    // Stress test with random values
+    for (int i = 0; i < 16; ++i) {
+        a_f32[i] = (float32)get_random();
+        b_f32[i] = (float32)get_random();
+        a_i32[i] = (s32)get_random();
+        b_i32[i] = (s32)get_random();
+    }
+
+    simd_add_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 stress test failed");
+    }
+
+    simd_sub_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 stress test failed");
+    }
+
+    simd_mul_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 stress test failed");
+    }
+
+    simd_div_float32_512(a_f32, b_f32, result_f32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 stress test failed");
+    }
+
+    simd_add_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] + b_i32[i], "SIMD add int32 stress test failed");
+    }
+
+    simd_sub_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] - b_i32[i], "SIMD sub int32 stress test failed");
+    }
+
+    simd_mul_int32_512(a_i32, b_i32, result_i32);
+    for (int i = 0; i < 16; ++i) {
+        assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 stress test failed");
+    }
+    
+    u64 end = os_get_current_cycle_count();
+    
+    u64 cycles = end-start;
+    
+    print(" simd took %llu cycles ", cycles);
+}
 void oogabooga_run_tests() {
+	print("Testing simd... ");
+	test_simd();
+	print("OK!\n");
+	
 	print("Testing allocator... ");
 	test_allocator(true);
 	print("OK!\n");
@@ -553,6 +747,7 @@ void oogabooga_run_tests() {
 	test_strings();
 	print("OK!\n");
 
+	
 	print("Thread bombing allocator... ");
 	Thread* threads[100];
 	for (int i = 0; i < 100; i++) {
@@ -567,4 +762,5 @@ void oogabooga_run_tests() {
 	print("Testing file IO... ");
 	test_file_io();
 	print("OK!\n");
+	
 }
