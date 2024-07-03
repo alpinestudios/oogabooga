@@ -32,6 +32,6 @@ typedef struct Context_Extra {
 //
 // Comment & Uncomment to swap projects
 
-#include "oogabooga/examples/renderer_stress_test.c"
+//#include "oogabooga/examples/renderer_stress_test.c"
 // #include "oogabooga/examples/minimal_game_loop.c"
-// #include "entry_randygame.c"
+ #include "entry_randygame.c"
