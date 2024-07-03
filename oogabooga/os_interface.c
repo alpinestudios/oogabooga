@@ -206,6 +206,7 @@ void os_file_close(File f);
 bool os_file_delete_s(string path);
 
 bool os_make_directory_s(string path, bool recursive);
+bool os_delete_directory_s(string path, bool recursive);
 
 bool os_file_write_string(File f, string s);
 bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
@@ -219,6 +220,13 @@ bool os_read_entire_file_s(string path, string *result, Allocator allocator);
 
 bool os_is_file_s(string path);
 bool os_is_directory_s(string path);
+
+bool os_is_path_absolute(string path);
+
+bool os_get_absolute_path(string path, string *result, Allocator allocator);
+bool os_get_relative_path(string from, string to, string *result, Allocator allocator);
+
+bool os_do_paths_match(string a, string b);
 
 // It's a little unfortunate that we need to do this but I can't think of a better solution
 
@@ -238,6 +246,11 @@ inline bool os_make_directory_f(const char *path, bool recursive) { return os_ma
 #define os_make_directory(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
                            string:  os_make_directory_s, \
                            default: os_make_directory_f \
+                          )(__VA_ARGS__)
+inline bool os_delete_directory_f(const char *path, bool recursive) { return os_delete_directory_s(STR(path), recursive); }
+#define os_delete_directory(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_delete_directory_s, \
+                           default: os_delete_directory_f \
                           )(__VA_ARGS__)
 
 inline bool os_write_entire_file_f(const char *path, string data) {return os_write_entire_file_s(STR(path), data);}
@@ -263,7 +276,8 @@ inline bool os_is_directory_f(const char *path) {return os_is_directory_s(STR(pa
                            string:  os_is_directory_s, \
                            default: os_is_directory_f \
                           )(__VA_ARGS__)
-
+                          
+                          
 
 void fprints(File f, string fmt, ...);
 void fprintf(File f, const char* fmt, ...);

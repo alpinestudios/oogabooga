@@ -1,4 +1,4 @@
-
+¨
 int entry(int argc, char **argv) {
 	
 	window.title = STR("Minimal Game Example");

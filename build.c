@@ -3,7 +3,7 @@
 ///
 // Build config stuff
 
-#define RUN_TESTS 1
+#define RUN_TESTS 0
 
 // This is only for people developing oogabooga!
 #define OOGABOOGA_DEV 1
@@ -29,6 +29,9 @@ typedef struct Context_Extra {
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
 
+// #Volatile tutorial below
+// #Volatile tutorial below
+// #Volatile tutorial below
 
 //
 // Comment & Uncomment these to swap projects (only include one at a time)

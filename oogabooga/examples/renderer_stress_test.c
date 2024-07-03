@@ -15,6 +15,8 @@ int entry(int argc, char **argv) {
 	Gfx_Image *hammer_image = load_image_from_disk(STR("oogabooga/examples/hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
+	Gfx_Font *font = load_font_From_disk(
+	
 	seed_for_random = os_get_current_cycle_count();
 	
 	const float64 fps_limit = 69000;
@@ -99,6 +101,10 @@ int entry(int argc, char **argv) {
 		draw_rect(v2_sub(hover_position, local_pivot), v2(.25f, .25f), v4((sin(now)+1.0)/2.0, 1.0, 0.0, 1.0));
 		
 		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
+		
+		draw_frame.font = STR("");
+		
+		draw_text();
 		
 		gfx_update();
 		

@@ -531,6 +531,37 @@ void test_file_io() {
     assert(integers_read.count == integers_data.count, "Failed: big file read/write mismatch. Read was %d and written was %d", integers_read.count, integers_data.count);
     assert(strings_match(integers_data, integers_read), "Failed: big file read/write mismatch");
 
+	assert(os_is_file("test.txt"), "Failed: test.txt not recognized as file");
+	assert(os_is_file("test_bytes.txt"), "Failed: test_bytes.txt not recognized as file");
+	assert(os_is_file("entire_test.txt"), "Failed: entire_test.txt not recognized as file");
+	assert(os_is_file("balls.txt"), "Failed: balls.txt not recognized as file");
+	assert(os_is_file("integers"), "Failed: integers not recognized as file");
+	
+	bool dir_ok = os_make_directory("test_dir", false);
+	assert(dir_ok, "Failed: os_make_directory");
+	
+	assert(os_is_directory("test_dir"), "Failed: os_is_directory");
+	
+	string dir_abs;
+	bool abs_ok = os_get_absolute_path(STR("test_dir"), &dir_abs, heap);
+	assert(abs_ok, "Failed: os_get_absolute_path");
+	assert(os_is_path_absolute(dir_abs), "Failed: os_is_path_absolute");
+	assert(!os_is_path_absolute(STR("test_dir")), "Failed: os_is_path_absolute");
+	string dir_rel;
+	bool rel_ok = os_get_relative_path(STR("."), dir_abs, &dir_rel, heap);
+	assert(rel_ok, "Failed: os_get_relative_path");
+	assert(os_do_paths_match(dir_rel, STR("test_dir")), "Failed: Resolved relative path does not match. Expected '.\test_dir', got %s.", dir_rel);
+	
+	dir_ok = os_make_directory("test_dir1/test_dir2/test_dir3", true);
+	assert(dir_ok, "Failed: os_make_directory");
+	dir_ok = os_make_directory("test_dir1/test_dir2/test_dir4", true);
+	assert(dir_ok, "Failed: os_make_directory");
+	
+	assert(os_is_directory("test_dir1"), "Failed: os_is_directory");
+	assert(os_is_directory("test_dir1/test_dir2"), "Failed: os_is_directory");
+	assert(os_is_directory("test_dir1/test_dir2//test_dir3"), "Failed: os_is_directory");
+	assert(os_is_directory("test_dir1/test_dir2//test_dir4"), "Failed: os_is_directory");
+
     // Clean up test files
     bool delete_ok = false;
     delete_ok = os_file_delete("test.txt");
@@ -543,6 +574,10 @@ void test_file_io() {
     assert(delete_ok, "Failed: could not delete balls.txt");
     delete_ok = os_file_delete("integers");
     assert(delete_ok, "Failed: could not delete integers"); 
+    delete_ok = os_delete_directory("test_dir", false);
+    assert(delete_ok, "Failed: could not delete test_dir"); 
+    delete_ok = os_delete_directory("test_dir1", true);
+    assert(delete_ok, "Failed: could not delete test_dir1 (recursive)"); 
 }
 bool floats_roughly_match(float a, float b) {
 	return fabs(a - b) < 0.01;

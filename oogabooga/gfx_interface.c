@@ -36,3 +36,9 @@ typedef struct Gfx_Image {
 	Allocator allocator;
 } Gfx_Image;
 
+typedef struct Gfx_Font {
+	u32 width, height;
+	u8 *data;
+	Gfx_Handle gfx_handle;
+	Allocator allocator;
+} Gfx_Font;

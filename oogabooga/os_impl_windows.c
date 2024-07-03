@@ -1,4 +1,5 @@
 
+#include <Shlwapi.h>
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 
@@ -553,8 +554,15 @@ void os_write_string_to_stdout(string s) {
 }
 
 u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
+
+	if (utf8.count == 0) {
+		u16 *utf16_str = (u16 *)alloc(allocator, (1) * sizeof(u16));
+		*utf16_str = 0;
+		return utf16_str;
+	}
+
     u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
-    
+
     u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
 
     int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
@@ -572,6 +580,13 @@ u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
 }
 string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
     u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
+
+	if (utf8_length == 0) {
+		string utf8;
+		utf8.count = 0;
+		utf8.data = 0;
+		return utf8;
+	}
 
     u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
 
@@ -618,6 +633,79 @@ void os_file_close(File f) {
 bool os_file_delete_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	return (bool)DeleteFileW(path_wide);
+}
+
+bool os_make_directory_s(string path, bool recursive) {
+    wchar_t *wide_path = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+
+    // Convert forward slashes to backslashes
+    for (wchar_t *p = wide_path; *p; ++p) {
+        if (*p == L'/') {
+            *p = L'\\';
+        }
+    }
+
+    if (recursive) {
+        wchar_t *sep = wcschr(wide_path + 1, L'\\');
+        while (sep) {
+            *sep = 0;
+            if (!CreateDirectoryW(wide_path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+                return false;
+            }
+            *sep = L'\\';
+            sep = wcschr(sep + 1, L'\\');
+        }
+    }
+
+    if (!CreateDirectoryW(wide_path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+        return false;
+    }
+
+    return true;
+}
+bool os_delete_directory_s(string path, bool recursive) {
+    wchar_t *wide_path = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+
+    if (recursive) {
+        WIN32_FIND_DATAW findFileData;
+        HANDLE hFind = INVALID_HANDLE_VALUE;
+        wchar_t search_path[MAX_PATH];
+        wcscpy(search_path, wide_path);
+        wcscat(search_path, L"\\*");
+
+        hFind = FindFirstFileW(search_path, &findFileData);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            return false;
+        } else {
+            do {
+                if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
+                    wchar_t child_path[MAX_PATH];
+                    wcscpy(child_path, wide_path);
+                    wcscat(child_path, L"\\");
+                    wcscat(child_path, findFileData.cFileName);
+
+                    if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                        if (!os_delete_directory_s(temp_win32_null_terminated_wide_to_fixed_utf8(child_path), true)) {
+                            FindClose(hFind);
+                            return false;
+                        }
+                    } else {
+                        if (!DeleteFileW(child_path)) {
+                            FindClose(hFind);
+                            return false;
+                        }
+                    }
+                }
+            } while (FindNextFileW(hFind, &findFileData) != 0);
+            FindClose(hFind);
+        }
+    }
+
+    if (!RemoveDirectoryW(wide_path)) {
+        return false;
+    }
+
+    return true;
 }
 
 bool os_file_write_string(File f, string s) {
@@ -715,6 +803,94 @@ bool os_is_directory_s(string path) {
     }
 
     return (attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+bool os_is_path_absolute(string path) {
+	// #Incomplete #Portability not sure this is very robust.
+	
+    if (path.count < 2) return false;
+
+    if (path.data[1] == ':' && ((path.data[0] >= 'A' && path.data[0] <= 'Z') || (path.data[0] >= 'a' && path.data[0] <= 'z'))) {
+        return true;
+    }
+
+    if (path.count > 1 && path.data[0] == '\\' && path.data[1] == '\\') {
+        return true;
+    }
+
+    return false;
+}
+
+bool os_get_absolute_path(string path, string *result, Allocator allocator) {
+    u16 buffer[MAX_PATH];
+    u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
+    DWORD count = GetFullPathNameW(path_wide, MAX_PATH, buffer, 0);
+
+    if (count == 0) {
+        return false;
+    }
+    
+	*result = win32_null_terminated_wide_to_fixed_utf8(buffer, allocator);
+    
+    return true;
+}
+
+bool os_get_relative_path(string from, string to, string *result, Allocator allocator) {
+    
+	if (!os_is_path_absolute(from)) {
+		bool abs_ok = os_get_absolute_path(from, &from, temp);
+		if (!abs_ok) return false;
+	}
+	if (!os_is_path_absolute(to)) {
+		bool abs_ok = os_get_absolute_path(to, &to, temp);
+		if (!abs_ok) return false;
+	}
+	
+	u16 buffer[MAX_PATH];
+
+	u16 *from_wide = temp_win32_fixed_utf8_to_null_terminated_wide(from);
+	u16 *to_wide = temp_win32_fixed_utf8_to_null_terminated_wide(to);
+
+	// #Speed is_file and is_directory potentially slow
+	DWORD attr_from = os_is_file(from) ? FILE_ATTRIBUTE_NORMAL : FILE_ATTRIBUTE_DIRECTORY;
+	DWORD attr_to   = os_is_file(to)   ? FILE_ATTRIBUTE_NORMAL : FILE_ATTRIBUTE_DIRECTORY;
+
+    BOOL success = PathRelativePathToW(buffer,
+                                       from_wide, attr_from,
+                                       to_wide, attr_to);
+    if (!success) {
+        return false;
+    }
+
+    u64 count = 0;
+    while (buffer[count] != 0) count += 1;
+
+	*result = win32_null_terminated_wide_to_fixed_utf8(buffer, allocator);
+    
+    return true;
+}
+
+bool os_do_paths_match(string a, string b) {
+    wchar_t *wide_path_a = temp_win32_fixed_utf8_to_null_terminated_wide(a);
+    wchar_t *wide_path_b = temp_win32_fixed_utf8_to_null_terminated_wide(b);
+
+    wchar_t full_path_a[MAX_PATH];
+    wchar_t full_path_b[MAX_PATH];
+
+    // Get the full path for both paths
+    if (!GetFullPathNameW(wide_path_a, MAX_PATH, full_path_a, NULL)) {
+        return false;
+    }
+    if (!GetFullPathNameW(wide_path_b, MAX_PATH, full_path_b, NULL)) {
+        return false;
+    }
+
+    // Compare the full paths
+    if (wcscmp(full_path_a, full_path_b) == 0) {
+        return true;
+    }
+
+    return false;
 }
 
 void fprints(File f, string fmt, ...) {
