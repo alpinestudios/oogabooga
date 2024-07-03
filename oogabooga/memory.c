@@ -123,6 +123,11 @@ void santiy_check_free_node_tree(Heap_Block *block) {
 	}
 	
 }
+inline void check_meta(Heap_Allocation_Metadata *meta) {
+// If > 256GB then prolly not legit lol
+	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory.");	
+	assert(is_pointer_in_program_memory(meta->block), "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory."); 
+}
 
 typedef struct {
 	Heap_Free_Node *best_fit;
@@ -215,10 +220,14 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 
 void heap_init() {
 	if (heap_initted) return;
+	assert(HEAP_ALIGNMENT == 16);
+	assert(sizeof(Heap_Allocation_Metadata) % HEAP_ALIGNMENT == 0);
 	heap_initted = true;
 	heap_head = make_heap_block(0, DEFAULT_HEAP_BLOCK_SIZE);
 	heap_lock = os_make_spinlock(get_initialization_allocator());
 }
+
+
 
 void *heap_alloc(u64 size) {
 
@@ -323,7 +332,10 @@ void *heap_alloc(u64 size) {
 	// #Sync #Speed oof
 	os_spinlock_unlock(heap_lock);
 	
-	return ((u8*)meta)+sizeof(Heap_Allocation_Metadata);
+	
+	void *p = ((u8*)meta)+sizeof(Heap_Allocation_Metadata);
+	assert((u64)p % HEAP_ALIGNMENT == 0);
+	return p;
 }
 void heap_dealloc(void *p) {
 	// #Sync #Speed oof
@@ -335,10 +347,9 @@ void heap_dealloc(void *p) {
 	assert(is_pointer_in_program_memory(p), "Garbage pointer; out of program memory bounds!"); 
 	p = (u8*)p-sizeof(Heap_Allocation_Metadata);
 	Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(p);
+	check_meta(meta);
 	
-	// If > 256GB then prolly not legit lol
-	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory.");	
-	assert(is_pointer_in_program_memory(meta->block), "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory."); 
+	
 	
 	// Yoink meta data before we start overwriting it
 	Heap_Block *block = meta->block;
@@ -402,6 +413,8 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message, void* da
 		}
 		case ALLOCATOR_DEALLOCATE: {
 			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator deallocate");
+			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(((u64)p)-sizeof(Heap_Allocation_Metadata));
+			check_meta(meta);
 			heap_dealloc(p);
 			return 0;
 		}
@@ -410,7 +423,8 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message, void* da
 				return heap_alloc(size);
 			}
 			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator reallocate");
-			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)((u64)p)-sizeof(Heap_Allocation_Metadata);
+			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(((u64)p)-sizeof(Heap_Allocation_Metadata));
+			check_meta(meta);
 			void *new = heap_alloc(size);
 			memcpy(new, p, min(size, meta->size));
 			heap_dealloc(p);

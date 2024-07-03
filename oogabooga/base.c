@@ -1,23 +1,9 @@
 
-#include <stdint.h>
 
-typedef uint8_t  u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t  s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
 
-typedef float f32;
-typedef double f64;
-typedef f32 float32;
-typedef f64 float64;
 
-typedef u8 bool;
-#define false 0
-#define true 1
+
+
 
 #define thread_local _Thread_local
 
@@ -61,25 +47,7 @@ void printf(const char* fmt, ...);
 #define ZERO(t) (t){0}
 
 
-#ifdef __clang__
-    // Clang/LLVM
-    #define inline __attribute__((always_inline)) inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    #define COMPILER_CLANG 1
-#elif defined(__GNUC__) || defined(__GNUG__)
-    // GNU GCC/G++
-    #define inline __attribute__((always_inline)) inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    #define COMPILER_GCC 1
-#elif defined(_MSC_VER)
-    // Microsoft Visual C++
-    #define inline __forceinline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    #define COMPILER_MSVC 1
-#else
-    #define inline inline
-    #define COMPILER_HAS_MEMCPY_INTRINSICS 0
-#endif
+
 
 #define FIRST_ARG(arg1, ...) arg1
 #define SECOND_ARG(arg1, arg2, ...) arg2

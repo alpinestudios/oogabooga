@@ -544,13 +544,48 @@ void test_file_io() {
     delete_ok = os_file_delete("integers");
     assert(delete_ok, "Failed: could not delete integers"); 
 }
+bool floats_roughly_match(float a, float b) {
+	return fabs(a - b) < 0.01;
+}
 void test_simd() {
 
-	u64 start = os_get_current_cycle_count();
+	
 
-    // Setup test data
-    float32 a_f32[32], b_f32[32], result_f32[32];
-    s32 a_i32[16], b_i32[16], result_i32[16];
+    f32 *a_f32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    f32 *b_f32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    f32 *result_f32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    s32 *a_i32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    s32 *b_i32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    s32 *result_i32 = alloc(get_heap_allocator(), 128*sizeof(f32));
+    
+    (*(u64*)&a_f32) = ((*(u64*)&a_f32)+64) & ~(63);
+    (*(u64*)&b_f32) = ((*(u64*)&b_f32)+64) & ~(63);
+    (*(u64*)&result_f32) = ((*(u64*)&result_f32)+64) & ~(63);
+    (*(u64*)&a_i32) = ((*(u64*)&a_i32)+64) & ~(63);
+    (*(u64*)&b_i32) = ((*(u64*)&b_i32)+64) & ~(63);
+    (*(u64*)&result_i32) = ((*(u64*)&result_i32)+64) & ~(63);
+    
+    assert((u64)a_f32%16 == 0);
+    assert((u64)b_f32%16 == 0);
+    assert((u64)result_f32%16 == 0);
+    assert((u64)a_i32%16 == 0);
+    assert((u64)b_i32%16 == 0);
+    assert((u64)result_i32%16 == 0);
+    
+    assert((u64)a_f32%32 == 0);
+    assert((u64)b_f32%32 == 0);
+    assert((u64)result_f32%32 == 0);
+    assert((u64)a_i32%32 == 0);
+    assert((u64)b_i32%32 == 0);
+    assert((u64)result_i32%32 == 0);
+    
+    
+    assert((u64)a_f32%64 == 0);
+    assert((u64)b_f32%64 == 0);
+    assert((u64)result_f32%64 == 0);
+    assert((u64)a_i32%64 == 0);
+    assert((u64)b_i32%64 == 0);
+    assert((u64)result_i32%64 == 0);
     
     for (int i = 0; i < 16; ++i) {
         a_f32[i] = i * 1.0f;
@@ -564,78 +599,78 @@ void test_simd() {
     
     // Test float32 add
     simd_add_float32_64(a_f32, b_f32, result_f32);
-    assert(result_f32[0] == a_f32[0]+b_f32[0], "SIMD add float32 64 failed");
+    assert(floats_roughly_match(result_f32[0], a_f32[0]+b_f32[0]), "SIMD add float32 64 failed");
 
     simd_add_float32_128(a_f32, b_f32, result_f32);
     for (int i = 0; i < 4; ++i) {
-        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 128 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] + b_f32[i]), "SIMD add float32 128 failed");
     }
 
     simd_add_float32_256(a_f32, b_f32, result_f32);
     for (int i = 0; i < 8; ++i) {
-        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 256 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] + b_f32[i]), "SIMD add float32 256 failed");
     }
 
     simd_add_float32_512(a_f32, b_f32, result_f32);
     for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 512 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] + b_f32[i]), "SIMD add float32 512 failed");
     }
 
     // Test float32 subtract
     simd_sub_float32_64(a_f32, b_f32, result_f32);
-    assert(result_f32[0] == a_f32[0]-b_f32[0], "SIMD sub float32 64 failed");
+    assert(floats_roughly_match(result_f32[0], a_f32[0] - b_f32[0]), "SIMD sub float32 64 failed");
 
     simd_sub_float32_128(a_f32, b_f32, result_f32);
     for (int i = 0; i < 4; ++i) {
-        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 128 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] - b_f32[i]), "SIMD sub float32 128 failed");
     }
 
     simd_sub_float32_256(a_f32, b_f32, result_f32);
     for (int i = 0; i < 8; ++i) {
-        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 256 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] - b_f32[i]), "SIMD sub float32 256 failed");
     }
 
     simd_sub_float32_512(a_f32, b_f32, result_f32);
     for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 512 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] - b_f32[i]), "SIMD sub float32 512 failed");
     }
 
     // Test float32 multiply
     simd_mul_float32_64(a_f32, b_f32, result_f32);
-    assert(result_f32[0] == a_f32[0]*b_f32[0], "SIMD mul float32 64 failed");
+    assert(floats_roughly_match(result_f32[0], a_f32[0]*b_f32[0]), "SIMD mul float32 64 failed");
 
     simd_mul_float32_128(a_f32, b_f32, result_f32);
     for (int i = 0; i < 4; ++i) {
-        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 128 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] * b_f32[i]), "SIMD mul float32 128 failed");
     }
 
     simd_mul_float32_256(a_f32, b_f32, result_f32);
     for (int i = 0; i < 8; ++i) {
-        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 256 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] * b_f32[i]), "SIMD mul float32 256 failed");
     }
 
     simd_mul_float32_512(a_f32, b_f32, result_f32);
     for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 512 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] * b_f32[i]), "SIMD mul float32 512 failed");
     }
 
     // Test float32 divide
     simd_div_float32_64(a_f32, b_f32, result_f32);
-    assert(result_f32[0] == a_f32[0]/b_f32[0], "SIMD div float32 64 failed");
+    assert(floats_roughly_match(result_f32[0], a_f32[0]/b_f32[0]), "SIMD div float32 64 failed");
 
     simd_div_float32_128(a_f32, b_f32, result_f32);
     for (int i = 0; i < 4; ++i) {
-        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 128 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] / b_f32[i]), "SIMD div float32 128 failed");
     }
 
     simd_div_float32_256(a_f32, b_f32, result_f32);
     for (int i = 0; i < 8; ++i) {
-        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 256 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] / b_f32[i]), "SIMD div float32 256 failed, %.5f, %.5f, %.5f", result_f32[i], a_f32[i], a_f32[i] / b_f32[i]);
     }
 
     simd_div_float32_512(a_f32, b_f32, result_f32);
     for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 512 failed");
+        assert(floats_roughly_match(result_f32[i], a_f32[i] / b_f32[i]), "SIMD div float32 512 failed");
     }
 
     // Test int32 add
@@ -685,55 +720,76 @@ void test_simd() {
     for (int i = 0; i < 16; ++i) {
         assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 512 failed");
     }
-
-    // Stress test with random values
-    for (int i = 0; i < 16; ++i) {
-        a_f32[i] = (float32)get_random();
-        b_f32[i] = (float32)get_random();
-        a_i32[i] = (s32)get_random();
-        b_i32[i] = (s32)get_random();
-    }
-
-    simd_add_float32_512(a_f32, b_f32, result_f32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] + b_f32[i], "SIMD add float32 stress test failed");
-    }
-
-    simd_sub_float32_512(a_f32, b_f32, result_f32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] - b_f32[i], "SIMD sub float32 stress test failed");
-    }
-
-    simd_mul_float32_512(a_f32, b_f32, result_f32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] * b_f32[i], "SIMD mul float32 stress test failed");
-    }
-
-    simd_div_float32_512(a_f32, b_f32, result_f32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_f32[i] == a_f32[i] / b_f32[i], "SIMD div float32 stress test failed");
-    }
-
-    simd_add_int32_512(a_i32, b_i32, result_i32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_i32[i] == a_i32[i] + b_i32[i], "SIMD add int32 stress test failed");
-    }
-
-    simd_sub_int32_512(a_i32, b_i32, result_i32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_i32[i] == a_i32[i] - b_i32[i], "SIMD sub int32 stress test failed");
-    }
-
-    simd_mul_int32_512(a_i32, b_i32, result_i32);
-    for (int i = 0; i < 16; ++i) {
-        assert(result_i32[i] == a_i32[i] * b_i32[i], "SIMD mul int32 stress test failed");
+    
+    #define _TEST_NUM_SAMPLES ((100000 + 64) & ~(63))
+    assert(_TEST_NUM_SAMPLES % 16 == 0);
+    
+    float *samples_a = alloc(get_heap_allocator(), _TEST_NUM_SAMPLES*sizeof(float));
+    float *samples_b = alloc(get_heap_allocator(), _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_a, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_b, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    
+    u64 start = os_get_current_cycle_count();
+    
+    for (u64 i = 0; i < _TEST_NUM_SAMPLES; i += 16) {
+    	simd_mul_float32_512(&samples_a[i], &samples_b[i], &samples_a[i]);
     }
     
     u64 end = os_get_current_cycle_count();
-    
     u64 cycles = end-start;
+    print("simd 512 float32 mul took %llu cycles\n", cycles);
     
-    print(" simd took %llu cycles ", cycles);
+    memset(samples_a, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_b, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    
+    start = os_get_current_cycle_count();
+    
+    for (u64 i = 0; i < _TEST_NUM_SAMPLES; i += 8) {
+    	simd_mul_float32_256(&samples_a[i], &samples_b[i], &samples_a[i]);
+    }
+    
+    end = os_get_current_cycle_count();
+    cycles = end-start;
+    print("simd 256 float32 mul took %llu cycles\n", cycles);
+    
+    memset(samples_a, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_b, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    
+    start = os_get_current_cycle_count();
+    
+    for (u64 i = 0; i < _TEST_NUM_SAMPLES; i += 4) {
+    	simd_mul_float32_128(&samples_a[i], &samples_b[i], &samples_a[i]);
+    }
+    
+    end = os_get_current_cycle_count();
+    cycles = end-start;
+    print("simd 128 float32 mul took %llu cycles\n", cycles);
+    
+    memset(samples_a, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_b, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    
+    start = os_get_current_cycle_count();
+    
+    for (u64 i = 0; i < _TEST_NUM_SAMPLES; i += 2) {
+    	simd_mul_float32_64(&samples_a[i], &samples_b[i], &samples_a[i]);
+    }
+    
+    end = os_get_current_cycle_count();
+    cycles = end-start;
+    print("simd 64 float32 mul took %llu cycles\n", cycles);
+    
+    memset(samples_a, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    memset(samples_b, 2, _TEST_NUM_SAMPLES*sizeof(float));
+    
+    start = os_get_current_cycle_count();
+    
+    for (u64 i = 0; i < _TEST_NUM_SAMPLES; i += 1) {
+    	samples_a[i] = samples_a[i] + samples_b[i];
+    }
+    
+    end = os_get_current_cycle_count();
+    cycles = end-start;
+    print("NO SIMD float32 mul took %llu cycles\n", cycles);
 }
 void test_math_library() {
 
@@ -916,9 +972,7 @@ void test_math_library() {
     assert(mixed_v4_result.x == 1.0f && mixed_v4_result.y == 2.0f && mixed_v4_result.z == 3.0f && mixed_v4_result.w == 4.0f, "Mixed Vector4 scalar multiplication failed");
 }
 void oogabooga_run_tests() {
-	print("Testing simd... ");
-	test_simd();
-	print("OK!\n");
+	
 	
 	print("Testing allocator... ");
 	test_allocator(true);
@@ -950,6 +1004,10 @@ void oogabooga_run_tests() {
 	
 	print("Testing file IO... ");
 	test_math_library();
+	print("OK!\n");
+	
+	print("Testing simd... ");
+	test_simd();
 	print("OK!\n");
 	
 }

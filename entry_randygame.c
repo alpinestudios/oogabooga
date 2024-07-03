@@ -42,7 +42,6 @@ void setup_rock(Entity* en) {
 }
 
 int entry(int argc, char **argv) {
-	
 	window.title = STR("Randy's Game");
 	window.width = 1280;
 	window.height = 720;
