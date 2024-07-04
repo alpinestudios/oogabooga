@@ -29,6 +29,11 @@ typedef struct Cpu_Capabilities {
 	#define inline __forceinline
 	#define alignat(x) __declspec(align(x))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline void crash() {
+		__debugbreak();
+		volatile int *a = 0;
+		*a = 5;
+	}
     #include <intrin.h>
     #pragma intrinsic(__rdtsc)
     inline u64 rdtsc() {
@@ -66,6 +71,11 @@ typedef struct Cpu_Capabilities {
 	#define inline __attribute__((always_inline)) inline
 	#define alignat(x) __attribute__((aligned(x)))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
+    inline void crash() {
+		__builtin_trap();
+		volatile int *a = 0;
+		*a = 5;
+	}
     inline u64 rdtsc() {
         unsigned int lo, hi;
         __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
@@ -118,7 +128,6 @@ typedef struct Cpu_Capabilities {
     
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif
-
 
 Cpu_Capabilities query_cpu_capabilities() {
     Cpu_Capabilities result = {0};

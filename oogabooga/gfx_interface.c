@@ -15,18 +15,6 @@
 	#error "Unknown renderer GFX_RENDERER defined"
 #endif
 
-
-typedef struct Gfx_State {
-
-	// config
-	bool enable_vsync;
-
-	// readonly
-	bool _can_vsync;
-	
-} Gfx_State;
-Gfx_State gfx;
-
 forward_global const Gfx_Handle GFX_INVALID_HANDLE;
 
 typedef struct Gfx_Image {

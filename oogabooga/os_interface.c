@@ -61,36 +61,6 @@ inline int crt_vprintf(const char* fmt, va_list args) {
 	return os.crt_vprintf(fmt, args);
 }
 
-#if !defined(COMPILER_HAS_MEMCPY_INTRINSICS) || CONFIGURATION == DEBUG
-	inline void* naive_memcpy(void* dest, const void* source, size_t size) {
-		for (u64 i = 0; i < (u64)size; i++) ((u8*)dest)[i] = ((u8*)source)[i];
-		return dest;
-	}
-	inline void* memcpy(void* dest, const void* source, size_t size) {
-		if (!os.crt_memcpy) return naive_memcpy(dest, source, size);
-		return os.crt_memcpy(dest, source, size);
-	}
-	inline int naive_memcmp(const void* a, const void* b, size_t amount) {
-		// I don't understand the return value of memcmp but I also dont care
-		for (u64 i = 0; i < (u64)amount; i++) {
-			if (((u8*)a)[i] != ((u8*)b)[i])  return -1;
-		}
-		return 0;
-	}
-	inline int memcmp(const void* a, const void* b, size_t amount) {
-		if (!os.crt_memcmp)  return naive_memcmp(a, b, amount);
-		return os.crt_memcmp(a, b, amount);
-	}
-	inline void* naive_memset(void* dest, int value, size_t amount) {
-		for (u64 i = 0; i < (u64)amount; i++) ((u8*)dest)[i] = (u8)value;
-		return dest;
-	}
-	inline void* memset(void* dest, int value, size_t amount) {
-		if (!os.crt_memset)  return naive_memset(dest, value, amount);
-		return os.crt_memset(dest, value, amount);
-	}
-#endif
-
 inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
 
 inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
@@ -333,6 +303,7 @@ typedef struct Os_Window {
 	u32 x;
 	u32 y;
 	Vector4 clear_color;
+	bool enable_vsync;
 	
 	bool should_close;
 	

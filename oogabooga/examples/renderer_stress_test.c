@@ -15,8 +15,6 @@ int entry(int argc, char **argv) {
 	Gfx_Image *hammer_image = load_image_from_disk(STR("oogabooga/examples/hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
-	Gfx_Font *font = load_font_From_disk(
-	
 	seed_for_random = os_get_current_cycle_count();
 	
 	const float64 fps_limit = 69000;
@@ -36,7 +34,9 @@ int entry(int argc, char **argv) {
 			delta = now - last_time;
 		}
 		last_time = now;
-		os_update(); 
+		tm_scope_cycles("os_update") {
+			os_update(); 
+		}
 		
 		if (is_key_just_released(KEY_ESCAPE)) {
 			window.should_close = true;
@@ -102,11 +102,10 @@ int entry(int argc, char **argv) {
 		
 		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
 		
-		draw_frame.font = STR("");
+		tm_scope_cycles("gfx_update") {
+			gfx_update();
+		}
 		
-		draw_text();
-		
-		gfx_update();
 		
 		if (is_key_just_released('E')) {
 			log("FPS: %.2f", 1.0 / delta);

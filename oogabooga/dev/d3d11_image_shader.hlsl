@@ -1,9 +1,9 @@
 struct VS_INPUT
 {
+    float4 position : POSITION;
     float2 uv : TEXCOORD;
     float4 color : COLOR;
     int texture_index: TEXTURE_INDEX;
-    float4 position : POSITION;
 };
 
 struct PS_INPUT

@@ -24,7 +24,7 @@ void* initialization_allocator_proc(u64 size, void *p, Allocator_Message message
 			
 			if (init_memory_head >= ((u8*)init_memory_arena+INIT_MEMORY_SIZE)) {
 				os_write_string_to_stdout(STR("Out of initialization memory! Please provide more by increasing INIT_MEMORY_SIZE"));
-				os_break();
+				crash();
 			}
 			return p;
 			break;

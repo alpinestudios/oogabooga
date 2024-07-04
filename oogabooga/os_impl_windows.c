@@ -135,6 +135,8 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 
 void os_init(u64 program_memory_size) {
 	
+	memset(&window, 0, sizeof(window));
+	
 	timeBeginPeriod(1);
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);

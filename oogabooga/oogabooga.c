@@ -145,22 +145,21 @@ typedef u8 bool;
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif
 
-#include "cpu.c"
-
-
 #define DEBUG 0
 #define VERY_DEBUG 1
 #define RELEASE 2
 
-#if !defined(CONFIGURATION)
-
-	#if defined(NDEBUG)
-		#define CONFIGURATION RELEASE
-	#else
-		#define CONFIGURATION DEBUG
-	#endif
-
+#if defined(NDEBUG)
+	#define CONFIGURATION RELEASE
+#else
+	#define CONFIGURATION DEBUG
 #endif
+
+
+#include "cpu.c"
+
+
+
 
 #ifndef ENTRY_PROC
 	#define ENTRY_PROC entry

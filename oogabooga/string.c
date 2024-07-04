@@ -5,7 +5,6 @@
 	
 */
 
-void * memcpy (void *,const void *,size_t);
 void* talloc(u64);
 
 typedef struct string {
@@ -13,6 +12,7 @@ typedef struct string {
 	u8 *data;
 } string;
 
+#define fixed_string STR
 #define STR(s) ((string){ length_of_null_terminated_string((const char*)s), (u8*)s })
 
 inline u64 length_of_null_terminated_string(const char* cstring) {

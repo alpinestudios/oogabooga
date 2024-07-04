@@ -213,7 +213,7 @@ void printf(const char* fmt, ...) {
 
 
 typedef void(*Logger_Proc)(Log_Level level, string s);
-#define LOG_BASE(level, ...) If context.logger then ((Logger_Proc)context.logger)(level, tprint(__VA_ARGS__))
+#define LOG_BASE(level, ...) if (context.logger) ((Logger_Proc)context.logger)(level, tprint(__VA_ARGS__))
 
 
 #define log_verbose(...) LOG_BASE(LOG_VERBOSE, __VA_ARGS__)

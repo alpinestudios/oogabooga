@@ -13,10 +13,10 @@ const Gfx_Handle GFX_INVALID_HANDLE = 0;
 
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16);
 
-typedef struct D3D11_Vertex {
+typedef  struct alignat(16) D3D11_Vertex {
+	Vector4 color;
 	Vector4 position;
 	Vector2 uv;
-	Vector4 color;
 	int texture_index;
 } D3D11_Vertex;
 
@@ -81,14 +81,19 @@ void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAG
 		case D3D11_MESSAGE_SEVERITY_CORRUPTION:
 		case D3D11_MESSAGE_SEVERITY_ERROR:
 			log_error(msg);
+			break;
 		case D3D11_MESSAGE_SEVERITY_WARNING:
 			log_warning(msg);
+			break;
 		case D3D11_MESSAGE_SEVERITY_INFO:
 			log_info(msg);
+			break;
 		case D3D11_MESSAGE_SEVERITY_MESSAGE:
 			log_verbose(msg);
+			break;
 		default:
 			log("Ligma");
+			break;
 	}
 }
 
@@ -127,7 +132,8 @@ void d3d11_update_swapchain() {
 	if (create) {
 		DXGI_SWAP_CHAIN_DESC1 scd = ZERO(DXGI_SWAP_CHAIN_DESC1);
 		scd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		//scd.BufferDesc.RefreshRate.Numerator = xx st.refresh_rate;
+		scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		//scd.BufferDesc.RefreshRate.Numerator = 0;
 		//scd.BufferDesc.RefreshRate.Denominator = 1;
 		
 		scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -137,22 +143,22 @@ void d3d11_update_swapchain() {
 			scd.Scaling = DXGI_SCALING_STRETCH; // for compatability with 7
 		}
 		
+		
 		// Windows 10 allows to use DXGI_SWAP_EFFECT_FLIP_DISCARD
 		// for Windows 8 compatibility use DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL
 		// for Windows 7 compatibility use DXGI_SWAP_EFFECT_DISCARD
 		if (d3d11_feature_level >= D3D_FEATURE_LEVEL_11_0) {
 			// this is supported only on FLIP presentation model
 			scd.Scaling = DXGI_SCALING_NONE;
-			scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+			scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; 
 			scd.BufferCount = 3;
-			gfx._can_vsync = false;
 			log_verbose("Present mode is flip discard, 3 buffers");
 		} else {
 			scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 			scd.BufferCount = 2;
-			gfx._can_vsync = true;
 			log_verbose("Present mode is discard, 2 buffers");
 		}
+		
 		
 		// Obtain DXGI factory from device
 		IDXGIDevice *dxgi_device;
@@ -224,7 +230,7 @@ void d3d11_update_swapchain() {
 
 void gfx_init() {
 
-	gfx.enable_vsync = false;
+	window.enable_vsync = false;
 
 	log_verbose("d3d11 gfx_init");
 
@@ -426,42 +432,53 @@ void gfx_init() {
 
     log_verbose("Shaders created");
 
+
+
+	D3D11_INPUT_ELEMENT_DESC layout[4];
+	memset(layout, 0, sizeof(layout));
+	
+	layout[0].SemanticName = "POSITION";
+	layout[0].SemanticIndex = 0;
+	layout[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	layout[0].InputSlot = 0;
+	layout[0].AlignedByteOffset = offsetof(D3D11_Vertex, position);
+	layout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[0].InstanceDataStepRate = 0;
+	
+	layout[1].SemanticName = "TEXCOORD";
+	layout[1].SemanticIndex = 0;
+	layout[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+	layout[1].InputSlot = 0;
+	layout[1].AlignedByteOffset = offsetof(D3D11_Vertex, uv);
+	layout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[1].InstanceDataStepRate = 0;
+	
+	layout[2].SemanticName = "COLOR";
+	layout[2].SemanticIndex = 0;
+	layout[2].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	layout[2].InputSlot = 0;
+	layout[2].AlignedByteOffset = offsetof(D3D11_Vertex, color);
+	layout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[2].InstanceDataStepRate = 0;
+	
+	layout[3].SemanticName = "TEXTURE_INDEX";
+	layout[3].SemanticIndex = 0;
+	layout[3].Format = DXGI_FORMAT_R32_SINT;
+	layout[3].InputSlot = 0;
+	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, texture_index);
+	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[3].InstanceDataStepRate = 0;
+	
+	hr = VTABLE(CreateInputLayout, d3d11_device, layout, 4, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	win32_check_hr(hr);
+
 #if OOGABOOGA_DEV
 	D3D11Release(vs_blob);
     D3D11Release(ps_blob);
 #endif
 
-	D3D11_INPUT_ELEMENT_DESC layout[4];
-	memset(layout, 0, sizeof(layout));
-	
-	layout[0] = (D3D11_INPUT_ELEMENT_DESC){
-		"POSITION", 0,
-		DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
-		offsetof(D3D11_Vertex, position),
-		D3D11_INPUT_PER_VERTEX_DATA, 0
-	};
-	layout[1] = (D3D11_INPUT_ELEMENT_DESC){
-		"TEXCOORD", 0,
-		DXGI_FORMAT_R32G32_FLOAT, 0,
-		offsetof(D3D11_Vertex, uv),
-		D3D11_INPUT_PER_VERTEX_DATA, 0
-	};
-	layout[2] = (D3D11_INPUT_ELEMENT_DESC){
-		"COLOR", 0,
-		DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
-		offsetof(D3D11_Vertex, color),
-		D3D11_INPUT_PER_VERTEX_DATA, 0
-	};
-	layout[3] = (D3D11_INPUT_ELEMENT_DESC){
-		"TEXTURE_INDEX", 0,
-		DXGI_FORMAT_R32_SINT, 0,
-		offsetof(D3D11_Vertex, texture_index),
-		D3D11_INPUT_PER_VERTEX_DATA, 0
-	};
-	
-	hr = VTABLE(CreateInputLayout, d3d11_device, layout, 4, vs_buffer, vs_size, &d3d11_image_vertex_layout);
-
 	log_info("D3D11 init done");
+	
 }
 
 void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures) {
@@ -493,7 +510,6 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
 }
 
 void gfx_update() {
-
 	if (window.should_close) return;
 	
 	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
@@ -501,59 +517,61 @@ void gfx_update() {
 
 	HRESULT hr;
 
-	///
-	// purge garbage
-	for (u64 i = 0; i < draw_frame.garbage_stack_count; i++) {
-		ID3D11ShaderResourceView *view = draw_frame.garbage_stack[i];
-		ID3D11Resource *resource = 0;
-		VTABLE(GetResource, view, &resource);
-		
-		ID3D11Texture2D *texture = 0;
-		hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
-		if (SUCCEEDED(hr)) {
-			D3D11Release(view);
-			D3D11Release(texture);
-			log("Destroyed an image");
-		} else {
-			panic("Unhandled D3D11 resource deletion");
+	tm_scope_cycles("Frame setup") {
+		///
+		// purge garbage
+		for (u64 i = 0; i < draw_frame.garbage_stack_count; i++) {
+			ID3D11ShaderResourceView *view = draw_frame.garbage_stack[i];
+			ID3D11Resource *resource = 0;
+			VTABLE(GetResource, view, &resource);
+			
+			ID3D11Texture2D *texture = 0;
+			hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
+			if (SUCCEEDED(hr)) {
+				D3D11Release(view);
+				D3D11Release(texture);
+				log("Destroyed an image");
+			} else {
+				panic("Unhandled D3D11 resource deletion");
+			}
+		}
+	
+		///
+		// Maybe resize swap chain
+		RECT client_rect;
+		bool ok = GetClientRect(window._os_handle, &client_rect);
+		assert(ok, "GetClientRect failed with error code %lu", GetLastError());
+		u32 window_width  = client_rect.right-client_rect.left;
+		u32 window_height = client_rect.bottom-client_rect.top;
+		if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
+			d3d11_update_swapchain();
+		}
+	
+		///
+		// Maybe grow quad vbo
+		u32 required_size = sizeof(D3D11_Vertex) * draw_frame.num_blocks*QUADS_PER_BLOCK*6;
+	
+		if (required_size > d3d11_quad_vbo_size) {
+			if (d3d11_quad_vbo) {
+				D3D11Release(d3d11_quad_vbo);
+				dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
+			}
+			D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
+			desc.Usage = D3D11_USAGE_DYNAMIC; 
+			desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			desc.ByteWidth = required_size;
+			desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+			HRESULT hr = VTABLE(CreateBuffer, d3d11_device, &desc, 0, &d3d11_quad_vbo);
+			assert(SUCCEEDED(hr), "CreateBuffer failed");
+			d3d11_quad_vbo_size = required_size;
+			
+			d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+			assert((u64)d3d11_staging_quad_buffer%16 == 0);
+			
+			log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 		}
 	}
 
-	///
-	// Maybe resize swap chain
-	RECT client_rect;
-	bool ok = GetClientRect(window._os_handle, &client_rect);
-	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-	u32 window_width  = client_rect.right-client_rect.left;
-	u32 window_height = client_rect.bottom-client_rect.top;
-	if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
-		d3d11_update_swapchain();
-	}
-
-	///
-	// Maybe grow quad vbo
-	u32 required_size = sizeof(D3D11_Vertex) * draw_frame.num_blocks*QUADS_PER_BLOCK*6;
-
-	if (required_size > d3d11_quad_vbo_size) {
-		if (d3d11_quad_vbo) {
-			D3D11Release(d3d11_quad_vbo);
-			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
-		}
-		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
-		desc.Usage = D3D11_USAGE_DYNAMIC; 
-		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.ByteWidth = required_size;
-		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		HRESULT hr = VTABLE(CreateBuffer, d3d11_device, &desc, 0, &d3d11_quad_vbo);
-		assert(SUCCEEDED(hr), "CreateBuffer failed");
-		d3d11_quad_vbo_size = required_size;
-		
-		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
-		
-		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
-	}
-
-	f64 rest_before  = os_get_current_time_in_seconds();
 	if (draw_frame.num_blocks > 0) {
 		///
 		// Render geometry from into vbo quad list
@@ -569,8 +587,8 @@ void gfx_update() {
 		Draw_Quad_Block *block = &first_block;
 		
 		tm_scope_cycles("Quad processing") {
-			while (block != 0 && block->num_quads > 0) tm_scope_cycles("ad2As") {
-				for (u64 i = 0; i < block->num_quads; i++) tm_scope_cycles("Single quad") {
+			while (block != 0 && block->num_quads > 0) tm_scope_cycles("Quad block") {
+				for (u64 i = 0; i < block->num_quads; i++)  {
 					
 					Draw_Quad *q = &block->quad_buffer[i];
 					
@@ -620,7 +638,7 @@ void gfx_update() {
 								if (num_textures >= 32) {
 									// If max textures reached, make a draw call and start over
 									D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-									VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &buffer_mapping);
+									VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 									memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
 									VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 									d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
@@ -676,30 +694,29 @@ void gfx_update() {
 			}
 		}
 		
-	    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-		VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &buffer_mapping);
-		memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
-		VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
+		tm_scope_cycles("Write to gpu") {
+		    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
+			tm_scope_cycles("The Map call") {
+				hr = VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
+			win32_check_hr(hr);
+			}
+			tm_scope_cycles("The memcpy") {
+				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
+			}
+			tm_scope_cycles("The Unmap call") {
+				VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
+			}
+		}
 		
 		///
 		// Draw call
-		
-		u64 before_draw = os_get_current_cycle_count();
-		d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
-		u64 after_draw = os_get_current_cycle_count();
-		//log("Draw call took %llu cycles", after_draw-before_draw);
+		tm_scope_cycles("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
     }
-    
-    f64 rest_after  = os_get_current_time_in_seconds();
-    if (is_key_just_pressed('E')) 
-    	log("The rest took %.2fms", (rest_after-rest_before)*1000.0);
-    
-    f64 before_present = os_get_current_time_in_seconds();
-    hr = VTABLE(Present, d3d11_swap_chain, gfx._can_vsync && gfx.enable_vsync, 0);
-    f64 after = os_get_current_time_in_seconds();
-    if (is_key_just_pressed('E')) 
-    	log("Present took %.2fms", (after-before_present)*1000.0);
-	win32_check_hr(hr);
+
+	tm_scope_cycles("Present") {
+	    hr = VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+		win32_check_hr(hr);
+	}    
 	
 #if CONFIGURATION == DEBUG
 	///

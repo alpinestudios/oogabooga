@@ -16,6 +16,21 @@
                 // "close": false,
                 // "showReuseMessage": true,
             }
-	}
+	    },
+        {
+            "label": "Compile Release",
+            "type": "shell",
+            "command": "${workspaceFolder}\\build_release",
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "clear": true,
+                // "revealProblems": "onProblem",
+                // "close": false,
+                // "showReuseMessage": true,
+            }
+	    }
     ]
 }

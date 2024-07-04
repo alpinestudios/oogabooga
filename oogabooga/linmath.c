@@ -133,7 +133,7 @@ inline float v3_dot_product(Vector3 a, Vector3 b) {
 	return simd_dot_product_float32_96((float*)&a, (float*)&b);
 }
 inline float v4_dot_product(Vector4 a, Vector4 b) {
-	return simd_dot_product_float32_128((float*)&a, (float*)&b);
+	return simd_dot_product_float32_128_aligned((float*)&a, (float*)&b);
 }
 
 Vector2 v2_rotate_point_around_pivot(Vector2 point, Vector2 pivot, float32 rotation_radians) {

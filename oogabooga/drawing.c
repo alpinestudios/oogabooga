@@ -197,65 +197,39 @@ Draw_Quad *draw_image_xform(Gfx_Image *image, Matrix4 xform, Vector2 size, Vecto
 #define COLOR_BLACK ((Vector4){0.0, 0.0, 0.0, 1.0})
 
 Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
-	string png;
-	bool ok = os_read_entire_file(path, &png, allocator);
-	if (!ok) return 0;
+    string png;
+    bool ok = os_read_entire_file(path, &png, allocator);
+    if (!ok) return 0;
 
-	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
-	
-	// This is fucking terrible I gotta write my own decoder
-
-	lodepng_allocator = allocator;
-
-	LodePNGState state;
-	lodepng_state_init(&state);
-	u32 error = lodepng_inspect(&image->width, &image->height, &state, png.data, png.count);
-	if (error) {
-		return 0;
-	}
-	
-	// 5 lines of code to say "ignore_adler32 = true" (because it's broken and gives me an error)
-	// I JUST WANT TO LOAD A PNG 
-	LodePNGDecoderSettings decoder;
-	lodepng_decoder_settings_init(&decoder);
-	lodepng_decompress_settings_init(&decoder.zlibsettings);
-	decoder.zlibsettings.ignore_adler32 = true;
-	state.decoder = decoder;
-	
-	error = lodepng_decode(&image->data, &image->width, &image->height, &state, png.data, png.count);
-	
-	lodepng_state_cleanup(&state);
-	
-	dealloc_string(allocator, png);
-	
-	if (error) {
-		return 0;
-	}
-	
-	// We need to flip the image
-	u32 row_bytes = image->width * 4;  // #Magicvalue assuming 4 bytes
-    u8* temp_row = (u8*)alloc(temp, row_bytes);
-    for (u32 i = 0; i < image->height / 2; i++) {
-        u8* top_row = image->data + i * row_bytes;
-        u8* bottom_row = image->data + (image->height - i - 1) * row_bytes;
-
-        // Swap the top row with the bottom row
-        memcpy(temp_row, top_row, row_bytes);
-        memcpy(top_row, bottom_row, row_bytes);
-        memcpy(bottom_row, temp_row, row_bytes);
+    Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
+    
+    // Use stb_image to load and decode the PNG
+    int width, height, channels;
+    stbi_set_flip_vertically_on_load(1);  // stb_image can flip the image on load
+    unsigned char* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
+    
+    if (!stb_data) {
+        dealloc(allocator, image);
+        dealloc_string(allocator, png);
+        return 0;
     }
-	
-	image->gfx_handle = GFX_INVALID_HANDLE; // This is handled in gfx
-	
-	image->allocator = allocator;
-	
-	return image;
+    
+    image->data = stb_data;
+    image->width = width;
+    image->height = height;
+    image->gfx_handle = GFX_INVALID_HANDLE;  // This is handled in gfx
+    image->allocator = allocator;
+
+    dealloc_string(allocator, png);
+
+    return image;
 }
+
 void delete_image(Gfx_Image *image) {
-	dealloc(image->allocator, image->data);
-	image->width = 0;
-	image->height = 0;
-	draw_frame.garbage_stack[draw_frame.garbage_stack_count] = image->gfx_handle;
-	draw_frame.garbage_stack_count += 1;
-	dealloc(image->allocator, image);
+    stbi_image_free(image->data);  // Free the image data allocated by stb_image
+    image->width = 0;
+    image->height = 0;
+    draw_frame.garbage_stack[draw_frame.garbage_stack_count] = image->gfx_handle;
+    draw_frame.garbage_stack_count += 1;
+    dealloc(image->allocator, image);
 }

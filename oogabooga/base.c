@@ -10,42 +10,26 @@
 #define local_persist static
 
 #define forward_global extern
-
-// Haters gonna hate
-#define If if (
-#define then )
-// If cond then {}
-
-#ifdef _MSC_VER
-	inline void os_break() {
-		__debugbreak();
-		volatile int *a = 0;
-		*a = 5;
-	}
-#else
-	#error "Only msvc compiler supported at the moment";
-#endif
 	
 	
 void printf(const char* fmt, ...);
 #define ASSERT_STR_HELPER(x) #x
 #define ASSERT_STR(x) ASSERT_STR_HELPER(x)
-#define assert_line(line, cond, ...) if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); os_break(); }
-#define assert(cond, ...) assert_line(__LINE__, cond, __VA_ARGS__);
+#define assert_line(line, cond, ...) {if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); crash(); }}
+#define assert(cond, ...) {assert_line(__LINE__, cond, __VA_ARGS__)}
 
 #define DEFER(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
 
 #if CONFIGURATION == RELEASE
 #undef assert
-#define assert(...)
+#define assert(...) (void)0;
 #endif
 
-#define panic(...) { print(__VA_ARGS__); os_break(); }
+#define panic(...) { print(__VA_ARGS__); crash(); }
 
 #define cast(t) (t)
 
 #define ZERO(t) (t){0}
-
 
 
 
