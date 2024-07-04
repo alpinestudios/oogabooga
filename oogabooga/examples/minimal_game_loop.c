@@ -1,4 +1,4 @@
-¨
+
 int entry(int argc, char **argv) {
 	
 	window.title = STR("Minimal Game Example");
@@ -6,7 +6,7 @@ int entry(int argc, char **argv) {
 	window.height = 720;
 	window.x = 200;
 	window.y = 200;
-	window.clear_color = v4(1, 1, 1, 1);
+	window.clear_color = hex_to_rgba(0x6495EDff);
 
 	while (!window.should_close) {
 		reset_temporary_storage();
