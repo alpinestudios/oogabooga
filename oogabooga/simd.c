@@ -27,6 +27,10 @@ inline void basic_mul_int32_128(s32 *a, s32 *b, s32* result);
 inline void basic_mul_int32_256(s32 *a, s32 *b, s32* result);
 inline void basic_mul_int32_512(s32 *a, s32 *b, s32* result);
 
+inline float basic_dot_product_float32_64(float *a, float *b);
+inline float basic_dot_product_float32_96(float *a, float *b);
+inline float basic_dot_product_float32_128(float *a, float *b);
+
 
 
 #if ENABLE_SIMD
@@ -74,12 +78,24 @@ inline void simd_add_float32_128(float *a, float *b, float* result) {
     __m128 vr = _mm_add_ps(va, vb);
     _mm_storeu_ps(result, vr);
 }
+inline void simd_add_float32_128_aligned(float *a, float *b, float* result) {
+    __m128 va = _mm_load_ps(a);
+    __m128 vb = _mm_load_ps(b);
+    __m128 vr = _mm_add_ps(va, vb);
+    _mm_store_ps(result, vr);
+}
 
 inline void simd_sub_float32_128(float *a, float *b, float* result) {
     __m128 va = _mm_loadu_ps(a);
     __m128 vb = _mm_loadu_ps(b);
     __m128 vr = _mm_sub_ps(va, vb);
     _mm_storeu_ps(result, vr);
+}
+inline void simd_sub_float32_128_aligned(float *a, float *b, float* result) {
+    __m128 va = _mm_load_ps(a);
+    __m128 vb = _mm_load_ps(b);
+    __m128 vr = _mm_sub_ps(va, vb);
+    _mm_store_ps(result, vr);
 }
 
 inline void simd_mul_float32_128(float *a, float *b, float* result) {
@@ -88,6 +104,12 @@ inline void simd_mul_float32_128(float *a, float *b, float* result) {
     __m128 vr = _mm_mul_ps(va, vb);
     _mm_storeu_ps(result, vr);
 }
+inline void simd_mul_float32_128_aligned(float *a, float *b, float* result) {
+    __m128 va = _mm_load_ps(a);
+    __m128 vb = _mm_load_ps(b);
+    __m128 vr = _mm_mul_ps(va, vb);
+    _mm_store_ps(result, vr);
+}
 
 inline void simd_div_float32_128(float *a, float *b, float* result) {
     __m128 va = _mm_loadu_ps(a);
@@ -95,6 +117,13 @@ inline void simd_div_float32_128(float *a, float *b, float* result) {
     __m128 vr = _mm_div_ps(va, vb);
     _mm_storeu_ps(result, vr);
 }
+inline void simd_div_float32_128_aligned(float *a, float *b, float* result) {
+    __m128 va = _mm_load_ps(a);
+    __m128 vb = _mm_load_ps(b);
+    __m128 vr = _mm_div_ps(va, vb);
+    _mm_store_ps(result, vr);
+}
+
 
 #if SIMD_ENABLE_SSE2
 // SSE2
@@ -107,16 +136,31 @@ inline void simd_add_int32_128(s32 *a, s32 *b, s32* result) {
     __m128i vr = _mm_add_epi32(va, vb);
     _mm_storeu_si128((__m128i*)result, vr);
 }
+inline void simd_add_int32_128_aligned(s32 *a, s32 *b, s32* result) {
+    __m128i va = _mm_load_si128((__m128i*)a);
+    __m128i vb = _mm_load_si128((__m128i*)b);
+    __m128i vr = _mm_add_epi32(va, vb);
+    _mm_store_si128((__m128i*)result, vr);
+}
 inline void simd_sub_int32_128(s32 *a, s32 *b, s32* result) {
     __m128i va = _mm_loadu_si128((__m128i*)a);
     __m128i vb = _mm_loadu_si128((__m128i*)b);
     __m128i vr = _mm_sub_epi32(va, vb);
     _mm_storeu_si128((__m128i*)result, vr);
 }
+inline void simd_sub_int32_128_aligned(s32 *a, s32 *b, s32* result) {
+    __m128i va = _mm_load_si128((__m128i*)a);
+    __m128i vb = _mm_load_si128((__m128i*)b);
+    __m128i vr = _mm_sub_epi32(va, vb);
+    _mm_store_si128((__m128i*)result, vr);
+}
 
 #else
 	#define simd_add_int32_128 		basic_add_int32_128
 	#define simd_sub_int32_128 		basic_sub_int32_128
+	
+	#define simd_add_int32_128_aligned 		basic_add_int32_128
+	#define simd_sub_int32_128_aligned 		basic_sub_int32_128
 	
 #endif
 
@@ -127,8 +171,55 @@ inline void simd_mul_int32_128(s32 *a, s32 *b, s32* result) {
     __m128i vr = _mm_mullo_epi32(va, vb);
     _mm_storeu_si128((__m128i*)result, vr);
 }
+inline void simd_mul_int32_128_aligned(s32 *a, s32 *b, s32* result) {
+    __m128i va = _mm_load_si128((__m128i*)a);
+    __m128i vb = _mm_load_si128((__m128i*)b);
+    __m128i vr = _mm_mullo_epi32(va, vb);
+    _mm_store_si128((__m128i*)result, vr);
+}
+inline float simd_dot_product_float32_64(float *a, float *b) {
+    __m128 vec1 = _mm_loadl_pi(_mm_setzero_ps(), (__m64*)a);
+    __m128 vec2 = _mm_loadl_pi(_mm_setzero_ps(), (__m64*)b);
+    __m128 dot_product = _mm_dp_ps(vec1, vec2, 0x31);
+    return _mm_cvtss_f32(dot_product);
+}
+inline float simd_dot_product_float32_96(float *a, float *b) {
+    __m128 vec1 = _mm_loadu_ps(a);
+    __m128 vec2 = _mm_loadu_ps(b);
+    vec1 = _mm_and_ps(vec1, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)));
+    vec2 = _mm_and_ps(vec2, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)));
+    __m128 dot_product = _mm_dp_ps(vec1, vec2, 0x71);
+    return _mm_cvtss_f32(dot_product);
+}
+inline float simd_dot_product_float32_96_aligned(float *a, float *b) {
+    __m128 vec1 = _mm_load_ps(a);
+    __m128 vec2 = _mm_load_ps(b);
+    vec1 = _mm_and_ps(vec1, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)));
+    vec2 = _mm_and_ps(vec2, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)));
+    __m128 dot_product = _mm_dp_ps(vec1, vec2, 0x71);
+    return _mm_cvtss_f32(dot_product);
+}
+inline float simd_dot_product_float32_128(float *a, float *b) {
+    __m128 vec1 = _mm_loadu_ps(a);
+    __m128 vec2 = _mm_loadu_ps(b);
+    __m128 dot_product = _mm_dp_ps(vec1, vec2, 0xF1);
+    return _mm_cvtss_f32(dot_product);
+}
+inline float simd_dot_product_float32_128_aligned(float *a, float *b) {
+    __m128 vec1 = _mm_load_ps(a);
+    __m128 vec2 = _mm_load_ps(b);
+    __m128 dot_product = _mm_dp_ps(vec1, vec2, 0xF1);
+    return _mm_cvtss_f32(dot_product);
+}
 #else
 	#define simd_mul_int32_128 		basic_mul_int32_128
+	#define simd_mul_int32_128_aligned 		basic_mul_int32_128
+	#define simd_dot_product_float32_64 basic_dot_product_float32_64
+	#define simd_dot_product_float32_96 basic_dot_product_float32_96
+	#define simd_dot_product_float32_128 basic_dot_product_float32_128
+	#define simd_dot_product_float32_64_aligned basic_dot_product_float32_64
+	#define simd_dot_product_float32_96_aligned basic_dot_product_float32_96
+	#define simd_dot_product_float32_128_aligned basic_dot_product_float32_128
 #endif // SIMD_ENABLE_SSE41
 
 #if SIMD_ENABLE_AVX
@@ -142,11 +233,23 @@ inline void simd_add_float32_256(float32 *a, float32 *b, float32* result) {
     __m256 vr = _mm256_add_ps(va, vb);
     _mm256_storeu_ps(result, vr);
 }
+inline void simd_add_float32_256_aligned(float32 *a, float32 *b, float32* result) {
+    __m256 va = _mm256_load_ps(a);
+    __m256 vb = _mm256_load_ps(b);
+    __m256 vr = _mm256_add_ps(va, vb);
+    _mm256_store_ps(result, vr);
+}
 inline void simd_sub_float32_256(float32 *a, float32 *b, float32* result) {
     __m256 va = _mm256_loadu_ps(a);
     __m256 vb = _mm256_loadu_ps(b);
     __m256 vr = _mm256_sub_ps(va, vb);
     _mm256_storeu_ps(result, vr);
+}
+inline void simd_sub_float32_256_aligned(float32 *a, float32 *b, float32* result) {
+    __m256 va = _mm256_load_ps(a);
+    __m256 vb = _mm256_load_ps(b);
+    __m256 vr = _mm256_sub_ps(va, vb);
+    _mm256_store_ps(result, vr);
 }
 inline void simd_mul_float32_256(float32 *a, float32 *b, float32* result) {
     __m256 va = _mm256_loadu_ps(a);
@@ -154,17 +257,34 @@ inline void simd_mul_float32_256(float32 *a, float32 *b, float32* result) {
     __m256 vr = _mm256_mul_ps(va, vb);
     _mm256_storeu_ps(result, vr);
 }
+inline void simd_mul_float32_256_aligned(float32 *a, float32 *b, float32* result) {
+    __m256 va = _mm256_load_ps(a);
+    __m256 vb = _mm256_load_ps(b);
+    __m256 vr = _mm256_mul_ps(va, vb);
+    _mm256_store_ps(result, vr);
+}
 inline void simd_div_float32_256(float32 *a, float32 *b, float32* result){
     __m256 va = _mm256_loadu_ps(a);
     __m256 vb = _mm256_loadu_ps(b);
     __m256 vr = _mm256_div_ps(va, vb);
     _mm256_storeu_ps(result, vr);
 }
+inline void simd_div_float32_256_aligned(float32 *a, float32 *b, float32* result){
+    __m256 va = _mm256_load_ps(a);
+    __m256 vb = _mm256_load_ps(b);
+    __m256 vr = _mm256_div_ps(va, vb);
+    _mm256_store_ps(result, vr);
+}
 #else
 	#define simd_add_float32_256 	basic_add_float32_256
 	#define simd_sub_float32_256 	basic_sub_float32_256
 	#define simd_mul_float32_256 	basic_mul_float32_256
 	#define simd_div_float32_256 	basic_div_float32_256
+	
+	#define simd_add_float32_256_aligned 	basic_add_float32_256
+	#define simd_sub_float32_256_aligned 	basic_sub_float32_256
+	#define simd_mul_float32_256_aligned 	basic_mul_float32_256
+	#define simd_div_float32_256_aligned 	basic_div_float32_256
 #endif
 
 #if SIMD_ENABLE_AVX2
@@ -178,11 +298,23 @@ inline void simd_add_int32_256(s32 *a, s32 *b, s32* result) {
     __m256i vr = _mm256_add_epi32(va, vb);
     _mm256_storeu_si256((__m256i*)result, vr);
 }
+inline void simd_add_int32_256_aligned(s32 *a, s32 *b, s32* result) {
+	__m256i va = _mm256_load_si256((__m256i*)a);
+    __m256i vb = _mm256_load_si256((__m256i*)b);
+    __m256i vr = _mm256_add_epi32(va, vb);
+    _mm256_store_si256((__m256i*)result, vr);
+}
 inline void simd_sub_int32_256(s32 *a, s32 *b, s32* result) {
 	__m256i va = _mm256_loadu_si256((__m256i*)a);
     __m256i vb = _mm256_loadu_si256((__m256i*)b);
     __m256i vr = _mm256_sub_epi32(va, vb);
     _mm256_storeu_si256((__m256i*)result, vr);
+}
+inline void simd_sub_int32_256_aligned(s32 *a, s32 *b, s32* result) {
+	__m256i va = _mm256_load_si256((__m256i*)a);
+    __m256i vb = _mm256_load_si256((__m256i*)b);
+    __m256i vr = _mm256_sub_epi32(va, vb);
+    _mm256_store_si256((__m256i*)result, vr);
 }
 inline void simd_mul_int32_256(s32 *a, s32 *b, s32* result) {
 	__m256i va = _mm256_loadu_si256((__m256i*)a);
@@ -190,10 +322,20 @@ inline void simd_mul_int32_256(s32 *a, s32 *b, s32* result) {
     __m256i vr = _mm256_mullo_epi32(va, vb);
     _mm256_storeu_si256((__m256i*)result, vr);
 }
+inline void simd_mul_int32_256_aligned(s32 *a, s32 *b, s32* result) {
+	__m256i va = _mm256_load_si256((__m256i*)a);
+    __m256i vb = _mm256_load_si256((__m256i*)b);
+    __m256i vr = _mm256_mullo_epi32(va, vb);
+    _mm256_store_si256((__m256i*)result, vr);
+}
 #else
 	#define simd_add_int32_256 		basic_add_int32_256
 	#define simd_sub_int32_256 		basic_sub_int32_256
 	#define simd_mul_int32_256 		basic_mul_int32_256
+	
+	#define simd_add_int32_256_aligned 		basic_add_int32_256
+	#define simd_sub_int32_256_aligned 		basic_sub_int32_256
+	#define simd_mul_int32_256_aligned 		basic_mul_int32_256
 #endif
 
 #if SIMD_ENABLE_AVX512
@@ -207,12 +349,24 @@ inline void simd_add_float32_512(float *a, float *b, float* result) {
     __m512 vr = _mm512_add_ps(va, vb);
     _mm512_storeu_ps(result, vr);
 }
+inline void simd_add_float32_512_aligned(float *a, float *b, float* result) {
+    __m512 va = _mm512_load_ps(a);
+    __m512 vb = _mm512_load_ps(b);
+    __m512 vr = _mm512_add_ps(va, vb);
+    _mm512_store_ps(result, vr);
+}
 
 inline void simd_sub_float32_512(float *a, float *b, float* result) {
     __m512 va = _mm512_loadu_ps(a);
     __m512 vb = _mm512_loadu_ps(b);
     __m512 vr = _mm512_sub_ps(va, vb);
     _mm512_storeu_ps(result, vr);
+}
+inline void simd_sub_float32_512_aligned(float *a, float *b, float* result) {
+    __m512 va = _mm512_load_ps(a);
+    __m512 vb = _mm512_load_ps(b);
+    __m512 vr = _mm512_sub_ps(va, vb);
+    _mm512_store_ps(result, vr);
 }
 
 inline void simd_mul_float32_512(float *a, float *b, float* result) {
@@ -221,6 +375,12 @@ inline void simd_mul_float32_512(float *a, float *b, float* result) {
     __m512 vr = _mm512_mul_ps(va, vb);
     _mm512_storeu_ps(result, vr);
 }
+inline void simd_mul_float32_512_aligned(float *a, float *b, float* result) {
+    __m512 va = _mm512_load_ps(a);
+    __m512 vb = _mm512_load_ps(b);
+    __m512 vr = _mm512_mul_ps(va, vb);
+    _mm512_store_ps(result, vr);
+}
 
 inline void simd_div_float32_512(float *a, float *b, float* result) {
     __m512 va = _mm512_loadu_ps(a);
@@ -228,11 +388,23 @@ inline void simd_div_float32_512(float *a, float *b, float* result) {
     __m512 vr = _mm512_div_ps(va, vb);
     _mm512_storeu_ps(result, vr);
 }
+inline void simd_div_float32_512_aligned(float *a, float *b, float* result) {
+    __m512 va = _mm512_load_ps(a);
+    __m512 vb = _mm512_load_ps(b);
+    __m512 vr = _mm512_div_ps(va, vb);
+    _mm512_store_ps(result, vr);
+}
 inline void simd_add_int32_512(int32 *a, int32 *b, int32* result) {
     __m512i va = _mm512_loadu_si512((__m512i*)a);
     __m512i vb = _mm512_loadu_si512((__m512i*)b);
     __m512i vr = _mm512_add_epi32(va, vb);
     _mm512_storeu_si512((__m512i*)result, vr);
+}
+inline void simd_add_int32_512_aligned(int32 *a, int32 *b, int32* result) {
+    __m512i va = _mm512_load_si512((__m512i*)a);
+    __m512i vb = _mm512_load_si512((__m512i*)b);
+    __m512i vr = _mm512_add_epi32(va, vb);
+    _mm512_store_si512((__m512i*)result, vr);
 }
 
 inline void simd_sub_int32_512(int32 *a, int32 *b, int32* result) {
@@ -241,12 +413,24 @@ inline void simd_sub_int32_512(int32 *a, int32 *b, int32* result) {
     __m512i vr = _mm512_sub_epi32(va, vb);
     _mm512_storeu_si512((__m512i*)result, vr);
 }
+inline void simd_sub_int32_512_aligned(int32 *a, int32 *b, int32* result) {
+    __m512i va = _mm512_load_si512((__m512i*)a);
+    __m512i vb = _mm512_load_si512((__m512i*)b);
+    __m512i vr = _mm512_sub_epi32(va, vb);
+    _mm512_store_si512((__m512i*)result, vr);
+}
 
 inline void simd_mul_int32_512(int32 *a, int32 *b, int32* result) {
     __m512i va = _mm512_loadu_si512((__m512i*)a);
     __m512i vb = _mm512_loadu_si512((__m512i*)b);
     __m512i vr = _mm512_mullo_epi32(va, vb);
     _mm512_storeu_si512((__m512i*)result, vr);
+}
+inline void simd_mul_int32_512_aligned(int32 *a, int32 *b, int32* result) {
+    __m512i va = _mm512_load_si512((__m512i*)a);
+    __m512i vb = _mm512_load_si512((__m512i*)b);
+    __m512i vr = _mm512_mullo_epi32(va, vb);
+    _mm512_store_si512((__m512i*)result, vr);
 }
 #else 
 	#define simd_add_float32_512 	basic_add_float32_512
@@ -256,6 +440,14 @@ inline void simd_mul_int32_512(int32 *a, int32 *b, int32* result) {
 	#define simd_add_int32_512 		basic_add_int32_512
 	#define simd_sub_int32_512 		basic_sub_int32_512
 	#define simd_mul_int32_512 		basic_mul_int32_512
+	
+	#define simd_add_float32_512_aligned 	basic_add_float32_512
+	#define simd_sub_float32_512_aligned 	basic_sub_float32_512
+	#define simd_mul_float32_512_aligned 	basic_mul_float32_512
+	#define simd_div_float32_512_aligned 	basic_div_float32_512
+	#define simd_add_int32_512_aligned 		basic_add_int32_512
+	#define simd_sub_int32_512_aligned 		basic_sub_int32_512
+	#define simd_mul_int32_512_aligned 		basic_mul_int32_512
 #endif // SIMD_ENABLE_AVX512
 
 #else
@@ -269,22 +461,41 @@ inline void simd_mul_int32_512(int32 *a, int32 *b, int32* result) {
 #define simd_mul_float32_128 	basic_mul_float32_128
 #define simd_div_float32_64 	basic_div_float32_64
 #define simd_div_float32_128 	basic_div_float32_128
+#define simd_add_float32_128_aligned 	basic_add_float32_128
+#define simd_sub_float32_128_aligned 	basic_sub_float32_128
+#define simd_mul_float32_128_aligned 	basic_mul_float32_128
+#define simd_div_float32_128_aligned 	basic_div_float32_128
 
 // SSE2
 #define simd_add_int32_128 		basic_add_int32_128
 #define simd_sub_int32_128 		basic_sub_int32_128
 #define simd_mul_int32_128 		basic_mul_int32_128
+#define simd_add_int32_128_aligned 		basic_add_int32_128
+#define simd_sub_int32_128_aligned 		basic_sub_int32_128
+#define simd_mul_int32_128_aligned 		basic_mul_int32_128
+
+// SSE41
+#define simd_dot_product_float32_64 basic_dot_product_float32_64
+#define simd_dot_product_float32_96 basic_dot_product_float32_96
+#define simd_dot_product_float32_128 basic_dot_product_float32_128
 
 // AVX
 #define simd_add_float32_256 	basic_add_float32_256
 #define simd_sub_float32_256 	basic_sub_float32_256
 #define simd_mul_float32_256 	basic_mul_float32_256
 #define simd_div_float32_256 	basic_div_float32_256
+#define simd_add_float32_256_aligned 	basic_add_float32_256
+#define simd_sub_float32_256_aligned 	basic_sub_float32_256
+#define simd_mul_float32_256_aligned 	basic_mul_float32_256
+#define simd_div_float32_256_aligned 	basic_div_float32_256
 
 // AVX2
 #define simd_add_int32_256 		basic_add_int32_256
 #define simd_sub_int32_256 		basic_sub_int32_256
 #define simd_mul_int32_256 		basic_mul_int32_256
+#define simd_add_int32_256_aligned 		basic_add_int32_256
+#define simd_sub_int32_256_aligned 		basic_sub_int32_256
+#define simd_mul_int32_256_aligned 		basic_mul_int32_256
 
 // AVX512
 #define simd_add_float32_512 	basic_add_float32_512
@@ -294,6 +505,13 @@ inline void simd_mul_int32_512(int32 *a, int32 *b, int32* result) {
 #define simd_add_int32_512 		basic_add_int32_512
 #define simd_sub_int32_512 		basic_sub_int32_512
 #define simd_mul_int32_512 		basic_mul_int32_512
+#define simd_add_float32_512_aligned 	basic_add_float32_512
+#define simd_sub_float32_512_aligned 	basic_sub_float32_512
+#define simd_mul_float32_512_aligned 	basic_mul_float32_512
+#define simd_div_float32_512_aligned 	basic_div_float32_512
+#define simd_add_int32_512_aligned 		basic_add_int32_512
+#define simd_sub_int32_512_aligned 		basic_sub_int32_512
+#define simd_mul_int32_512_aligned 		basic_mul_int32_512
 
 #endif
 
@@ -411,7 +629,15 @@ inline void basic_mul_int32_512(s32 *a, s32 *b, s32* result) {
 	simd_mul_int32_256(a, b, result);
 	simd_mul_int32_256(a+8, b+8, result+8);
 }
-
+inline float basic_dot_product_float32_64(float *a, float *b) {
+    return a[0] * b[0] + a[1] * b[1];
+}
+inline float basic_dot_product_float32_96(float *a, float *b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+inline float basic_dot_product_float32_128(float *a, float *b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+}
 
 
 

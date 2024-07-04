@@ -13,13 +13,13 @@
 #define to_radians32 to_radians
 #define to_degrees32 to_degrees
 
-typedef union Vector2 {
+typedef alignat(16) union Vector2 {
 	struct {float32 x, y;};
 } Vector2;
 inline Vector2 v2(float32 x, float32 y) { return (Vector2){x, y}; }
 #define v2_expand(v) (v).x, (v).y
 
-typedef union Vector3 {
+typedef alignat(16) union Vector3 {
 	struct {float32 x, y, z;};
 	struct {float32 r, g, b;};
 	struct {Vector2 xy;};
@@ -28,7 +28,7 @@ typedef union Vector3 {
 inline Vector3 v3(float32 x, float32 y, float32 z) { return (Vector3){x, y, z}; }
 #define v3_expand(v) (v).x, (v).y, (v).z
 
-typedef union Vector4 {
+typedef alignat(16) union Vector4 {
 	struct {float32 x, y, z, w;};
 	struct {float32 x1, y1, x2, y2;};
 	struct {float32 r, g, b, a;};
@@ -66,19 +66,19 @@ inline Vector2 v2_divf(Vector2 a, float32 s) {
 inline Vector3 v3_add(Vector3 a, Vector3 b) {
 	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
-	simd_add_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	simd_add_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
 inline Vector3 v3_sub(Vector3 a, Vector3 b) {
 	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
-	simd_sub_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	simd_sub_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
 inline Vector3 v3_mul(Vector3 a, Vector3 b) {
 	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
-	simd_mul_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	simd_mul_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
 inline Vector3 v3_mulf(Vector3 a, float32 s) {
@@ -87,7 +87,7 @@ inline Vector3 v3_mulf(Vector3 a, float32 s) {
 inline Vector3 v3_div(Vector3 a, Vector3 b) {
 	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
-	simd_div_float32_128((f32*)&a128, (f32*)&b128, (f32*)&a128);
+	simd_div_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
 inline Vector3 v3_divf(Vector3 a, float32 s) {
@@ -95,27 +95,28 @@ inline Vector3 v3_divf(Vector3 a, float32 s) {
 }
 
 inline Vector4 v4_add(Vector4 a, Vector4 b) {
-	simd_add_float32_128((f32*)&a, (f32*)&b, (f32*)&a);
+	simd_add_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
 inline Vector4 v4_sub(Vector4 a, Vector4 b) {
-	simd_sub_float32_128((f32*)&a, (f32*)&b, (f32*)&a);
+	simd_sub_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
 inline Vector4 v4_mul(Vector4 a, Vector4 b) {
-	simd_mul_float32_128((f32*)&a, (f32*)&b, (f32*)&a);
+	simd_mul_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
 inline Vector4 v4_mulf(Vector4 a, float32 s) {
 	return v4_mul(a, v4(s, s, s, s));
 }
 inline Vector4 v4_div(Vector4 a, Vector4 b) {
-	simd_div_float32_128((f32*)&a, (f32*)&b, (f32*)&a);
+	simd_div_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
 inline Vector4 v4_divf(Vector4 a, float32 s) {
 	return v4_div(a, v4(s, s, s, s));
 }
+
 
 inline Vector2 v2_normalize(Vector2 a) {
     float32 length = sqrt(a.x * a.x + a.y * a.y);
@@ -125,6 +126,15 @@ inline Vector2 v2_normalize(Vector2 a) {
     return v2_divf(a, length);
 }
 
+inline float v2_dot_product(Vector2 a, Vector2 b) {
+	return simd_dot_product_float32_64((float*)&a, (float*)&b);
+}
+inline float v3_dot_product(Vector3 a, Vector3 b) {
+	return simd_dot_product_float32_96((float*)&a, (float*)&b);
+}
+inline float v4_dot_product(Vector4 a, Vector4 b) {
+	return simd_dot_product_float32_128((float*)&a, (float*)&b);
+}
 
 Vector2 v2_rotate_point_around_pivot(Vector2 point, Vector2 pivot, float32 rotation_radians) {
     float32 s = sin(rotation_radians);

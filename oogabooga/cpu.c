@@ -27,6 +27,7 @@ typedef struct Cpu_Capabilities {
 // Compiler specific stuff
 #if COMPILER_MVSC
 	#define inline __forceinline
+	#define alignat(x) __declspec(align(x))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
     #include <intrin.h>
     #pragma intrinsic(__rdtsc)
@@ -63,6 +64,7 @@ typedef struct Cpu_Capabilities {
 	#endif
 #elif COMPILER_GCC || COMPILER_CLANG
 	#define inline __attribute__((always_inline)) inline
+	#define alignat(x) __attribute__((aligned(x)))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
     inline u64 rdtsc() {
         unsigned int lo, hi;
