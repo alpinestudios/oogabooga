@@ -15,5 +15,6 @@ When you're ready to take the next step and work on a commercial game, you can u
 Here are the benefits of obtaining the full license:
 - Permanent Ownership: You completely own the source code for life.
 - No Recurring Fees or Royalties: Just an affordable one-time payment.
+- It qualifies you to enter the private Skool community, where there's daily calls with Randy & Charlie, to help speedrun your game's development
 
-You can [book a call with Randy](https://calendly.com/tomrandy/30min) to find out more.
+You can [contact us](https://randy.gg/contact) to find out more.
