@@ -253,8 +253,11 @@ typedef u8 bool;
 #include "string.c"
 #include "unicode.c"
 #include "string_format.c"
+#include "hash.c"
 #include "path_utils.c"
 #include "linmath.c"
+
+#include "hash_table.c"
 
 #include "os_interface.c"
 #include "gfx_interface.c"
@@ -291,6 +294,8 @@ typedef u8 bool;
 
 #include "tests.c"
 
+#define malloc please_use_alloc_for_memory_allocations_instead_of_malloc
+#define free please_use_dealloc_for_memory_deallocations_instead_of_free
 
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;

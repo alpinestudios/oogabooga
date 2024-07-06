@@ -76,7 +76,7 @@ int entry(int argc, char **argv) {
 		draw_frame.view = camera_view;
 		
 		seed_for_random = 69;
-		for (u64 i = 0; i < 100000; i++) {
+		for (u64 i = 0; i < 10000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;
@@ -102,10 +102,12 @@ int entry(int argc, char **argv) {
 		
 		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
 		
+		//draw_text(font, "I am text", v2(0.1, 0.6), COLOR_BLACK);
+		//draw_text(font, "I am text", v2(0.09, 0.61), COLOR_WHITE);
+		
 		tm_scope_cycles("gfx_update") {
 			gfx_update();
 		}
-		
 		
 		if (is_key_just_released('E')) {
 			log("FPS: %.2f", 1.0 / delta);

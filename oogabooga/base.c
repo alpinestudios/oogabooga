@@ -118,3 +118,19 @@ void pop_context() {
 }
 
 
+
+u64 get_next_power_of_two(u64 x) {
+    if (x == 0) {
+        return 1;
+    }
+
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x |= x >> 32;
+
+    return x + 1;
+}
