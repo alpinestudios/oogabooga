@@ -3,17 +3,6 @@
 ///
 // Build config stuff
 
-
-#define RUN_TESTS 0
-// This is only for people developing oogabooga!
-#define OOGABOOGA_DEV 1
-
-#define ENABLE_PROFILING 0
-
-// ENABLE_SIMD Requires CPU to support at least SSE1 but I will be very surprised if you find a system today which doesn't
-#define ENABLE_SIMD 0
-
-
 #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
 
 typedef struct Context_Extra {

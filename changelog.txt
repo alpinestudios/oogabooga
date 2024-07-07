@@ -1,0 +1,40 @@
+## v0.00.002 - Text rendering, image manipulation, hash tables
+
+Renderer:
+	- Pass 8-bit integers "type" and "sampler_index" to shader
+		- Sample texture differently depending on "type" (text or regular quad)
+		- Sample with nearest/linear min/mag depending on sampler_index
+		- Set min/mag filtering in Draw_Quad
+		- Images are now created and deleted directly with gfx calls rather than deferring it for gfx_update.
+		- We can now set image sub data with gfx_set_image_data()
+		- Images are no longer hard coded to 4 channels
+		
+Text/Fonts:
+	- Added font loading with lazy initialization/rasterization when it's needed
+		- Load & rasterize any fonts with load_font_from_disk()
+		- Fonts automatically rasterize glyphs into atlases and generate metrics on the fly
+		- Measure text for very_useful metrics with measure_text()
+		- Walk over glyphs and their metrics with walk_glyphs()
+	- Implemented simple but powerful text rendering
+		- Draw text with draw_text() or draw_text_xform()
+	- See oogabooga/examples/text_rendering.c for more
+			
+Other:
+	- Added 3 simple hash functions:
+		- 64-bit xx_hash(): Very fast hash for 64-bit values
+		- 64-bit city_hash(): Very fast hash for short strings
+		- 64-bit djb2_hash(): Fast hash for strings longer than 32 bytes
+		- Made a generic get_hash() macro to detect the type you are trying to hash and call the approriate procedure
+	- Introduced a simple (kinda slow) hash table with following procedures:
+		- hash_table_add
+		- hash_table_find
+		- hash_table_contains
+		- hash_table_set
+		See hash_table.c for more information.
+	- Utf8 utility:
+		- utf8_to_utf32(): convert utf8 bytes to a single u32 codepoint
+		- next_utf8(): Convert first utf8 character in a string to a u32 codepoint and advance the passed string to the next unicode
+	- Renamed m4_multiply -> m4_mul for consistency
+	- Refactored os window to be DPI aware
+		- Window now has scaled_width, scaled_height which is the DPI-scaled size. Previous window.width & window.height are now aliased as window.pixel_height and window.pixel_width for clarity
+	- in minimal example, renamed hammer_xform -> rect_xform
