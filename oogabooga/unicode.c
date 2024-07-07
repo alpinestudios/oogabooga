@@ -36,3 +36,76 @@ int utf16_to_utf32(const u16 *utf16, u64 length, u32 *utf32) {
         return 1;
     }
 }
+
+// Yoinked from jai Unicode.jai
+
+#define UNI_REPLACEMENT_CHAR 0x0000FFFD
+#define UNI_MAX_UTF32        0x7FFFFFFF
+#define UNI_MAX_UTF16        0x0010FFFF
+#define SURROGATES_START     0xD800
+#define SURROGATES_END       0xDFFF
+
+typedef struct {
+	u32 utf32;
+	s64 continuation_bytes;
+	bool reached_end;
+	bool error;
+} Utf8_To_Utf32_Result;
+
+const u8 trailing_bytes_for_utf8[] = {
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5
+};
+const u8 utf8_inital_byte_mask[] = { 0x7F, 0x1F, 0x0F, 0x07, 0x03, 0x01 };
+
+Utf8_To_Utf32_Result utf8_to_utf32(u8 *s, s64 source_length, bool strict) {
+    s64 continuation_bytes = trailing_bytes_for_utf8[s[0]];
+
+    if (continuation_bytes + 1 > source_length) {
+        return (Utf8_To_Utf32_Result){UNI_REPLACEMENT_CHAR, source_length, true, true};
+    }
+
+    u32 ch = s[0] & utf8_inital_byte_mask[continuation_bytes];
+
+    for (u64 i = 1; i <= continuation_bytes; i++) {  // Do nothing if it is 0.
+        ch = ch << 6;
+        if (strict) if ((s[i] & 0xC0) != 0x80)  return (Utf8_To_Utf32_Result){UNI_REPLACEMENT_CHAR, i - 1, true, true};
+    	ch |= s[i] & 0x3F;
+    }
+
+    if (strict) {
+        if (ch > UNI_MAX_UTF16 ||
+          (SURROGATES_START <= ch && ch <= SURROGATES_END) ||
+          (ch <= 0x0000007F && continuation_bytes != 0) ||
+          (ch <= 0x000007FF && continuation_bytes != 1) ||
+          (ch <= 0x0000FFFF && continuation_bytes != 2) ||
+          continuation_bytes > 3) {
+            return (Utf8_To_Utf32_Result){UNI_REPLACEMENT_CHAR, continuation_bytes+1, true, true};
+        }
+    }
+
+    if (ch > UNI_MAX_UTF32) {
+        ch = UNI_REPLACEMENT_CHAR;
+    }
+
+	return (Utf8_To_Utf32_Result){ ch, continuation_bytes+1, false, false };
+}
+
+// Returns 0 on fail
+u32 next_utf8(string *s) {
+	Utf8_To_Utf32_Result result = utf8_to_utf32(s->data, s->count, false);
+
+    s->data  += result.continuation_bytes;
+    s->count -= result.continuation_bytes;
+    assert(s->count >= 0);
+
+	if (result.error) return 0;
+
+    return result.utf32;
+}

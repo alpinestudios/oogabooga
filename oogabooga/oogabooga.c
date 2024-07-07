@@ -105,6 +105,12 @@
 
 */
 
+#define OGB_VERSION_MAJOR 0
+#define OGB_VERSION_MINOR 0
+#define OGB_VERSION_PATCH 2
+
+#define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
+
 #include <stdint.h>
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -253,11 +259,15 @@ typedef u8 bool;
 #include "string.c"
 #include "unicode.c"
 #include "string_format.c"
+#include "hash.c"
 #include "path_utils.c"
 #include "linmath.c"
 
+#include "hash_table.c"
+
 #include "os_interface.c"
 #include "gfx_interface.c"
+#include "font.c"
 
 #include "profiling.c"
 #include "random.c"
@@ -291,6 +301,8 @@ typedef u8 bool;
 
 #include "tests.c"
 
+#define malloc please_use_alloc_for_memory_allocations_instead_of_malloc
+#define free please_use_dealloc_for_memory_deallocations_instead_of_free
 
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;
@@ -315,8 +327,9 @@ int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
 
-	printf("Ooga booga program started\n");
+	print("Ooga booga program started\n");
 	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
+	log_info("Ooga booga version is %d.%02d.%03d", OGB_VERSION_MAJOR, OGB_VERSION_MINOR, OGB_VERSION_PATCH);
 	
 	assert(main != ENTRY_PROC, "You've ooga'd your last booga");
 	

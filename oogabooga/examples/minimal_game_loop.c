@@ -2,8 +2,8 @@
 int entry(int argc, char **argv) {
 	
 	window.title = STR("Minimal Game Example");
-	window.width = 1280;
-	window.height = 720;
+	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
+	window.scaled_height = 720; 
 	window.x = 200;
 	window.y = 200;
 	window.clear_color = hex_to_rgba(0x6495EDff);
@@ -14,10 +14,10 @@ int entry(int argc, char **argv) {
 		os_update(); 
 		
 		float64 now = os_get_current_time_in_seconds();
-		Matrix4 hammer_xform = m4_scalar(1.0);
-		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);
-		hammer_xform         = m4_translate(hammer_xform, v3(-.25f, -.25f, 0));
-		draw_rect_xform(hammer_xform, v2(.5f, .5f), COLOR_RED);
+		Matrix4 rect_xform = m4_scalar(1.0);
+		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
+		rect_xform         = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
+		draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_RED);
 		
 		gfx_update();
 	}

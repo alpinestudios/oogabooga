@@ -298,10 +298,12 @@ typedef struct Os_Window {
 
 	// Keep in mind that setting these in runtime is potentially slow!
 	string title;
-	u32 width;
-	u32 height;
-	u32 x;
-	u32 y;
+	union { s32 width;  s32 pixel_width;  };
+	union { s32 height; s32 pixel_height; };
+	s32 scaled_width;
+	s32 scaled_height;
+	s32 x;
+	s32 y;
 	Vector4 clear_color;
 	bool enable_vsync;
 	

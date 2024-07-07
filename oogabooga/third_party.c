@@ -40,6 +40,9 @@ typedef signed   short  s16;
 typedef unsigned int    u32;
 typedef signed   int    s32;
 
+// #Temporary #Incomplete #Memory
+// This should use the allocator we pass to the gfx font system.
+// Probably just do a thread local global here
 void *stbtt_malloc(size_t size) {
 	if (!size) return 0;
 	return alloc(get_heap_allocator(), size);

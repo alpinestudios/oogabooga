@@ -36,6 +36,8 @@ void log_heap() {
 
 void test_allocator(bool do_log_heap) {
 
+	u64 h = get_hash((string*)69);
+
 	Allocator heap = get_heap_allocator();
 
 	// Basic allocation and free
@@ -881,8 +883,8 @@ void test_linmath() {
     // Test matrix multiplication
     Matrix4 m5 = m4_scalar(1.0f);
     m5.m[0][3] = 1.0f; m5.m[1][3] = 2.0f; m5.m[2][3] = 3.0f;
-    Matrix4 result_matrix = m4_multiply(m2, m5);
-    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_multiply incorrect");
+    Matrix4 result_matrix = m4_mul(m2, m5);
+    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_mul incorrect");
 
     // Test matrix inverse
     Matrix4 identity = m4_scalar(1.0f);
@@ -1018,6 +1020,42 @@ void test_linmath() {
 	assert(floats_roughly_match(v3_dot, 38), "Failed: v3_dot_product");
 	assert(floats_roughly_match(v4_dot, 30), "Failed: v4_dot_product");
 }
+void test_hash_table() {
+    Hash_Table table = make_hash_table(string, int, get_heap_allocator());
+    
+    string key1 = STR("Key string");
+    int value1 = 69;
+    bool newly_added = hash_table_set(&table, key1, value1);
+    assert(newly_added == true, "Failed: Key should be newly added");
+
+    int* found_value = hash_table_find(&table, key1);
+    assert(found_value != NULL, "Failed: Key should exist in hash table");
+    assert(*found_value == 69, "Failed: Value should be 69, got %i", *found_value);
+
+    int new_value1 = 70;
+    newly_added = hash_table_set(&table, key1, new_value1);
+    assert(newly_added == false, "Failed: Key should not be newly added");
+
+    found_value = hash_table_find(&table, key1);
+    assert(found_value != NULL, "Failed: Key should exist in hash table");
+    assert(*found_value == 70, "Failed: Value should be 70, got %i", *found_value);
+
+    bool contains = hash_table_contains(&table, key1);
+    assert(contains == true, "Failed: Hash table should contain key1");
+
+    string key2 = STR("Non-existing key");
+    contains = hash_table_contains(&table, key2);
+    assert(contains == false, "Failed: Hash table should not contain key2");
+
+    hash_table_reset(&table);
+    found_value = hash_table_find(&table, key1);
+    assert(found_value == NULL, "Failed: Hash table should be empty after reset");
+
+    hash_table_destroy(&table);
+    assert(table.entries == NULL, "Failed: Hash table entries should be NULL after destroy");
+    assert(table.count == 0, "Failed: Hash table count should be 0 after destroy");
+    assert(table.capacity_count == 0, "Failed: Hash table capacity count should be 0 after destroy");
+}
 void oogabooga_run_tests() {
 	
 	
@@ -1033,17 +1071,19 @@ void oogabooga_run_tests() {
 	test_strings();
 	print("OK!\n");
 
-	
-	//print("Thread bombing allocator... ");
-	//Thread* threads[100];
-	//for (int i = 0; i < 100; i++) {
-	//	threads[i] = os_make_thread(test_allocator_threaded, get_heap_allocator());
-	//	os_start_thread(threads[i]);
-	//}
-	//for (int i = 0; i < 100; i++) {
-	//	os_join_thread(threads[i]);
-	//}
-	//print("OK!\n");
+
+#if CONFIGURATION != RELEASE
+	print("Thread bombing allocator... ");
+	Thread* threads[100];
+	for (int i = 0; i < 100; i++) {
+		threads[i] = os_make_thread(test_allocator_threaded, get_heap_allocator());
+		os_start_thread(threads[i]);
+	}
+	for (int i = 0; i < 100; i++) {
+		os_join_thread(threads[i]);
+	}
+	print("OK!\n");
+#endif
 	
 	print("Testing file IO... ");
 	test_file_io();
@@ -1055,6 +1095,10 @@ void oogabooga_run_tests() {
 	
 	print("Testing simd... ");
 	test_simd();
+	print("OK!\n");
+	
+	print("Testing hash table... ");
+	test_hash_table();
 	print("OK!\n");
 	
 }
