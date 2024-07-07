@@ -15,6 +15,14 @@ int entry(int argc, char **argv) {
 	Gfx_Image *hammer_image = load_image_from_disk(STR("oogabooga/examples/hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
+	void *my_data = alloc(get_heap_allocator(), 32*32*4);
+	memset(my_data, 0xffffffff, 32*32*4);
+	Gfx_Image *my_image = make_image(32, 32, 4, my_data, get_heap_allocator());
+	for (int *c = (int*)my_data; c < (int*)my_data+16*16; c += 1) {
+		*c = 0xff0000ff;
+	}
+	gfx_set_image_data(my_image, 0, 0, 16, 16, my_data);
+	
 	seed_for_random = os_get_current_cycle_count();
 	
 	const float64 fps_limit = 69000;
@@ -94,7 +102,7 @@ int entry(int argc, char **argv) {
 		Matrix4 hammer_xform = m4_scalar(1.0);
 		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);
 		hammer_xform         = m4_translate(hammer_xform, v3(-.25f, -.25f, 0));
-		draw_image_xform(hammer_image, hammer_xform, v2(.5f, .5f), COLOR_RED);
+		draw_image_xform(my_image, hammer_xform, v2(.5f, .5f), COLOR_RED);
 		
 		Vector2 hover_position = v2_rotate_point_around_pivot(v2(-.5, -.5), v2(0, 0), (f32)now);
 		Vector2 local_pivot = v2(.125f, .125f);

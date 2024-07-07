@@ -83,9 +83,6 @@ typedef struct Draw_Frame {
 	
 	Matrix4 projection;
 	Matrix4 view;
-	
-	Gfx_Handle garbage_stack[4096];
-	u64 garbage_stack_count;
 } Draw_Frame;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
@@ -196,40 +193,3 @@ Draw_Quad *draw_image_xform(Gfx_Image *image, Matrix4 xform, Vector2 size, Vecto
 #define COLOR_WHITE ((Vector4){1.0, 1.0, 1.0, 1.0})
 #define COLOR_BLACK ((Vector4){0.0, 0.0, 0.0, 1.0})
 
-Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
-    string png;
-    bool ok = os_read_entire_file(path, &png, allocator);
-    if (!ok) return 0;
-
-    Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
-    
-    // Use stb_image to load and decode the PNG
-    int width, height, channels;
-    stbi_set_flip_vertically_on_load(1);  // stb_image can flip the image on load
-    unsigned char* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
-    
-    if (!stb_data) {
-        dealloc(allocator, image);
-        dealloc_string(allocator, png);
-        return 0;
-    }
-    
-    image->data = stb_data;
-    image->width = width;
-    image->height = height;
-    image->gfx_handle = GFX_INVALID_HANDLE;  // This is handled in gfx
-    image->allocator = allocator;
-
-    dealloc_string(allocator, png);
-
-    return image;
-}
-
-void delete_image(Gfx_Image *image) {
-    stbi_image_free(image->data);  // Free the image data allocated by stb_image
-    image->width = 0;
-    image->height = 0;
-    draw_frame.garbage_stack[draw_frame.garbage_stack_count] = image->gfx_handle;
-    draw_frame.garbage_stack_count += 1;
-    dealloc(image->allocator, image);
-}

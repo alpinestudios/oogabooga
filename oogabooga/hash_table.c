@@ -1,7 +1,6 @@
 
-// Very naive implementation for now but it should be cache efficient so not really a 
-// problem until very large (in which case you should probably write your own data structure 
-// anyways)
+// Very naive implementation but it should be very cache efficient so it's alright
+// for non-excessive use for now.
 
 /*
 

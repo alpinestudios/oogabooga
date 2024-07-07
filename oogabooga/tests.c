@@ -1081,8 +1081,6 @@ void oogabooga_run_tests() {
 	print("OK!\n");
 
 
-	// #Temporary
-	// This makes entire os freeze in release lol
 #if CONFIGURATION != RELEASE
 	print("Thread bombing allocator... ");
 	Thread* threads[100];

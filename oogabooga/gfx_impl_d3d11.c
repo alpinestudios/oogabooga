@@ -13,7 +13,7 @@ const Gfx_Handle GFX_INVALID_HANDLE = 0;
 
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16);
 
-typedef  struct alignat(16) D3D11_Vertex {
+typedef struct alignat(16) D3D11_Vertex {
 	Vector4 color;
 	Vector4 position;
 	Vector2 uv;
@@ -22,8 +22,8 @@ typedef  struct alignat(16) D3D11_Vertex {
 
 ID3D11Debug *d3d11_debug = 0;
 
-ID3D11Device* d3d11_device = 0;
-ID3D11DeviceContext* d3d11_context = 0;
+ID3D11Device *d3d11_device = 0;
+ID3D11DeviceContext *d3d11_context = 0;
 ID3D11RenderTargetView *d3d11_window_render_target_view = 0;
 ID3D11Texture2D *d3d11_back_buffer = 0;
 D3D_DRIVER_TYPE d3d11_driver_type = 0;
@@ -518,23 +518,6 @@ void gfx_update() {
 	HRESULT hr;
 
 	tm_scope_cycles("Frame setup") {
-		///
-		// purge garbage
-		for (u64 i = 0; i < draw_frame.garbage_stack_count; i++) {
-			ID3D11ShaderResourceView *view = draw_frame.garbage_stack[i];
-			ID3D11Resource *resource = 0;
-			VTABLE(GetResource, view, &resource);
-			
-			ID3D11Texture2D *texture = 0;
-			hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
-			if (SUCCEEDED(hr)) {
-				D3D11Release(view);
-				D3D11Release(texture);
-				log("Destroyed an image");
-			} else {
-				panic("Unhandled D3D11 resource deletion");
-			}
-		}
 	
 		///
 		// Maybe resize swap chain
@@ -595,33 +578,6 @@ void gfx_update() {
 					int texture_index = -1;
 					
 					if (q->image) {
-						if (!q->image->gfx_handle) {
-							D3D11_TEXTURE2D_DESC desc = ZERO(D3D11_TEXTURE2D_DESC);
-							desc.Width = q->image->width;
-							desc.Height = q->image->height;
-							desc.MipLevels = 1;
-							desc.ArraySize = 1;
-							desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-							desc.SampleDesc.Count = 1;
-							desc.SampleDesc.Quality = 0;
-							desc.Usage = D3D11_USAGE_DEFAULT;
-							desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-							desc.CPUAccessFlags = 0;
-							desc.MiscFlags = 0;
-							
-							D3D11_SUBRESOURCE_DATA data = ZERO(D3D11_SUBRESOURCE_DATA);
-							data.pSysMem = q->image->data;
-							data.SysMemPitch  = q->image->width * 4; // #Magicvalue assuming 4 channels
-							
-							ID3D11Texture2D* texture = 0;
-							HRESULT hr = VTABLE(CreateTexture2D, d3d11_device, &desc, &data, &texture);
-							win32_check_hr(hr);
-							
-							hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &q->image->gfx_handle);
-							win32_check_hr(hr);
-							
-							log_verbose("Created an image of width %d and height %d.", q->image->width, q->image->height);
-						}
 						
 						if (last_texture == q->image->gfx_handle) {
 							texture_index = (int)(num_textures-1);
@@ -741,4 +697,76 @@ void gfx_update() {
 	
 	reset_draw_frame(&draw_frame);
 	
+}
+
+
+void gfx_init_image(Gfx_Image *image, void *data) {
+	D3D11_TEXTURE2D_DESC desc = ZERO(D3D11_TEXTURE2D_DESC);
+	desc.Width = image->width;
+	desc.Height = image->height;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = 0;
+	
+	D3D11_SUBRESOURCE_DATA data_desc = ZERO(D3D11_SUBRESOURCE_DATA);
+	data_desc.pSysMem = data;
+	data_desc.SysMemPitch  = image->width * image->channels;
+	
+	ID3D11Texture2D* texture = 0;
+	HRESULT hr = VTABLE(CreateTexture2D, d3d11_device, &desc, &data_desc, &texture);
+	win32_check_hr(hr);
+	
+	hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &image->gfx_handle);
+	win32_check_hr(hr);
+	
+	log_verbose("Created an image of width %d and height %d.", image->width, image->height);
+}
+void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data) {
+    assert(image && data, "Bad parameters passed to gfx_set_image_data");
+
+    ID3D11ShaderResourceView *view = image->gfx_handle;
+    ID3D11Resource *resource = NULL;
+    VTABLE(GetResource, view, &resource);
+    
+    assert(resource, "Invalid image passed to gfx_set_image_data");
+    
+    assert(x+w < image->width && y+h < image->height, "Specified subregion in image is out of bounds");
+
+    ID3D11Texture2D *texture = NULL;
+    HRESULT hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
+    assert(SUCCEEDED(hr), "Expected gfx resource to be a texture but it wasn't");
+
+    D3D11_BOX destBox;
+    destBox.left = x;
+    destBox.right = x + w;
+    destBox.top = y;
+    destBox.bottom = y + h;
+    destBox.front = 0;
+    destBox.back = 1;
+
+	// #Incomplete bit-width 8 assumed
+    VTABLE(UpdateSubresource, d3d11_context, resource, 0, &destBox, data, w * image->channels, 0);
+
+    log_verbose("Updated image data at region (%u, %u) with dimensions (%u, %u).", x, y, w, h);
+}
+void gfx_deinit_image(Gfx_Image *image) {
+	ID3D11ShaderResourceView *view = image->gfx_handle;
+	ID3D11Resource *resource = 0;
+	VTABLE(GetResource, view, &resource);
+	
+	ID3D11Texture2D *texture = 0;
+	HRESULT hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
+	if (SUCCEEDED(hr)) {
+		D3D11Release(view);
+		D3D11Release(texture);
+		log("Destroyed an image");
+	} else {
+		panic("Unhandled D3D11 resource deletion");
+	}
 }
