@@ -187,6 +187,16 @@ void *hash_table_find_raw(Hash_Table *t, u64 hash) {
 	return 0;
 }
 
+void *hash_table_get_nth_value(Hash_Table *t, u64 n) {
+	assert(n < t->count, "Hash table n is out of range");
+	
+	u64 entry_size = t->_value_size+sizeof(u64);
+	u64 hash_offset = 0;
+	u64 value_offset = hash_offset + sizeof(u64);
+	
+	return (u8*)t->entries+entry_size*n+value_offset;
+}
+
 bool hash_table_contains_raw(Hash_Table *t, u64 hash) {
 	return hash_table_find_raw(t, hash) != 0;
 }
@@ -205,3 +215,4 @@ bool hash_table_set_raw(Hash_Table *t, u64 hash, void *k, void *v, u64 key_size,
 	
 	return newly_added;
 }
+

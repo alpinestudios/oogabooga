@@ -3,8 +3,8 @@
 ///
 // Build config stuff
 
-#define RUN_TESTS 1
 
+#define RUN_TESTS 0
 // This is only for people developing oogabooga!
 #define OOGABOOGA_DEV 1
 
@@ -37,10 +37,12 @@ typedef struct Context_Extra {
 //
 
 // this is a minimal starting point for new projects. Copy & rename to get started
-//  #include "oogabooga/examples/minimal_game_loop.c"
+#include "oogabooga/examples/minimal_game_loop.c"
+
+// #include "oogabooga/examples/text_rendering.c"
 
 // An engine dev stress test for rendering
-#include "oogabooga/examples/renderer_stress_test.c"
+// #include "oogabooga/examples/renderer_stress_test.c"
 
 // Randy's example game that he's building out as a tutorial for using the engine
 // #include "entry_randygame.c"

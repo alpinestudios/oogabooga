@@ -23,6 +23,11 @@ int entry(int argc, char **argv) {
 	}
 	gfx_set_image_data(my_image, 0, 0, 16, 16, my_data);
 	
+	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
+	assert(font, "Failed loading arial.ttf, %d", GetLastError());
+	
+	render_atlas_if_not_yet_rendered(font, 32, 'A');
+	
 	seed_for_random = os_get_current_cycle_count();
 	
 	const float64 fps_limit = 69000;
@@ -102,7 +107,7 @@ int entry(int argc, char **argv) {
 		Matrix4 hammer_xform = m4_scalar(1.0);
 		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);
 		hammer_xform         = m4_translate(hammer_xform, v3(-.25f, -.25f, 0));
-		draw_image_xform(my_image, hammer_xform, v2(.5f, .5f), COLOR_RED);
+		draw_image_xform(hammer_image, hammer_xform, v2(.5f, .5f), COLOR_RED);
 		
 		Vector2 hover_position = v2_rotate_point_around_pivot(v2(-.5, -.5), v2(0, 0), (f32)now);
 		Vector2 local_pivot = v2(.125f, .125f);
@@ -110,8 +115,18 @@ int entry(int argc, char **argv) {
 		
 		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
 		
-		//draw_text(font, "I am text", v2(0.1, 0.6), COLOR_BLACK);
-		//draw_text(font, "I am text", v2(0.09, 0.61), COLOR_WHITE);
+		u32 atlas_index = 0;
+		Gfx_Font_Atlas *atlas = (Gfx_Font_Atlas*)hash_table_find(&font->variations[32].atlases, atlas_index);
+		
+		draw_text(font, STR("I am text"), 128, v2(sin(now), -0.61), v2(0.001, 0.001), COLOR_BLACK);
+		draw_text(font, STR("I am text"), 128, v2(sin(now)-0.01, -0.6), v2(0.001, 0.001), COLOR_WHITE);
+		
+		draw_text(font, STR("Hello jje\nnew line"), 128, v2(-1, 0.5), v2(0.001, 0.001), COLOR_WHITE);
+		
+		local_persist bool show = false;
+		if (is_key_just_pressed('T')) show = !show;
+		
+		if (show) draw_image(atlas->image, v2(-1.6, -1), v2(4, 4), COLOR_WHITE);
 		
 		tm_scope_cycles("gfx_update") {
 			gfx_update();

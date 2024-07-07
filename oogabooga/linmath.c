@@ -219,7 +219,7 @@ Matrix4 m4_make_scale(Vector3 scale) {
     return m;
 }
 
-Matrix4 m4_multiply(Matrix4 a, Matrix4 b) {
+Matrix4 m4_mul(Matrix4 a, Matrix4 b) {
     Matrix4 result;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -234,21 +234,21 @@ Matrix4 m4_multiply(Matrix4 a, Matrix4 b) {
 
 inline Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
     Matrix4 translation_matrix = m4_make_translation(translation);
-    return m4_multiply(m, translation_matrix);
+    return m4_mul(m, translation_matrix);
 }
 
 inline Matrix4 m4_rotate(Matrix4 m, Vector3 axis, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(axis, radians);
-    return m4_multiply(m, rotation_matrix);
+    return m4_mul(m, rotation_matrix);
 }
 inline Matrix4 m4_rotate_z(Matrix4 m, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(v3(0, 0, 1), radians);
-    return m4_multiply(m, rotation_matrix);
+    return m4_mul(m, rotation_matrix);
 }
 
 inline Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
     Matrix4 scale_matrix = m4_make_scale(scale);
-    return m4_multiply(m, scale_matrix);
+    return m4_mul(m, scale_matrix);
 }
 
 

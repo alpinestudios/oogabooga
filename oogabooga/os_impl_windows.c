@@ -141,6 +141,8 @@ void os_init(u64 program_memory_size) {
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 #endif
+
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	
 	SYSTEM_INFO si;
     GetSystemInfo(&si);
@@ -625,7 +627,7 @@ File os_file_open_s(string path, Os_Io_Open_Flags flags) {
     
     u16 *wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 
-    return CreateFileW(wide, access, 0, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+    return CreateFileW(wide, access, FILE_SHARE_READ, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
 }
 
 void os_file_close(File f) {
@@ -935,31 +937,40 @@ void* os_get_stack_limit() {
 
 void os_update() {
 
+	UINT dpi = GetDpiForWindow(window._os_handle);
+    float dpi_scale_factor = dpi / 96.0f;
+
 	local_persist Os_Window last_window;
 
 	if (!strings_match(last_window.title, window.title)) {
 		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
+	}
+
+	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
+		window.width = window.scaled_width*dpi_scale_factor;
+		window.height = window.scaled_height*dpi_scale_factor;
 	}
 	
 	BOOL ok;
 	int screen_height = GetSystemMetrics(SM_CYSCREEN);
 	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
 	DWORD ex_style = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
-	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.y != window.y) {
-		RECT update_rect;
-		update_rect.left = window.x;
-		update_rect.right = window.x + window.width;
-		update_rect.bottom = screen_height-(window.y);
-		update_rect.top = screen_height-(window.y+window.height);
-		ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
-		assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
-		
-		u32 actual_x = update_rect.left;
-		u32 actual_y = update_rect.top;
-		u32 actual_width  = update_rect.right-update_rect.left;
-		u32 actual_height = update_rect.bottom-update_rect.top;
-		
-		SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, 0);
+	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
+	    RECT update_rect;
+	    update_rect.left = window.x;
+	    update_rect.right = window.x + window.width;
+	    update_rect.top = window.y;
+	    update_rect.bottom = window.y + window.height; 
+	
+	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
+	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	
+	    u32 actual_x = update_rect.left;
+	    u32 actual_y = update_rect.top; 
+	    u32 actual_width = update_rect.right - update_rect.left;
+	    u32 actual_height = update_rect.bottom - update_rect.top;
+	    
+	    SetWindowPos(window._os_handle, NULL, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
 	
 	RECT client_rect;
@@ -983,8 +994,11 @@ void os_update() {
 	
 	window.x = (u32)top_left.x;
 	window.y = (u32)(screen_height-bottom_right.y);
-	window.width  = (u32)(client_rect.right - client_rect.left);
-	window.height = (u32)(client_rect.bottom - client_rect.top);
+	window.pixel_width  = (u32)(client_rect.right - client_rect.left);
+	window.pixel_height = (u32)(client_rect.bottom - client_rect.top);
+    
+    window.scaled_width = (u32)((client_rect.right - client_rect.left) * dpi_scale_factor);
+    window.scaled_height = (u32)((client_rect.bottom - client_rect.top) * dpi_scale_factor);
 	
 	last_window = window;
 	
@@ -1016,8 +1030,8 @@ void os_update() {
 	GetCursorPos(&p);
 	ScreenToClient(window._os_handle, &p);
 	p.y = window.height - p.y;
-	input_frame.mouse_x = (float32)p.x;
-	input_frame.mouse_y = (float32)p.y;
+	input_frame.mouse_x = p.x;
+	input_frame.mouse_y = p.y;
 	
 	if (window.should_close) {
 		win32_window_proc(window._os_handle, WM_CLOSE, 0, 0);

@@ -14,10 +14,20 @@ const Gfx_Handle GFX_INVALID_HANDLE = 0;
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16);
 
 typedef struct alignat(16) D3D11_Vertex {
+	
+
 	Vector4 color;
 	Vector4 position;
 	Vector2 uv;
-	int texture_index;
+	union {
+		s32 data1;
+		struct {
+			s8 texture_index;
+			u8 type;
+			u8 sampler;
+			u8 padding;
+		};
+	};
 } D3D11_Vertex;
 
 ID3D11Debug *d3d11_debug = 0;
@@ -36,7 +46,10 @@ u32 d3d11_swap_chain_height = 0;
 
 ID3D11BlendState *d3d11_blend_state = 0;
 ID3D11RasterizerState *d3d11_rasterizer = 0;
-ID3D11SamplerState *d3d11_image_sampler = 0;
+ID3D11SamplerState *d3d11_image_sampler_np_fp = 0;
+ID3D11SamplerState *d3d11_image_sampler_nl_fl = 0;
+ID3D11SamplerState *d3d11_image_sampler_np_fl = 0;
+ID3D11SamplerState *d3d11_image_sampler_nl_fp = 0;
 
 ID3D11VertexShader *d3d11_image_vertex_shader = 0;
 ID3D11PixelShader  *d3d11_image_pixel_shader = 0;
@@ -358,7 +371,21 @@ void gfx_init() {
 	    sd.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	    sd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 	    sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
-	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler);
+	    
+	    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_np_fp);
+	    win32_check_hr(hr);
+	    
+	    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_nl_fl);
+	    win32_check_hr(hr);
+	    
+	    sd.Filter = D3D11_FILTER_MIN_LINEAR_MAG_MIP_POINT;
+	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_np_fl);
+	    win32_check_hr(hr);
+	    
+	    sd.Filter = D3D11_FILTER_MIN_POINT_MAG_MIP_LINEAR;
+	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_nl_fp);
 	    win32_check_hr(hr);
 	}
 	
@@ -461,11 +488,11 @@ void gfx_init() {
 	layout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[2].InstanceDataStepRate = 0;
 	
-	layout[3].SemanticName = "TEXTURE_INDEX";
+	layout[3].SemanticName = "DATA1_";
 	layout[3].SemanticIndex = 0;
 	layout[3].Format = DXGI_FORMAT_R32_SINT;
 	layout[3].InputSlot = 0;
-	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, texture_index);
+	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, data1);
 	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[3].InstanceDataStepRate = 0;
 	
@@ -501,7 +528,10 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     VTABLE(VSSetShader, d3d11_context, d3d11_image_vertex_shader, NULL, 0);
     VTABLE(PSSetShader, d3d11_context, d3d11_image_pixel_shader, NULL, 0);
     
-    VTABLE(PSSetSamplers, d3d11_context, 0, 1, &d3d11_image_sampler);
+    VTABLE(PSSetSamplers, d3d11_context, 0, 1, &d3d11_image_sampler_np_fp);
+    VTABLE(PSSetSamplers, d3d11_context, 1, 1, &d3d11_image_sampler_nl_fl);
+    VTABLE(PSSetSamplers, d3d11_context, 2, 1, &d3d11_image_sampler_np_fl);
+    VTABLE(PSSetSamplers, d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
     VTABLE(PSSetShaderResources, d3d11_context, 0, num_textures, textures);
 
     VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
@@ -575,17 +605,17 @@ void gfx_update() {
 					
 					Draw_Quad *q = &block->quad_buffer[i];
 					
-					int texture_index = -1;
+					s8 texture_index = -1;
 					
 					if (q->image) {
 						
 						if (last_texture == q->image->gfx_handle) {
-							texture_index = (int)(num_textures-1);
+							texture_index = (s8)(num_textures-1);
 						} else {
 							// First look if texture is already bound
 							for (u64 j = 0; j < num_textures; j++) {
 								if (textures[j] == q->image->gfx_handle) {
-									texture_index = (int)j;
+									texture_index = (s8)j;
 									break;
 								}
 							}
@@ -604,13 +634,27 @@ void gfx_update() {
 									number_of_rendered_quads = 0;
 									pointer = head;
 								} else {
-									texture_index = (int)num_textures;
+									texture_index = (s8)num_textures;
 									num_textures += 1;
 								}
 							}
 						}
 						textures[texture_index] = q->image->gfx_handle;
 						last_texture = q->image->gfx_handle;
+					}
+					
+					if (q->type == QUAD_TYPE_TEXT) {
+						float pixel_width = 2.0/(float)window.width;
+						float pixel_height = 2.0/(float)window.height;
+						
+						q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
+					    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
+					    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
+					    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
+					    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
+					    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
+					    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
+					    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
 					}
 					
 					// We will write to 6 vertices for the one quad (two tris)
@@ -637,6 +681,24 @@ void gfx_update() {
 						BL->color = TL->color = TR->color = BR->color = q->color;
 						
 						BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
+						BL->type=TL->type=TR->type=BR->type = (u8)q->type;
+						
+						u8 sampler = 0;
+						if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
+ 						 		&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
+ 						 	sampler = 0;
+						if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
+ 						 		&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
+ 						 	sampler = 1;
+						if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
+ 						 		&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
+ 						 	sampler = 2;
+						if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
+ 						 		&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
+ 						 	sampler = 3;
+ 						 	
+						BL->type=TL->type=TR->type=BR->type = (u8)q->type;
+						BL->sampler=TL->sampler=TR->sampler=BR->sampler = (u8)sampler;
 						
 						*BL2 = *BL;
 						*TR2 = *TR;
@@ -700,13 +762,28 @@ void gfx_update() {
 }
 
 
-void gfx_init_image(Gfx_Image *image, void *data) {
+void gfx_init_image(Gfx_Image *image, void *initial_data) {
+
+	void *data = initial_data;
+    if (!initial_data){
+    	// #Incomplete 8 bit width assumed
+    	data = alloc(image->allocator, image->width*image->height*image->channels);
+    	memset(data, 0, image->width*image->height*image->channels);
+    }
+    
+	assert(image->channels > 0 && image->channels <= 4 && image->channels != 3, "Only 1, 2 or 4 channels allowed on images. Got %d", image->channels);
+
 	D3D11_TEXTURE2D_DESC desc = ZERO(D3D11_TEXTURE2D_DESC);
 	desc.Width = image->width;
 	desc.Height = image->height;
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	switch (image->channels) {
+		case 1: desc.Format = DXGI_FORMAT_R8_UNORM; break;
+		case 2: desc.Format = DXGI_FORMAT_R8G8_UNORM; break;
+		case 4: desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
+		default: panic("You should not be here");
+	}
 	desc.SampleDesc.Count = 1;
 	desc.SampleDesc.Quality = 0;
 	desc.Usage = D3D11_USAGE_DEFAULT;
@@ -725,7 +802,11 @@ void gfx_init_image(Gfx_Image *image, void *data) {
 	hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &image->gfx_handle);
 	win32_check_hr(hr);
 	
-	log_verbose("Created an image of width %d and height %d.", image->width, image->height);
+	if (!initial_data) {
+		dealloc(image->allocator, data);
+	}
+	
+	log_verbose("Created a D3D11 image of width %d and height %d.", image->width, image->height);
 }
 void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data) {
     assert(image && data, "Bad parameters passed to gfx_set_image_data");
@@ -736,7 +817,7 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     
     assert(resource, "Invalid image passed to gfx_set_image_data");
     
-    assert(x+w < image->width && y+h < image->height, "Specified subregion in image is out of bounds");
+    assert(x+w <= image->width && y+h <= image->height, "Specified subregion in image is out of bounds");
 
     ID3D11Texture2D *texture = NULL;
     HRESULT hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
@@ -751,9 +832,7 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     destBox.back = 1;
 
 	// #Incomplete bit-width 8 assumed
-    VTABLE(UpdateSubresource, d3d11_context, resource, 0, &destBox, data, w * image->channels, 0);
-
-    log_verbose("Updated image data at region (%u, %u) with dimensions (%u, %u).", x, y, w, h);
+    VTABLE(UpdateSubresource, d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
 }
 void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11ShaderResourceView *view = image->gfx_handle;

@@ -16,6 +16,13 @@
 #endif
 
 forward_global const Gfx_Handle GFX_INVALID_HANDLE;
+#define QUAD_TYPE_REGULAR 0
+#define QUAD_TYPE_TEXT 1
+
+typedef enum Gfx_Filter_Mode {
+	GFX_FILTER_MODE_NEAREST,
+	GFX_FILTER_MODE_LINEAR,
+} Gfx_Filter_Mode;
 
 typedef struct Gfx_Image {
 	u32 width, height, channels;
@@ -27,43 +34,10 @@ Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, A
 Gfx_Image *load_image_from_disk(string path, Allocator allocator);
 void delete_image(Gfx_Image *image);
 
+// Implemented per renderer
 void gfx_init_image(Gfx_Image *image, void *data);
 void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
 void gfx_deinit_image(Gfx_Image *image);
-
-#define FONT_ATLAS_WIDTH  4096
-#define FONT_ATLAS_HEIGHT 4096
-#define MAX_FONT_HEIGHT 256
-
-typedef struct Gfx_Font_Metrics {
-	u32 latin_ascent;
-	u32 latin_descent;
-	
-	u32 max_ascent;
-	u32 max_descent;
-	
-	u32 line_height;
-	u32 line_spacing;
-	
-} Gfx_Font_Metrics;
-typedef struct Gfx_Font_Atlas {
-	Gfx_Image image;
-	
-} Gfx_Font_Atlas;
-typedef struct Gfx_Font_Variation {
-	u32 height;
-	Gfx_Font_Metrics metrics;
-	u32 codepoint_range_per_atlas;
-	Hash_Table atlases; // u32 atlas_index, Gfx_Font_Atlas
-	bool initted;
-} Gfx_Font_Variation;
-typedef struct Gfx_Font {
-	Gfx_Font_Variation variations[MAX_FONT_HEIGHT]; // Variation per font height
-	Allocator allocator;
-} Gfx_Font;
-
-
-
 
 // initial_data can be null to leave image data uninitialized
 Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
@@ -75,7 +49,7 @@ Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, A
     image->height = height;
     image->gfx_handle = GFX_INVALID_HANDLE;  // This is handled in gfx
     image->allocator = allocator;
-    image->channels = 4;
+    image->channels = channels;
     
     gfx_init_image(image, initial_data);
     
