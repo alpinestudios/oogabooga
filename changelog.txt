@@ -14,8 +14,18 @@ Third party:
 	- Made a global thread_local "third_party_allocator" which is set when third party libraries are used so all memory still goes through our *program_memory
 	- Stripped all third party libraries of external dependencies (C headers) & noise
 
+Memory:
+	- Improved assert messages to be more clear about what might be happening if they fail
+	- Added more checks in debug to detect heap corruption and what not
+	- Fixed a bug where the program would crash because a heap block was perfectly full
+
 Misc:
-	- Fix typos in examples/text_rendering.c
+	- Fixed typos in examples/text_rendering.c
+	- Fixed Y placement of window when changing the window rect
+	- Fixed window sizing when setting scaled_width or scaled_height
+	- Updated readme
+
+	
 
 ## v0.00.002 - Text rendering, image manipulation, hash tables
 

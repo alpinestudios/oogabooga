@@ -7,6 +7,8 @@
 
 #define RUN_TESTS 0
 
+#define VERY_DEBUG 0
+
 #define ENABLE_PROFILING 0
 
 // ENABLE_SIMD Requires CPU to support at least SSE1 but I will be very surprised if you find a system today which doesn't

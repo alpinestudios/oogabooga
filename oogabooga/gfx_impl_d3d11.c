@@ -539,50 +539,32 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     VTABLE(Draw, d3d11_context, number_of_rendered_quads * 6, 0);
 }
 
-void gfx_update() {
-	if (window.should_close) return;
-	
-	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
-
+void d3d11_process_draw_frame() {
 
 	HRESULT hr;
+	
+	///
+	// Maybe grow quad vbo
+	u32 required_size = sizeof(D3D11_Vertex) * draw_frame.num_blocks*QUADS_PER_BLOCK*6;
 
-	tm_scope_cycles("Frame setup") {
-	
-		///
-		// Maybe resize swap chain
-		RECT client_rect;
-		bool ok = GetClientRect(window._os_handle, &client_rect);
-		assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-		u32 window_width  = client_rect.right-client_rect.left;
-		u32 window_height = client_rect.bottom-client_rect.top;
-		if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
-			d3d11_update_swapchain();
+	if (required_size > d3d11_quad_vbo_size) {
+		if (d3d11_quad_vbo) {
+			D3D11Release(d3d11_quad_vbo);
+			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
-	
-		///
-		// Maybe grow quad vbo
-		u32 required_size = sizeof(D3D11_Vertex) * draw_frame.num_blocks*QUADS_PER_BLOCK*6;
-	
-		if (required_size > d3d11_quad_vbo_size) {
-			if (d3d11_quad_vbo) {
-				D3D11Release(d3d11_quad_vbo);
-				dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
-			}
-			D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
-			desc.Usage = D3D11_USAGE_DYNAMIC; 
-			desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-			desc.ByteWidth = required_size;
-			desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-			HRESULT hr = VTABLE(CreateBuffer, d3d11_device, &desc, 0, &d3d11_quad_vbo);
-			assert(SUCCEEDED(hr), "CreateBuffer failed");
-			d3d11_quad_vbo_size = required_size;
-			
-			d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
-			assert((u64)d3d11_staging_quad_buffer%16 == 0);
-			
-			log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
-		}
+		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
+		desc.Usage = D3D11_USAGE_DYNAMIC; 
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		desc.ByteWidth = required_size;
+		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		HRESULT hr = VTABLE(CreateBuffer, d3d11_device, &desc, 0, &d3d11_quad_vbo);
+		assert(SUCCEEDED(hr), "CreateBuffer failed");
+		d3d11_quad_vbo_size = required_size;
+		
+		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+		assert((u64)d3d11_staging_quad_buffer%16 == 0);
+		
+		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
 
 	if (draw_frame.num_blocks > 0) {
@@ -730,11 +712,30 @@ void gfx_update() {
 		// Draw call
 		tm_scope_cycles("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
     }
+    
+    reset_draw_frame(&draw_frame);
+}
 
-	tm_scope_cycles("Present") {
-	    hr = VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
-		win32_check_hr(hr);
-	}    
+void gfx_update() {
+	if (window.should_close) return;
+	
+	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
+
+	HRESULT hr;
+	///
+	// Maybe resize swap chain
+	RECT client_rect;
+	bool ok = GetClientRect(window._os_handle, &client_rect);
+	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
+	u32 window_width  = client_rect.right-client_rect.left;
+	u32 window_height = client_rect.bottom-client_rect.top;
+	if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
+		d3d11_update_swapchain();
+	}
+
+	d3d11_process_draw_frame();
+
+	VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 	
 #if CONFIGURATION == DEBUG
 	///
@@ -756,8 +757,6 @@ void gfx_update() {
 		}
 	}
 #endif
-	
-	reset_draw_frame(&draw_frame);
 	
 }
 
