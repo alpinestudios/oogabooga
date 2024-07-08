@@ -15,3 +15,7 @@ u64 get_random() {
 f32 get_random_float32() {
 	return (float32)get_random()/(float32)UINT64_MAX;
 }
+
+f32 get_random_float32_in_range(f32 min, f32 max) {
+    return min + (max-min) * get_random_float32();
+}
