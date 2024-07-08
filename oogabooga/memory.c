@@ -73,9 +73,14 @@ typedef struct Heap_Block {
 	// 32 bytes !!
 } Heap_Block;
 
+#define HEAP_META_SIGNATURE 6969694206942069ull
 typedef struct {
 	u64 size;
 	Heap_Block *block;
+#if CONFIGURATION == DEBUG
+	u64 signature;
+	u64 padding;
+#endif
 } Heap_Allocation_Metadata;
 
 Heap_Block *heap_head;
@@ -114,19 +119,24 @@ void santiy_check_free_node_tree(Heap_Block *block) {
 		Heap_Free_Node *other_node = node->next;
 		
 		while (other_node != 0) {
-			assert(other_node != node, "Circular reference in heap free node tree. That's bad.");
+			assert(other_node != node, "Circular reference in heap free node tree. This is probably an internal error, or an extremely unlucky result from heap corruption.");
 			other_node = other_node->next;
 		}
 		total_free += node->size;
-		assert(total_free <= block->size, "Free nodes are fucky wucky");
+		assert(total_free <= block->size, "Free nodes are fucky wucky. This might be heap corruption, or possibly an internal error.");
 		node = node->next;
 	}
 	
 }
 inline void check_meta(Heap_Allocation_Metadata *meta) {
+#if CONFIGURATION == DEBUG
+	assert(meta->signature == HEAP_META_SIGNATURE, "Heap error. Either 1) You passed a bad pointer to dealloc or 2) You corrupted the heap.");
+#endif
 // If > 256GB then prolly not legit lol
-	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory.");	
-	assert(is_pointer_in_program_memory(meta->block), "Garbage pointer passed to heap_dealloc !!! Or could be corrupted memory."); 
+	assert(meta->size < 1024ULL*1024ULL*1024ULL*256ULL, "Heap error. Either 1) You passed a bad pointer to dealloc or 2) You corrupted the heap.");	
+	assert(is_pointer_in_program_memory(meta->block), "Heap error. Either 1) You passed a bad pointer to dealloc or 2) You corrupted the heap."); 
+
+	assert((u64)meta >= (u64)meta->block->start && (u64)meta < (u64)meta->block->start+meta->block->size, "Heap error: Pointer is not in it's metadata block. This could be heap corruption but it's more likely an internal error. That's not good.");
 }
 
 typedef struct {
@@ -152,7 +162,7 @@ Heap_Search_Result search_heap_block(Heap_Block *block, u64 size) {
 			result.best_fit = node;
 			result.previous = previous;
 			result.delta = 0;
-			assert(result.previous != result.best_fit);
+			assert(result.previous != result.best_fit, "Internal goof");
 			return result;
 		}
 		
@@ -176,7 +186,7 @@ Heap_Search_Result search_heap_block(Heap_Block *block, u64 size) {
 	result.best_fit = best_fit;
 	result.previous = before_best_fit;
 	result.delta = best_fit_delta;
-	assert(result.previous != result.best_fit);
+	assert(result.previous != result.best_fit, "Internal goof");
 	return result;
 }
 
@@ -198,11 +208,11 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 	if (((u8*)block)+size >= ((u8*)program_memory)+program_memory_size) {
 		u64 minimum_size = ((u8*)block+size) - (u8*)program_memory + 1;
 		u64 new_program_size = get_next_power_of_two(minimum_size);
-		assert(new_program_size >= minimum_size, "Bröd");
+		assert(new_program_size >= minimum_size, "Internal goof");
 		const u64 ATTEMPTS = 1000;
 		for (u64 i = 0; i <= ATTEMPTS; i++) {
 			if (program_memory_size >= new_program_size) break; // Another thread might have resized already, causing it to fail here.
-			assert(i < ATTEMPTS, "OS is not letting us allocate more memory. Maybe we are out of memory?");
+			assert(i < ATTEMPTS, "OS is not letting us allocate more memory. Maybe we are out of memory? You sure must be using a lot of memory then.");
 			if (os_grow_program_memory(new_program_size))
 				break;
 		}
@@ -235,6 +245,8 @@ void *heap_alloc(u64 size) {
 
 	// #Sync #Speed oof
 	os_spinlock_lock(heap_lock);
+	
+
 	
 	size += sizeof(Heap_Allocation_Metadata);
 	
@@ -291,10 +303,7 @@ void *heap_alloc(u64 size) {
 	}
 		
 	
-	// Ideally this should not be possible.
-	// If we run out of program_memory, we should just grow it and if that fails
-	// we crash because out of memory.
-	assert(best_fit != 0, "Internal heap allocation failed");
+	assert(best_fit != 0, "Internal heap error");
 	
 	Heap_Free_Node *new_free_node = 0;
 	if (size != best_fit->size) {
@@ -305,10 +314,10 @@ void *heap_alloc(u64 size) {
 	}
 	
 	if (previous && new_free_node) {
-		assert(previous->next == best_fit, "Bro what");
+		assert(previous->next == best_fit, "Internal heap error");
 		previous->next = new_free_node;
 	} else if (previous) {
-		assert(previous->next == best_fit, "Bro what");
+		assert(previous->next == best_fit, "Internal heap error");
 		previous->next = best_fit->next;
 	}
 	
@@ -324,8 +333,13 @@ void *heap_alloc(u64 size) {
 	Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)best_fit;
 	meta->size = size;
 	meta->block = best_fit_block;
+#if CONFIGURATION == DEBUG
+	meta->signature = HEAP_META_SIGNATURE;
+#endif
 
-#if CONFIGURATION == VERY_DEBUG
+	check_meta(meta);
+
+#if VERY_DEBUG
 	santiy_check_free_node_tree(meta->block);
 #endif
 	
@@ -334,7 +348,7 @@ void *heap_alloc(u64 size) {
 	
 	
 	void *p = ((u8*)meta)+sizeof(Heap_Allocation_Metadata);
-	assert((u64)p % HEAP_ALIGNMENT == 0);
+	assert((u64)p % HEAP_ALIGNMENT == 0, "Internal heap error. Result pointer is not aligned to HEAP_ALIGNMENT");
 	return p;
 }
 void heap_dealloc(void *p) {
@@ -344,16 +358,18 @@ void heap_dealloc(void *p) {
 
 	os_spinlock_lock(heap_lock);
 	
-	assert(is_pointer_in_program_memory(p), "Garbage pointer; out of program memory bounds!"); 
+	assert(is_pointer_in_program_memory(p), "A bad pointer was passed tp heap_dealloc: it is out of program memory bounds!"); 
 	p = (u8*)p-sizeof(Heap_Allocation_Metadata);
 	Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(p);
 	check_meta(meta);
 	
-	
-	
 	// Yoink meta data before we start overwriting it
 	Heap_Block *block = meta->block;
 	u64 size = meta->size;
+	
+	#if VERY_DEBUG
+		santiy_check_free_node_tree(block);
+	#endif
 	
 	Heap_Free_Node *new_node = cast(Heap_Free_Node*)p;
 	new_node->size = size;
@@ -368,38 +384,48 @@ void heap_dealloc(void *p) {
 			block->free_head = new_node;
 		}
 	} else {
-		Heap_Free_Node *node = block->free_head;
 	
+		if (!block->free_head) {
+			block->free_head = new_node;
+			new_node->next = 0;
+		} else {
+			Heap_Free_Node *node = block->free_head;
 		
-		while (true) {
-		
-			assert(node != 0, "We didn't find where the free node should be! uh oh");
+			while (true) {
 			
-			if (new_node > node) {
-				u8* node_tail = (u8*)node + node->size;
-				if (cast(u8*)new_node == node_tail) {
-					node->size += new_node->size;
-					break;
-				} else {
-					new_node->next = node->next;
-					node->next = new_node;
-					
-					u8* new_node_tail = (u8*)new_node + new_node->size;
-					if (new_node->next && (u8*)new_node->next == new_node_tail) {
-						new_node->size += new_node->next->size;
-						new_node->next = new_node->next->next;
+				assert(node != 0, "We didn't find where the free node should be! This is likely heap corruption (or, hopefully not, an internal error)");
+				
+				// In retrospect, I don't remember a good reason to care about where the
+				// free nodes are... maybe I'm just dumb right now? #Speed #Memory
+				// ... ACtually, it's probably to easily know when to merge free nodes.
+				// BUT. Maybe it's not worth the performance hit? Then again, if the heap
+				// allocator slows down your program you should rethink your memory management
+				// anyways...
+				
+				if (new_node >= node) {
+					u8* node_tail = (u8*)node + node->size;
+					if (cast(u8*)new_node == node_tail) {
+						node->size += new_node->size;
+						break;
+					} else {
+						new_node->next = node->next;
+						node->next = new_node;
+						
+						u8* new_node_tail = (u8*)new_node + new_node->size;
+						if (new_node->next && (u8*)new_node->next == new_node_tail) {
+							new_node->size += new_node->next->size;
+							new_node->next = new_node->next->next;
+						}
+						break;
 					}
-					break;
 				}
+				
+				node = node->next;
 			}
-			
-			node = node->next;
 		}
 	}
 	
-#if CONFIGURATION == VERY_DEBUG
-	santiy_check_free_node_tree(block);
-#endif
+
 
 	// #Sync #Speed oof
 	os_spinlock_unlock(heap_lock);

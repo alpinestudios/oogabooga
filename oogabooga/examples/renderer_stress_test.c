@@ -6,7 +6,7 @@ int entry(int argc, char **argv) {
 	window.width = 1280;
 	window.height = 720;
 	window.x = 200;
-	window.y = 0;
+	window.y = 200;
 
 	window.clear_color = hex_to_rgba(0x2a2d3aff);
 	
@@ -56,11 +56,11 @@ int entry(int argc, char **argv) {
 		}
 		
 		if (is_key_just_pressed(KEY_ARROW_LEFT)) {
-			window.width += 10;
+			window.scaled_width += 10;
 			window.x -= 10;
 		}
 		if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
-			window.width += 10;
+			window.scaled_width += 10;
 		}
 		
 		if (is_key_just_released('Q')) {
@@ -89,7 +89,7 @@ int entry(int argc, char **argv) {
 		draw_frame.view = camera_view;
 		
 		seed_for_random = 69;
-		for (u64 i = 0; i < 10000; i++) {
+		for (u64 i = 0; i < 100000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;

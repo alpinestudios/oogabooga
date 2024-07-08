@@ -68,7 +68,7 @@ Usage:
 
 
 
-#define QUADS_PER_BLOCK 1024
+#define QUADS_PER_BLOCK 16
 typedef struct Draw_Quad {
 	Vector2 bottom_left, top_left, top_right, bottom_right;
 	// r, g, b, a

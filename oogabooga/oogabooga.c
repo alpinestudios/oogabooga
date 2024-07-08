@@ -152,7 +152,6 @@ typedef u8 bool;
 #endif
 
 #define DEBUG 0
-#define VERY_DEBUG 1
 #define RELEASE 2
 
 #if defined(NDEBUG)
