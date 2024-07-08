@@ -82,6 +82,7 @@ Gfx_Font *load_font_from_disk(string path, Allocator allocator) {
 	
 	if (!read_ok) return 0;
 	
+	third_party_allocator = allocator;
 	
 	stbtt_fontinfo stbtt_handle;
 	int result = stbtt_InitFont(&stbtt_handle, font_data.data, stbtt_GetFontOffsetForIndex(font_data.data, 0));
@@ -94,9 +95,13 @@ Gfx_Font *load_font_from_disk(string path, Allocator allocator) {
 	font->raw_font_data = font_data;
 	font->allocator = allocator;
 	
+	third_party_allocator = ZERO(Allocator);
+	
 	return font;
 }
 void destroy_font(Gfx_Font *font) {
+
+	third_party_allocator = font->allocator;
 
 	for (u64 i = 0; i < MAX_FONT_HEIGHT; i++) {
 		Gfx_Font_Variation *variation = &font->variations[i];
@@ -114,6 +119,8 @@ void destroy_font(Gfx_Font *font) {
 
 	dealloc_string(font->allocator, font->raw_font_data);
 	dealloc(font->allocator, font);
+	
+	third_party_allocator = ZERO(Allocator);
 }
 
 void font_variation_init(Gfx_Font_Variation *variation, Gfx_Font *font, u32 font_height) {
@@ -173,7 +180,7 @@ void font_atlas_init(Gfx_Font_Atlas *atlas, Gfx_Font_Variation *variation, u32 f
 	u32 cursor_x = 0;
 	u32 cursor_y = 0;
 	
-	
+	third_party_allocator = variation->font->allocator;
 	// Used for flipping bitmaps
 	u8 *temp_row = (u8 *)talloc(variation->height);
 	for (u32 c = first_codepoint; c < first_codepoint + variation->codepoint_range_per_atlas; c++) {
@@ -215,6 +222,8 @@ void font_atlas_init(Gfx_Font_Atlas *atlas, Gfx_Font_Variation *variation, u32 f
 		
 		cursor_x += w;
 	}
+	
+	third_party_allocator = ZERO(Allocator);
 }
 
 void render_atlas_if_not_yet_rendered(Gfx_Font *font, u32 font_height, u32 codepoint) {

@@ -65,7 +65,9 @@ Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
     
     int width, height, channels;
     stbi_set_flip_vertically_on_load(1);
+    third_party_allocator = allocator;
     unsigned char* stb_data = stbi_load_from_memory(png.data, png.count, &width, &height, &channels, STBI_rgb_alpha);
+    
     
     if (!stb_data) {
         dealloc(allocator, image);
@@ -84,6 +86,8 @@ Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
     gfx_init_image(image, stb_data);
     
     stbi_image_free(stb_data);
+    
+    third_party_allocator = ZERO(Allocator);
 
     return image;
 }

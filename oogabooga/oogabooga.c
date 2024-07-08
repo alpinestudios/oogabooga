@@ -107,7 +107,7 @@
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 0
-#define OGB_VERSION_PATCH 2
+#define OGB_VERSION_PATCH 3
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -274,7 +274,10 @@ typedef u8 bool;
 #include "color.c"
 #include "memory.c"
 #include "input.c"
+
 #include "drawing.c"
+
+#include "audio.c"
 
 // #Portability
 #if GFX_RENDERER == GFX_RENDERER_D3D11

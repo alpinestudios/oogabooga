@@ -404,3 +404,9 @@ Matrix4 m4_inverse(Matrix4 m) {
 
     return inv;
 }
+
+
+
+// This isn't really linmath but just putting it here for now
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
+

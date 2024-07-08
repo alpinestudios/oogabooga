@@ -51,7 +51,7 @@ int entry(int argc, char **argv) {
 		
 		// If for example we wanted to center the text, we would do the same but then add
 		// the text size divided by two:
-		// justified = v2_add(justified, v2_subf(hello_metrics.functional_size, 2.0));
+		// justified = v2_add(justified, v2_divf(hello_metrics.functional_size, 2.0));
 		
 		local_persist bool show_bounds = false;
 		if (is_key_just_pressed('E')) show_bounds = !show_bounds;
