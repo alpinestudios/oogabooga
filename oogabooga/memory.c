@@ -240,7 +240,7 @@ void *heap_alloc(u64 size) {
 	
 	size = (size+HEAP_ALIGNMENT) & ~(HEAP_ALIGNMENT-1);
 	
-	assert(size < MAX_HEAP_BLOCK_SIZE, "Past Charlie has been lazy and did not handle large allocations like this. I apologize on behalf of past Charlie. A quick fix could be to increase the heap block size for now.");
+	assert(size < MAX_HEAP_BLOCK_SIZE, "Past Charlie has been lazy and did not handle large allocations like this. I apologize on behalf of past Charlie. A quick fix could be to increase the heap block size for now. #Incomplete #Limitation");
 	
 	Heap_Block *block = heap_head;
 	Heap_Block *last_block = 0;

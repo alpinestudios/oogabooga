@@ -1,3 +1,22 @@
+## v0.00.003 -
+
+Random:
+	- get_random_float64()
+	- get_random_float32_in_range()
+	- get_random_float64_in_range()
+	- get_random_int_in_range()
+
+Third party:
+	- Added 3 minimal libraries for audio decoding
+		- dr_mp3.h: MP3 decoding
+		- dr_wav.h: WAV decoding
+		- stb_vorbis.c: OGG decoding
+	- Made a global thread_local "third_party_allocator" which is set when third party libraries are used so all memory still goes through our *program_memory
+	- Stripped all third party libraries of external dependencies (C headers) & noise
+
+Misc:
+	- Fix typos in examples/text_rendering.c
+
 ## v0.00.002 - Text rendering, image manipulation, hash tables
 
 Renderer:

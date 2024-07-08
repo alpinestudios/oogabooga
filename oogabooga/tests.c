@@ -1056,6 +1056,30 @@ void test_hash_table() {
     assert(table.count == 0, "Failed: Hash table count should be 0 after destroy");
     assert(table.capacity_count == 0, "Failed: Hash table capacity count should be 0 after destroy");
 }
+
+#define NUM_BINS 100
+#define NUM_SAMPLES 100000000
+
+void test_random_distribution() {
+    int bins[NUM_BINS] = {0};
+    seed_for_random = os_get_current_cycle_count();
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        f32 rand_val = get_random_float32();
+        int bin = (int)(rand_val * NUM_BINS);
+        bins[bin]++;
+    }
+
+	int min_bin = INT32_MAX;
+	int max_bin = 0;
+    print("Histogram of Random Values:\n");
+    for (int i = 0; i < NUM_BINS; i++) {
+        print("Bin %d: %d\n", i, bins[i]);
+        min_bin = min(min_bin, bins[i]);
+        max_bin = max(max_bin, bins[i]);
+    }
+    
+    print("Min: %d, max: %d\n", min_bin, max_bin);
+}
 void oogabooga_run_tests() {
 	
 	
@@ -1099,6 +1123,10 @@ void oogabooga_run_tests() {
 	
 	print("Testing hash table... ");
 	test_hash_table();
+	print("OK!\n");
+	
+	print("Testing random distribution... ");
+	test_random_distribution();
 	print("OK!\n");
 	
 }

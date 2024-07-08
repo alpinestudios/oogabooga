@@ -100,4 +100,10 @@ s64 string_find_from_right(string s, string sub) {
 	return -1;
 }
 
-
+bool string_starts_with(string s, string sub) {
+	if (s.count < sub.count) return false;
+	
+	s.count = sub.count;
+	
+	return strings_match(s, sub);
+}
