@@ -124,11 +124,17 @@ void os_spinlock_unlock(Spinlock* l);
 ///
 // Concurrency utilities
 
-bool os_compare_and_swap_8   (u8   *a, u8   b, u8   old);
-bool os_compare_and_swap_16  (u16  *a, u16  b, u16  old);
-bool os_compare_and_swap_32  (u32  *a, u32  b, u32  old);
-bool os_compare_and_swap_64  (u64  *a, u64  b, u64  old);
-bool os_compare_and_swap_bool(bool *a, bool b, bool old);
+// #Cleanup
+// In retrospect, I'm not sure why I choose to implement this per OS.
+// I think Win32 InterlockedCompareExchange just generates the cmpxchg
+// instruction anyways, so may as well just inline asm it (or Win32
+// if we're compiling with msvc) (LDREX/STREX on ARM)
+// - CharlieM July 8th 2024
+DEPRECATED(bool os_compare_and_swap_8   (u8   *a, u8   b, u8   old), "use compare_and_swap instead");
+DEPRECATED(bool os_compare_and_swap_16  (u16  *a, u16  b, u16  old), "use compare_and_swap instead");
+DEPRECATED(bool os_compare_and_swap_32  (u32  *a, u32  b, u32  old), "use compare_and_swap instead");
+DEPRECATED(bool os_compare_and_swap_64  (u64  *a, u64  b, u64  old), "use compare_and_swap instead");
+DEPRECATED(bool os_compare_and_swap_bool(bool *a, bool b, bool old), "use compare_and_swap instead");
 
 void os_sleep(u32 ms);
 void os_yield_thread();

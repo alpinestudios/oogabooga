@@ -575,6 +575,7 @@ void d3d11_process_draw_frame() {
 		ID3D11ShaderResourceView *textures[32];
 		ID3D11ShaderResourceView *last_texture = 0;
 		u64 num_textures = 0;
+		s8 last_texture_index = 0;
 		
 		D3D11_Vertex* head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
 		D3D11_Vertex* pointer = head;
@@ -592,7 +593,7 @@ void d3d11_process_draw_frame() {
 					if (q->image) {
 						
 						if (last_texture == q->image->gfx_handle) {
-							texture_index = (s8)(num_textures-1);
+							texture_index = last_texture_index;
 						} else {
 							// First look if texture is already bound
 							for (u64 j = 0; j < num_textures; j++) {
@@ -623,6 +624,7 @@ void d3d11_process_draw_frame() {
 						}
 						textures[texture_index] = q->image->gfx_handle;
 						last_texture = q->image->gfx_handle;
+						last_texture_index = texture_index;
 					}
 					
 					if (q->type == QUAD_TYPE_TEXT) {

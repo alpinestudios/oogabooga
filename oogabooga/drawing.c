@@ -68,7 +68,7 @@ Usage:
 
 
 
-#define QUADS_PER_BLOCK 16
+#define QUADS_PER_BLOCK 256
 typedef struct Draw_Quad {
 	Vector2 bottom_left, top_left, top_right, bottom_right;
 	// r, g, b, a
@@ -82,12 +82,16 @@ typedef struct Draw_Quad {
 	Gfx_Filter_Mode image_min_filter;
 	Gfx_Filter_Mode image_mag_filter;
 	
+	float32 z;
+	
 } Draw_Quad;
 
 
 typedef struct Draw_Quad_Block {
 	Draw_Quad quad_buffer[QUADS_PER_BLOCK];
 	u64 num_quads;
+	
+	float32 low_z, high_z;
 	
 	struct Draw_Quad_Block *next;
 } Draw_Quad_Block;
@@ -103,6 +107,8 @@ typedef struct Draw_Frame {
 	
 	Matrix4 projection;
 	Matrix4 view;
+	
+	bool enable_z_sorting;
 } Draw_Frame;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
@@ -129,7 +135,11 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
 
-	if (!draw_frame.current) draw_frame.current = &first_block;
+	if (!draw_frame.current) {
+		draw_frame.current = &first_block;
+		draw_frame.current->low_z = F32_MAX;
+		draw_frame.current->high_z = F32_MIN;
+	}
 	
 	if (draw_frame.current == &first_block)  draw_frame.num_blocks = 1;
 	
@@ -146,6 +156,9 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 		draw_frame.current->num_quads = 0;
 		
 		draw_frame.num_blocks += 1;
+		
+		draw_frame.current->low_z = F32_MAX;
+		draw_frame.current->high_z = F32_MIN;
 	}
 	
 	draw_frame.current->quad_buffer[draw_frame.current->num_quads] = quad;

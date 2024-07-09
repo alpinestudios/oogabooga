@@ -1,4 +1,4 @@
-## v0.00.003 -
+## v0.00.003 - Fixes
 
 Random:
 	- get_random_float64()
@@ -24,6 +24,9 @@ Misc:
 	- Fixed Y placement of window when changing the window rect
 	- Fixed window sizing when setting scaled_width or scaled_height
 	- Updated readme
+	- Portable DEPRECATED macro
+	- Deprecate os_compare_and_swap and replace with more portable compare_and_swap
+	- Fixed a bug where the wrong image would be drawn
 
 	
 

@@ -135,9 +135,13 @@ typedef double f64;
 typedef f32 float32;
 typedef f64 float64;
 
+#define F32_MAX 3.402823466e+38F
+#define F32_MIN 1.175494351e-38F
+
 typedef u8 bool;
 #define false 0
 #define true 1
+
 
 // Determine what compiler we are on
 #ifdef __clang__

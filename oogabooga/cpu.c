@@ -67,6 +67,34 @@ typedef struct Cpu_Capabilities {
 	#else
 		#define COMPILER_CAN_DO_AVX512 0
 	#endif
+	
+	#define DEPRECATED(proc, msg) __declspec(deprecated(msg)) func
+	
+	#pragma intrinsic(_InterlockedCompareExchange8)
+	#pragma intrinsic(_InterlockedCompareExchange16)
+	#pragma intrinsic(_InterlockedCompareExchange)
+	#pragma intrinsic(_InterlockedCompareExchange64)
+	
+	inline bool compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
+	    return _InterlockedCompareExchange8((volatile char*)a, (char)b, (char)old) == old;
+	}
+	
+	inline bool compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
+	    return _InterlockedCompareExchange16((volatile short*)a, (short)b, (short)old) == old;
+	}
+	
+	inline bool compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
+	    return _InterlockedCompareExchange((volatile long*)a, (long)b, (long)old) == old;
+	}
+	
+	inline bool compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
+	    return _InterlockedCompareExchange64((volatile long long*)a, (long long)b, (long long)old) == old;
+	}
+	
+	inline bool compare_and_swap_bool(bool *a, bool b, bool old) {
+	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
+	}
+	
 #elif COMPILER_GCC || COMPILER_CLANG
 	#define inline __attribute__((always_inline)) inline
 	#define alignat(x) __attribute__((aligned(x)))
@@ -115,6 +143,57 @@ typedef struct Cpu_Capabilities {
 	#else
 		#define COMPILER_CAN_DO_AVX512 0
 	#endif
+	
+	#define DEPRECATED(proc, msg) proc __attribute__((deprecated(msg)))
+	
+	inline bool compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
+	    unsigned char result;
+	    __asm__ __volatile__(
+	        "lock; cmpxchgb %2, %1"
+	        : "=a" (result), "=m" (*a)
+	        : "r" (b), "m" (*a), "a" (old)
+	        : "memory"
+	    );
+	    return result == old;
+	}
+	
+	inline bool compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
+	    unsigned short result;
+	    __asm__ __volatile__(
+	        "lock; cmpxchgw %2, %1"
+	        : "=a" (result), "=m" (*a)
+	        : "r" (b), "m" (*a), "a" (old)
+	        : "memory"
+	    );
+	    return result == old;
+	}
+	
+	inline bool compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
+	    unsigned int result;
+	    __asm__ __volatile__(
+	        "lock; cmpxchgl %2, %1"
+	        : "=a" (result), "=m" (*a)
+	        : "r" (b), "m" (*a), "a" (old)
+	        : "memory"
+	    );
+	    return result == old;
+	}
+	
+	inline bool compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
+	    unsigned long long result;
+	    __asm__ __volatile__(
+	        "lock; cmpxchgq %2, %1"
+	        : "=a" (result), "=m" (*a)
+	        : "r" (b), "m" (*a), "a" (old)
+	        : "memory"
+	    );
+	    return result == old;
+	}
+	
+	inline bool compare_and_swap_bool(bool *a, bool b, bool old) {
+	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
+	}
+	
 #else
 	#define inline inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 0
@@ -125,6 +204,8 @@ typedef struct Cpu_Capabilities {
     #define COMPILER_CAN_DO_AVX 0
     #define COMPILER_CAN_DO_AVX2 0
     #define COMPILER_CAN_DO_AVX512 0
+    
+    #define deprecated(msg) 
     
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif

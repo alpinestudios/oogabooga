@@ -440,7 +440,7 @@ Spinlock *os_make_spinlock(Allocator allocator) {
 void os_spinlock_lock(Spinlock *l) {
     while (true) {
         bool expected = false;
-        if (os_compare_and_swap_bool(&l->locked, true, expected)) {
+        if (compare_and_swap_bool(&l->locked, true, expected)) {
             return;
         }
         while (l->locked) {
@@ -451,7 +451,7 @@ void os_spinlock_lock(Spinlock *l) {
 
 void os_spinlock_unlock(Spinlock *l) {
     bool expected = true;
-    bool success = os_compare_and_swap_bool(&l->locked, false, expected);
+    bool success = compare_and_swap_bool(&l->locked, false, expected);
     assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
 }
 

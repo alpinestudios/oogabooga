@@ -1098,12 +1098,12 @@ void oogabooga_run_tests() {
 
 #if CONFIGURATION != RELEASE
 	print("Thread bombing allocator... ");
-	Thread* threads[100];
-	for (int i = 0; i < 100; i++) {
+	Thread* threads[300];
+	for (int i = 0; i < 300; i++) {
 		threads[i] = os_make_thread(test_allocator_threaded, get_heap_allocator());
 		os_start_thread(threads[i]);
 	}
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 300; i++) {
 		os_join_thread(threads[i]);
 	}
 	print("OK!\n");
