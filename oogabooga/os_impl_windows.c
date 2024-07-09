@@ -135,6 +135,8 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 
 void os_init(u64 program_memory_size) {
 	
+	context.thread_id = GetCurrentThreadId();
+	
 	memset(&window, 0, sizeof(window));
 	
 	timeBeginPeriod(1);
@@ -370,6 +372,7 @@ DWORD WINAPI win32_thread_invoker(LPVOID param) {
 	Thread *t = (Thread*)param;
 	temporary_storage_init();
 	context = t->initial_context;
+	context.thread_id = GetCurrentThreadId();
 	t->proc(t);
 	return 0;
 }
@@ -379,8 +382,14 @@ Thread* os_make_thread(Thread_Proc proc, Allocator allocator) {
 	t->id = 0; // This is set when we start it
 	t->proc = proc;
 	t->initial_context = context;
+	t->allocator = allocator;
 	
 	return t;
+}
+void os_destroy_thread(Thread *t) {
+	os_join_thread(t);
+	CloseHandle(t->os_handle);
+	dealloc(t->allocator, t);
 }
 void os_start_thread(Thread *t) {
 	t->os_handle = CreateThread(
@@ -396,14 +405,24 @@ void os_start_thread(Thread *t) {
 }
 void os_join_thread(Thread *t) {
 	WaitForSingleObject(t->os_handle, INFINITE);
-	CloseHandle(t->os_handle);
 }
 
 ///
 // Mutex primitive
 
 Mutex_Handle os_make_mutex() {
-	return CreateMutex(0, FALSE, 0);
+	local_persist const int MAX_ATTEMPTS = 100;
+	 
+	HANDLE m = CreateMutexW(0, FALSE, 0);
+
+	int attempts = 1;	
+	while (m == 0) {
+		assert(attempts <= MAX_ATTEMPTS, "Failed creating win32 mutex. error %d", GetLastError());
+		m = CreateMutex(0, FALSE, 0);
+		attempts += 1;
+	}
+	
+	return m;
 }
 void os_destroy_mutex(Mutex_Handle m) {
 	CloseHandle(m);
@@ -415,8 +434,8 @@ void os_lock_mutex(Mutex_Handle m) {
         case WAIT_OBJECT_0:
             break;
 
-        case WAIT_ABANDONED:
-            break;
+        //case WAIT_ABANDONED:
+        //    break;
 
         default:
         	assert(false, "Unexpected mutex lock result");
@@ -425,7 +444,7 @@ void os_lock_mutex(Mutex_Handle m) {
 }
 void os_unlock_mutex(Mutex_Handle m) {
 	BOOL result = ReleaseMutex(m);
-	assert(result, "Unlock mutex failed");
+	assert(result, "Unlock mutex 0x%x failed with error %d", m, GetLastError());
 }
 
 ///
@@ -947,8 +966,8 @@ void os_update() {
 	}
 
 	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
-		window.width = window.scaled_width/dpi_scale_factor;
-		window.height = window.scaled_height/dpi_scale_factor;
+		window.width = window.scaled_width*dpi_scale_factor;
+		window.height = window.scaled_height*dpi_scale_factor;
 	}
 	
 	BOOL ok;

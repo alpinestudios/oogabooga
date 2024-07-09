@@ -33,6 +33,8 @@ typedef struct Cpu_Capabilities {
 		__debugbreak();
 		volatile int *a = 0;
 		*a = 5;
+		a = (int*)0xDEADBEEF;
+    	*a = 5;
 	}
     #include <intrin.h>
     #pragma intrinsic(__rdtsc)
@@ -95,6 +97,8 @@ typedef struct Cpu_Capabilities {
 	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
 	}
 	
+	#define MEMORY_BARRIER _ReadWriteBarrier()
+	
 #elif COMPILER_GCC || COMPILER_CLANG
 	#define inline __attribute__((always_inline)) inline
 	#define alignat(x) __attribute__((aligned(x)))
@@ -103,6 +107,8 @@ typedef struct Cpu_Capabilities {
 		__builtin_trap();
 		volatile int *a = 0;
 		*a = 5;
+		a = (int*)0xDEADBEEF;
+    	*a = 5;
 	}
     inline u64 rdtsc() {
         unsigned int lo, hi;
@@ -194,6 +200,8 @@ typedef struct Cpu_Capabilities {
 	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
 	}
 	
+	#define MEMORY_BARRIER __asm__ __volatile__("" ::: "memory")
+	
 #else
 	#define inline inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 0
@@ -206,6 +214,8 @@ typedef struct Cpu_Capabilities {
     #define COMPILER_CAN_DO_AVX512 0
     
     #define deprecated(msg) 
+    
+    #define MEMORY_BARRIER
     
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif

@@ -94,32 +94,30 @@ typedef struct Thread {
 	void* data;
 	Thread_Proc proc;
 	Thread_Handle os_handle;
-	
+	Allocator allocator;
 } Thread;
 
 ///
 // Thread primitive
 Thread* os_make_thread(Thread_Proc proc, Allocator allocator);
+void os_destroy_thread(Thread *t);
 void os_start_thread(Thread* t);
 void os_join_thread(Thread* t);
 
 
 
 ///
-// Mutex primitive
+// Low-level Mutex primitive. Mutex in concurrency.c is probably a better alternative.
 Mutex_Handle os_make_mutex();
 void os_destroy_mutex(Mutex_Handle m);
 void os_lock_mutex(Mutex_Handle m);
 void os_unlock_mutex(Mutex_Handle m);
 
-///
-// Spinlock "primitive"
-typedef struct Spinlock {
-	bool locked;
-} Spinlock;
-Spinlock *os_make_spinlock(Allocator allocator);
-void os_spinlock_lock(Spinlock* l);
-void os_spinlock_unlock(Spinlock* l);
+typedef struct Spinlock Spinlock;
+// #Cleanup Moved to threading.c
+DEPRECATED(Spinlock *os_make_spinlock(Allocator allocator), "use spinlock_init instead");
+DEPRECATED(void os_spinlock_lock(Spinlock* l), "use spinlock_acquire_or_wait instead");
+DEPRECATED(void os_spinlock_unlock(Spinlock* l), "use spinlock_release instead");
 
 ///
 // Concurrency utilities
@@ -130,6 +128,7 @@ void os_spinlock_unlock(Spinlock* l);
 // instruction anyways, so may as well just inline asm it (or Win32
 // if we're compiling with msvc) (LDREX/STREX on ARM)
 // - CharlieM July 8th 2024
+// compare_and_swap in cpu.c
 DEPRECATED(bool os_compare_and_swap_8   (u8   *a, u8   b, u8   old), "use compare_and_swap instead");
 DEPRECATED(bool os_compare_and_swap_16  (u16  *a, u16  b, u16  old), "use compare_and_swap instead");
 DEPRECATED(bool os_compare_and_swap_32  (u32  *a, u32  b, u32  old), "use compare_and_swap instead");

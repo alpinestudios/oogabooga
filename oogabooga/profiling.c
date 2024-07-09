@@ -1,6 +1,6 @@
 String_Builder _profile_output = {0};
 bool profiler_initted = false;
-Spinlock *_profiler_lock = 0;
+Spinlock _profiler_lock;
 void dump_profile_result() {
 	File file = os_file_open("google_trace.json", O_CREATE | O_WRITE);
 	
@@ -14,19 +14,19 @@ void dump_profile_result() {
 }
 void _profiler_report_time_cycles(string name, u64 count, u64 start) {
 	if (!profiler_initted) {
-		_profiler_lock = os_make_spinlock(get_heap_allocator());
+		spinlock_init(&_profiler_lock);
 		profiler_initted = true;
 		
 		string_builder_init_reserve(&_profile_output, 1024*1000, get_heap_allocator());	
 		
 	}
 	
-	os_spinlock_lock(_profiler_lock);
+	spinlock_acquire_or_wait(&_profiler_lock);
 	
 	string fmt = STR("{\"cat\":\"function\",\"dur\":%.3f,\"name\":\"%s\",\"ph\":\"X\",\"pid\":0,\"tid\":%zu,\"ts\":%lld},");
 	string_builder_print(&_profile_output, fmt, (float64)count*1000, name, GetCurrentThreadId(), start*1000);
 	
-	os_spinlock_unlock(_profiler_lock);
+	spinlock_release(&_profiler_lock);
 }
 #if ENABLE_PROFILING
 #define tm_scope_cycles(name) \
