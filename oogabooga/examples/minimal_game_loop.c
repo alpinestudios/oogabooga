@@ -17,7 +17,7 @@ int entry(int argc, char **argv) {
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
 		rect_xform         = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
-		draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_RED);
+		draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_GREEN);
 		
 		gfx_update();
 	}

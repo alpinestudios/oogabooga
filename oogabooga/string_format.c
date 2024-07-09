@@ -229,6 +229,7 @@ void default_logger(Log_Level level, string s) {
 		case LOG_INFO:    print("[INFO]:    %s\n", s); break;
 		case LOG_WARNING: print("[WARNING]: %s\n", s); break;
 		case LOG_ERROR:   print("[ERROR]:   %s\n", s); break;
+		case LOG_LEVEL_COUNT: break;
 	}
 }
 

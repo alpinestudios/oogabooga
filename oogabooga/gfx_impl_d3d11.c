@@ -534,14 +534,14 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     VTABLE(PSSetSamplers, d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
     VTABLE(PSSetShaderResources, d3d11_context, 0, num_textures, textures);
 
-    VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
-
     VTABLE(Draw, d3d11_context, number_of_rendered_quads * 6, 0);
 }
 
 void d3d11_process_draw_frame() {
 
 	HRESULT hr;
+	
+	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
 	///
 	// Maybe grow quad vbo
@@ -566,6 +566,7 @@ void d3d11_process_draw_frame() {
 		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
+	memset(d3d11_staging_quad_buffer, 0, d3d11_quad_vbo_size);// #Temporary
 
 	if (draw_frame.num_blocks > 0) {
 		///
@@ -583,7 +584,8 @@ void d3d11_process_draw_frame() {
 		Draw_Quad_Block *block = &first_block;
 		
 		tm_scope_cycles("Quad processing") {
-			while (block != 0 && block->num_quads > 0) tm_scope_cycles("Quad block") {
+			u64 block_index = 0;
+			while (block != 0 && block->num_quads > 0 && block_index < draw_frame.num_blocks) tm_scope_cycles("Quad block") {
 				for (u64 i = 0; i < block->num_quads; i++)  {
 					
 					Draw_Quad *q = &block->quad_buffer[i];
@@ -667,7 +669,7 @@ void d3d11_process_draw_frame() {
 						BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
 						BL->type=TL->type=TR->type=BR->type = (u8)q->type;
 						
-						u8 sampler = 0;
+						u8 sampler = -1;
 						if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
  						 		&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
  						 	sampler = 0;
@@ -691,7 +693,7 @@ void d3d11_process_draw_frame() {
 					}
 				}
 				
-				
+				block_index += 1;
 				block = block->next;
 			}
 		}
@@ -721,7 +723,7 @@ void d3d11_process_draw_frame() {
 void gfx_update() {
 	if (window.should_close) return;
 	
-	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
+	
 
 	HRESULT hr;
 	///
@@ -738,6 +740,7 @@ void gfx_update() {
 	d3d11_process_draw_frame();
 
 	VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+	
 	
 #if CONFIGURATION == DEBUG
 	///

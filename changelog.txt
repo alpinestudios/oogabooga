@@ -1,3 +1,66 @@
+## v0.00.004 - Custom logging, more concurrency & bugfixing
+
+Concurrency:
+	- Refactored spinlock out of OS api (deprecated old procs)
+	- Concurrency utilites:
+		void spinlock_init(Spinlock *l);
+		void spinlock_acquire_or_wait(Spinlock* l);
+		bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds);
+		void spinlock_release(Spinlock* l);
+		void mutex_init(Mutex *m);
+		void mutex_destroy(Mutex *m);
+		void mutex_acquire_or_wait(Mutex *m);
+		void mutex_release(Mutex *m);
+		void binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+		void binary_semaphore_destroy(Binary_Semaphore *sem);
+		void binary_semaphore_wait(Binary_Semaphore *sem);
+		void binary_semaphore_signal(Binary_Semaphore *sem);
+		Macro MEMORY_BARRIER
+	- Concurrency tests
+	
+Docs:
+	- custom_logger.c example to show how one can make a custom logger and have logs displayed in-game
+
+Utility:
+	- draw_text_and_measure() which is just an overload of draw_text but it also does a measure and returns it
+
+Misc:
+	- Added u64 thread_id to global context. This is set in main() for main thread and in thread startup when you dispatch a Thread
+	- Fixed a bug where plain rects would be drawn with the incorrect color
+	- Fixed a bug where quads from earlier frames would be drawn
+
+## v0.00.003 - Fixes
+
+Random:
+	- get_random_float64()
+	- get_random_float32_in_range()
+	- get_random_float64_in_range()
+	- get_random_int_in_range()
+
+Third party:
+	- Added 3 minimal libraries for audio decoding
+		- dr_mp3.h: MP3 decoding
+		- dr_wav.h: WAV decoding
+		- stb_vorbis.c: OGG decoding
+	- Made a global thread_local "third_party_allocator" which is set when third party libraries are used so all memory still goes through our *program_memory
+	- Stripped all third party libraries of external dependencies (C headers) & noise
+
+Memory:
+	- Improved assert messages to be more clear about what might be happening if they fail
+	- Added more checks in debug to detect heap corruption and what not
+	- Fixed a bug where the program would crash because a heap block was perfectly full
+
+Misc:
+	- Fixed typos in examples/text_rendering.c
+	- Fixed Y placement of window when changing the window rect
+	- Fixed window sizing when setting scaled_width or scaled_height
+	- Updated readme
+	- Portable DEPRECATED macro
+	- Deprecate os_compare_and_swap and replace with more portable compare_and_swap
+	- Fixed a bug where the wrong image would be drawn
+
+	
+
 ## v0.00.003 - Fixes
 
 Random:

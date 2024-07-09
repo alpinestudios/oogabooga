@@ -107,7 +107,7 @@
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 0
-#define OGB_VERSION_PATCH 3
+#define OGB_VERSION_PATCH 4
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -265,11 +265,14 @@ typedef u8 bool;
 #include "hash.c"
 #include "path_utils.c"
 #include "linmath.c"
+#include "range.c"
 
 #include "hash_table.c"
 
 #include "os_interface.c"
+#include "concurrency.c"
 #include "gfx_interface.c"
+
 #include "font.c"
 
 #include "profiling.c"
@@ -317,6 +320,7 @@ void oogabooga_init(u64 program_memory_size) {
 	os_init(program_memory_size);
 	heap_init();
 	temporary_storage_init();
+	log_info("Ooga booga version is %d.%02d.%03d", OGB_VERSION_MAJOR, OGB_VERSION_MINOR, OGB_VERSION_PATCH);
 	gfx_init();
 	log_verbose("CPU has sse1: %cs", features.sse1 ? "true" : "false");
 	log_verbose("CPU has sse2: %cs", features.sse2 ? "true" : "false");
@@ -335,7 +339,7 @@ int main(int argc, char **argv) {
 
 	print("Ooga booga program started\n");
 	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
-	log_info("Ooga booga version is %d.%02d.%03d", OGB_VERSION_MAJOR, OGB_VERSION_MINOR, OGB_VERSION_PATCH);
+	
 	
 	assert(main != ENTRY_PROC, "You've ooga'd your last booga");
 	

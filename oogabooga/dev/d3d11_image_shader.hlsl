@@ -186,13 +186,13 @@ float4 sample_texture(int texture_index, int sampler_index, float2 uv) {
 float4 ps_main(PS_INPUT input) : SV_TARGET
 {
 	if (input.type == QUAD_TYPE_REGULAR) {
-		if (input.texture_index >= 0) {
+		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
 			return sample_texture(input.texture_index, input.sampler_index, input.uv)*input.color;
 		} else {
 			return input.color;
 		}
 	} else if (input.type == QUAD_TYPE_TEXT) {
-		if (input.texture_index >= 0) {
+		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
 			float alpha = sample_texture(input.texture_index, input.sampler_index, input.uv).x;
 			return float4(1.0, 1.0, 1.0, alpha)*input.color;
 		} else {

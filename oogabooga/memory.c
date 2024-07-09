@@ -85,7 +85,7 @@ typedef struct {
 
 Heap_Block *heap_head;
 bool heap_initted = false;
-Spinlock *heap_lock; // This is terrible but I don't care for now
+Spinlock heap_lock; // This is terrible but I don't care for now
 	
 
 u64 get_heap_block_size_excluding_metadata(Heap_Block *block) {
@@ -234,7 +234,7 @@ void heap_init() {
 	assert(sizeof(Heap_Allocation_Metadata) % HEAP_ALIGNMENT == 0);
 	heap_initted = true;
 	heap_head = make_heap_block(0, DEFAULT_HEAP_BLOCK_SIZE);
-	heap_lock = os_make_spinlock(get_initialization_allocator());
+	spinlock_init(&heap_lock);
 }
 
 
@@ -244,7 +244,9 @@ void *heap_alloc(u64 size) {
 	if (!heap_initted) heap_init();
 
 	// #Sync #Speed oof
-	os_spinlock_lock(heap_lock);
+	spinlock_acquire_or_wait(&heap_lock);
+	
+
 	
 
 	
@@ -344,7 +346,7 @@ void *heap_alloc(u64 size) {
 #endif
 	
 	// #Sync #Speed oof
-	os_spinlock_unlock(heap_lock);
+	spinlock_release(&heap_lock);
 	
 	
 	void *p = ((u8*)meta)+sizeof(Heap_Allocation_Metadata);
@@ -356,7 +358,7 @@ void heap_dealloc(void *p) {
 	
 	if (!heap_initted) heap_init();
 
-	os_spinlock_lock(heap_lock);
+	spinlock_acquire_or_wait(&heap_lock);
 	
 	assert(is_pointer_in_program_memory(p), "A bad pointer was passed tp heap_dealloc: it is out of program memory bounds!"); 
 	p = (u8*)p-sizeof(Heap_Allocation_Metadata);
@@ -428,7 +430,7 @@ void heap_dealloc(void *p) {
 
 
 	// #Sync #Speed oof
-	os_spinlock_unlock(heap_lock);
+	spinlock_release(&heap_lock);
 }
 
 void* heap_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
