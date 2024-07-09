@@ -3,8 +3,8 @@
 int entry(int argc, char **argv) {
 	
 	window.title = STR("My epic game");
-	window.width = 1280;
-	window.height = 720;
+	window.scaled_width = 1280;
+	window.scaled_height = 720;
 	window.x = 200;
 	window.y = 200;
 
@@ -56,11 +56,10 @@ int entry(int argc, char **argv) {
 		}
 		
 		if (is_key_just_pressed(KEY_ARROW_LEFT)) {
-			window.scaled_width += 10;
 			window.x -= 10;
 		}
 		if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
-			window.scaled_width += 10;
+			window.x += 10;
 		}
 		
 		if (is_key_just_released('Q')) {

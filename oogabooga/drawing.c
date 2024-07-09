@@ -134,14 +134,13 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.bottom_right = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_right), 0, 1)).xy;
 	
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
-	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
+	quad.image_mag_filter = GFX_FILTER_MODE_NEAREST;
 
 	if (!draw_frame.current) {
 		draw_frame.current = &first_block;
 		draw_frame.current->low_z = F32_MAX;
 		draw_frame.current->high_z = F32_MIN;
 		draw_frame.current->num_quads = 0;
-		memset(draw_frame.current->quad_buffer, 0, sizeof(draw_frame.current->quad_buffer)); // #Temporary
 		draw_frame.num_blocks = 1;
 	}
 	

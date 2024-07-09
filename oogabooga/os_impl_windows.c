@@ -966,8 +966,8 @@ void os_update() {
 	}
 
 	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
-		window.width = window.scaled_width/dpi_scale_factor;
-		window.height = window.scaled_height/dpi_scale_factor;
+		window.width = window.scaled_width*dpi_scale_factor;
+		window.height = window.scaled_height*dpi_scale_factor;
 	}
 	
 	BOOL ok;
@@ -984,10 +984,10 @@ void os_update() {
 	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
 	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
 	
-	    u32 actual_x = update_rect.left;
-	    u32 actual_y = screen_height - update_rect.top - window.height;
 	    u32 actual_width = update_rect.right - update_rect.left;
 	    u32 actual_height = update_rect.bottom - update_rect.top;
+	    u32 actual_x = update_rect.left;
+	    u32 actual_y = screen_height - update_rect.top - (update_rect.bottom - update_rect.top);
 	    
 	    SetWindowPos(window._os_handle, NULL, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
@@ -996,28 +996,43 @@ void os_update() {
 	ok = GetClientRect(window._os_handle, &client_rect);
 	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
 	
-	// Convert the client area rectangle top-left corner to screen coordinates
+	RECT adjusted_rect = client_rect;
+	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, ex_style);
+    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+    
+    RECT window_rect;
+	ok = GetWindowRect(window._os_handle, &window_rect);
+	assert(ok, "GetWindowRect failed with error code %lu", GetLastError());
+	
+	/*u32 style_space_left =   abs(client_rect.left-adjusted_rect.left);
+	u32 style_space_right =  abs(client_rect.left-adjusted_rect.right);
+	u32 style_space_bottom = abs(client_rect.left-adjusted_rect.bottom);
+	u32 style_space_top =    abs(client_rect.left-adjusted_rect.top);
+	
+	framebuffer_rect.left += style_space_left;
+	framebuffer_rect.right -= style_space_right;
+	framebuffer_rect.top += style_space_top;
+	framebuffer_rect.bottom -= style_space_bottom;*/
+	
 	POINT top_left;
 	top_left.x = client_rect.left;
 	top_left.y = client_rect.top;
 	ok = ClientToScreen(window._os_handle, &top_left);
 	assert(ok, "ClientToScreen failed with error code %lu", GetLastError());
 	
-	// Convert the client area rectangle bottom-right corner to screen coordinates
 	POINT bottom_right;
 	bottom_right.x = client_rect.right;
 	bottom_right.y = client_rect.bottom;
 	ok = ClientToScreen(window._os_handle, &bottom_right);
 	assert(ok, "ClientToScreen failed with error code %lu", GetLastError());
-
 	
-	window.x = (u32)top_left.x;
-	window.y = (u32)(screen_height-bottom_right.y);
-	window.pixel_width  = (u32)(client_rect.right - client_rect.left);
-	window.pixel_height = (u32)(client_rect.bottom - client_rect.top);
+	window.pixel_width = (u32)(bottom_right.x - top_left.x);
+	window.pixel_height = (u32)(bottom_right.y - top_left.y);
+	window.x = (u32)window_rect.left;
+	window.y = screen_height-window_rect.bottom;
     
-    window.scaled_width = (u32)((client_rect.right - client_rect.left) * dpi_scale_factor);
-    window.scaled_height = (u32)((client_rect.bottom - client_rect.top) * dpi_scale_factor);
+    window.scaled_width = (u32)((bottom_right.x - top_left.x) * dpi_scale_factor);
+    window.scaled_height = (u32)((bottom_right.y - top_left.y) * dpi_scale_factor);
 	
 	last_window = window;
 	

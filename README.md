@@ -6,6 +6,7 @@ ooga booga
 - [Quickstart](#quickstart)
 - [The "Build System"](#the-build-system)
 - [Examples & Documentation](#examples--documentation)
+- [Known bugs](#known-bugs)
 - [Licensing](#licensing)
 
 ## Getting started
@@ -48,6 +49,9 @@ See [examples](oogabooga/examples).
 Simply add `#include "oogabooga/examples/some_example.c"` to build.c and compile & run to see the example code in action.
 
 Other than examples, a great way to learn is to delve into the code of whatever module you're using. The codebase is written with this in mind.
+
+## Known bugs
+- Window positioning & sizing is fucky wucky
 
 ## Licensing
 By default, the repository has an educational license that makes the engine free to use for personal projects.

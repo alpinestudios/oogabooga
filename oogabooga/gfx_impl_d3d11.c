@@ -566,7 +566,6 @@ void d3d11_process_draw_frame() {
 		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
-	memset(d3d11_staging_quad_buffer, 0, d3d11_quad_vbo_size);// #Temporary
 
 	if (draw_frame.num_blocks > 0) {
 		///
