@@ -489,6 +489,9 @@ thread_local void * temporary_storage_pointer = 0;
 thread_local bool   has_warned_temporary_storage_overflow = false;
 thread_local Allocator temp;
 
+Allocator get_temporary_allocator() {
+	return temp;
+}
 
 void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
 	switch (message) {

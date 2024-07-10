@@ -107,7 +107,7 @@
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 0
-#define OGB_VERSION_PATCH 4
+#define OGB_VERSION_PATCH 5
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -266,6 +266,7 @@ typedef u8 bool;
 #include "path_utils.c"
 #include "linmath.c"
 #include "range.c"
+#include "utility.c"
 
 #include "hash_table.c"
 
@@ -292,8 +293,6 @@ typedef u8 bool;
 	#error "We only have a D3D11 renderer at the moment"
 #elif GFX_RENDERER == GFX_RENDERER_METAL
 	#error "We only have a D3D11 renderer at the moment"
-#elif GFX_RENDERER == GFX_RENDERER_LEGACY_OPENGL
-	#include "gfx_impl_legacy_opengl.c"
 #else
 	#error "Unknown renderer GFX_RENDERER defined"
 #endif

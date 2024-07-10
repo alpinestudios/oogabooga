@@ -1141,10 +1141,80 @@ void test_mutex() {
 
     mutex_destroy(&data.mutex);
 }
+
+int compare_draw_quads(const void *a, const void *b) {
+    return ((Draw_Quad*)a)->z-((Draw_Quad*)b)->z;
+}
+void test_sort() {
+    
+    int num_samples = 100;
+    u64 id_bits = 21;
+    u64 item_count = 5000;
+    
+    f64 seconds = 0;
+    u64 cycles = 0;
+    
+    Draw_Quad *items = alloc(get_heap_allocator(), (item_count * 2) * sizeof(Draw_Quad));
+    Draw_Quad *buffer = items + item_count;
+
+    for (int a = 0; a < num_samples; a++) {
+        
+        for (u64 i = 0; i < item_count; i++) {
+            if (i % 2 == 0) items[i].z = get_random_int_in_range(0, pow(2, id_bits) / 2);
+            else items[i].z = i;
+        }
+    
+        u64 item_size = sizeof(Draw_Quad);
+        u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
+    
+        float64 start_seconds = os_get_current_time_in_seconds();
+        u64 start_cycles = os_get_current_cycle_count();
+        radix_sort(items, buffer, item_count, item_size, sort_value_offset_in_item, id_bits);
+        u64 end_cycles = os_get_current_cycle_count();
+        float64 end_seconds = os_get_current_time_in_seconds();
+    
+        for (u64 i = 1; i < item_count; i++) {
+            assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");
+        }
+        
+        seconds += end_seconds - start_seconds;
+        cycles += end_cycles - start_cycles;
+    }
+    
+    print("Radix sort took on average %llu cycles and %.2f ms\n", cycles / num_samples, (seconds * 1000.0) / (float64)num_samples);
+
+	seconds = 0;
+    cycles = 0;
+	for (int a = 0; a < num_samples; a++) {
+        
+        for (u64 i = 0; i < item_count; i++) {
+            if (i % 2 == 0) items[i].z = get_random_int_in_range(0, pow(2, id_bits) / 2);
+            else items[i].z = i;
+        }
+    
+        u64 item_size = sizeof(Draw_Quad);
+        u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
+    
+        float64 start_seconds = os_get_current_time_in_seconds();
+        u64 start_cycles = os_get_current_cycle_count();
+        merge_sort(items, buffer, item_count, item_size, compare_draw_quads);
+        u64 end_cycles = os_get_current_cycle_count();
+        float64 end_seconds = os_get_current_time_in_seconds();
+    
+        for (u64 i = 1; i < item_count; i++) {
+            assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");
+        }
+        
+        seconds += end_seconds - start_seconds;
+        cycles += end_cycles - start_cycles;
+    }
+    
+    print("Merge sort took on average %llu cycles and %.2f ms\n", cycles / num_samples, (seconds * 1000.0) / (float64)num_samples);
+}
 void oogabooga_run_tests() {
 	
 	
-	print("Testing allocator... ");
+	/*print("Testing allocator... ");
 	test_allocator(true);
 	print("OK!\n");
 	
@@ -1178,7 +1248,9 @@ void oogabooga_run_tests() {
 	
 	print("Testing mutex... ");
 	test_mutex();
+	print("OK!\n");*/
+	
+	print("Testing radix sort... ");
+	test_sort();
 	print("OK!\n");
-	
-	
 }

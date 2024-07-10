@@ -78,6 +78,7 @@ typedef struct Allocator {
 } Allocator;
 
 Allocator get_heap_allocator();
+Allocator get_temporary_allocator();
 
 typedef struct Context {
 	void *logger; // void(*Logger_Proc)(Log_Level level, string fmt, ...)

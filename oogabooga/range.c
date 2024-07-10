@@ -3,6 +3,15 @@
 // I know that we'll have a Range2i at some point, so maybe it's better to be explicit for less confusion?
 // I'll leave this decision up to u charlie just delete this whenever u see it
 
+// charlie: 
+// Is this range stuff really necessary?
+// Why not just:
+// typedef Vector2 Range1f;
+// typedef Vector4 Range2f;
+// Vector4 also already have alias for x1, y1, x2, y2 and we could add an alias for min & max vectors (see linmath.c)
+// This feels like introducing unnecessary complexity and vocabulary when it's really just
+// another way to say Vector2 and Vector4.
+
 typedef struct Range1f {
   float min;
   float max;

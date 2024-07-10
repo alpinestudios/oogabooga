@@ -62,13 +62,11 @@ Usage:
 	
 */
 
+// We use radix sort so the exact bit count is of important
+#define MAX_Z_BITS 21
+#define MAX_Z ((1 << MAX_Z_BITS)/2)
+#define Z_STACK_MAX 4096
 
-
-
-
-
-
-#define QUADS_PER_BLOCK 256
 typedef struct Draw_Quad {
 	Vector2 bottom_left, top_left, top_right, bottom_right;
 	// r, g, b, a
@@ -82,33 +80,22 @@ typedef struct Draw_Quad {
 	Gfx_Filter_Mode image_min_filter;
 	Gfx_Filter_Mode image_mag_filter;
 	
-	float32 z;
+	s32 z;
 	
 } Draw_Quad;
 
 
-typedef struct Draw_Quad_Block {
-	Draw_Quad quad_buffer[QUADS_PER_BLOCK];
-	u64 num_quads;
-	
-	float32 low_z, high_z;
-	
-	struct Draw_Quad_Block *next;
-} Draw_Quad_Block;
-
-// I made these blocks part of the frame at first so they were temp allocated BUT I think 
-// that was a mistake because these blocks  are accessed a lot so we want it to just be
-// persistent memory that's super hot all the time.
-Draw_Quad_Block first_block = {0};
-
+Draw_Quad *quad_buffer;
+u64 allocated_quads;
 typedef struct Draw_Frame {
-	Draw_Quad_Block *current;
-	u64 num_blocks;
+	u64 num_quads;
 	
 	Matrix4 projection;
 	Matrix4 view;
 	
 	bool enable_z_sorting;
+	s32 z_stack[Z_STACK_MAX];
+	u64 z_count;
 } Draw_Frame;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
@@ -117,14 +104,21 @@ Draw_Frame draw_frame = ZERO(Draw_Frame);
 void reset_draw_frame(Draw_Frame *frame) {
 	*frame = (Draw_Frame){0};
 	
-	frame->current = 0;
-	
 	float32 aspect = (float32)window.width/(float32)window.height;
 	
 	frame->projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
-	frame->view = m4_scalar(1.0);
+	frame->view = m4_scalar(1.0);	
+}
+
+void push_z_layer(s32 z) {
+	assert(draw_frame.z_count < Z_STACK_MAX, "Too many z layers pushed. You can pop with pop_z_layer() when you are done drawing to it.");
 	
-	frame->num_blocks = 0;
+	draw_frame.z_stack[draw_frame.z_count] = z;
+	draw_frame.z_count += 1;
+}
+void pop_z_layer() {
+	assert(draw_frame.z_count > 0, "No Z layers to pop!");
+	draw_frame.z_count -= 1;
 }
 
 Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
@@ -135,37 +129,30 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
 	quad.image_mag_filter = GFX_FILTER_MODE_NEAREST;
-
-	if (!draw_frame.current) {
-		draw_frame.current = &first_block;
-		draw_frame.current->low_z = F32_MAX;
-		draw_frame.current->high_z = F32_MIN;
-		draw_frame.current->num_quads = 0;
-		draw_frame.num_blocks = 1;
-	}
 	
-	assert(draw_frame.current->num_quads <= QUADS_PER_BLOCK);
+	quad.z = 0;
+	if (draw_frame.z_count > 0)  quad.z = draw_frame.z_stack[draw_frame.z_count-1];
 	
-	if (draw_frame.current->num_quads == QUADS_PER_BLOCK) {
+	if (draw_frame.num_quads >= allocated_quads) {
+		// #Memory
 		
-		if (!draw_frame.current->next) {
-			draw_frame.current->next = cast(Draw_Quad_Block*)alloc(get_heap_allocator(), sizeof(Draw_Quad_Block));
-			*draw_frame.current->next = ZERO(Draw_Quad_Block);
+		u64 new_count = max(get_next_power_of_two(draw_frame.num_quads+1), 128);
+		
+		Draw_Quad *new_buffer = alloc(get_heap_allocator(), new_count*sizeof(Draw_Quad));
+		
+		if (quad_buffer) {
+			memcpy(new_buffer, quad_buffer, draw_frame.num_quads*sizeof(Draw_Quad));
+			dealloc(get_heap_allocator(), quad_buffer);
 		}
 		
-		draw_frame.current = draw_frame.current->next;
-		draw_frame.current->num_quads = 0;
-		draw_frame.current->low_z = F32_MAX;
-		draw_frame.current->high_z = F32_MIN;
-		
-		draw_frame.num_blocks += 1;
-		
+		quad_buffer = new_buffer;
+		allocated_quads = new_count;
 	}
 	
-	draw_frame.current->quad_buffer[draw_frame.current->num_quads] = quad;
-	draw_frame.current->num_quads += 1;
+	quad_buffer[draw_frame.num_quads] = quad;
+	draw_frame.num_quads += 1;
 	
-	return &draw_frame.current->quad_buffer[draw_frame.current->num_quads-1];
+	return &quad_buffer[draw_frame.num_quads-1];
 }
 Draw_Quad *draw_quad(Draw_Quad quad) {
 	return draw_quad_projected(quad, m4_mul(draw_frame.projection, m4_inverse(draw_frame.view)));

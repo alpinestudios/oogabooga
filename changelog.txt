@@ -1,3 +1,17 @@
+## v0.00.005 - Z layers
+Renderer:
+	- Added optional Z-sorting
+		- Either set quad->z or call push_z_layer(s64) (and pop_z_layer())
+		- Enable with draw_frame.enable_z_sorting = true
+	- Refactored the quad buffering to just be a growing quad buffer rather than a linked list of quad blocks. Your CPU will be thankful.
+	
+Misc:
+	- removed gfx_impl_legacy_opengl.c
+	- Sorting procedures
+		- merge_sort()
+		- radix_sort()
+	- sorting tests
+
 ## v0.00.004 - Custom logging, more concurrency & bugfixing
 
 Concurrency:

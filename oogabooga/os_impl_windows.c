@@ -139,7 +139,6 @@ void os_init(u64 program_memory_size) {
 	
 	memset(&window, 0, sizeof(window));
 	
-	timeBeginPeriod(1);
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 #endif
@@ -364,7 +363,6 @@ bool os_grow_program_memory(u64 new_size) {
 
 DWORD WINAPI win32_thread_invoker(LPVOID param) {
 
-	timeBeginPeriod(1);
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 #endif
@@ -518,13 +516,15 @@ void os_high_precision_sleep(f64 ms) {
 	s32 sleep_time = (s32)((end-start)-1.0);
 	bool do_sleep = sleep_time >= 1;
 	
-	timeBeginPeriod(1); // I don't see a reason to reset this
+	timeBeginPeriod(1);
 	
 	if (do_sleep)  os_sleep(sleep_time);
 	
 	while (os_get_current_time_in_seconds() < end) {
 		os_yield_thread();
 	}
+	
+	timeEndPeriod(1);
 }
 
 
