@@ -1214,7 +1214,7 @@ void test_sort() {
 void oogabooga_run_tests() {
 	
 	
-	/*print("Testing allocator... ");
+	print("Testing allocator... ");
 	test_allocator(true);
 	print("OK!\n");
 	
@@ -1248,7 +1248,7 @@ void oogabooga_run_tests() {
 	
 	print("Testing mutex... ");
 	test_mutex();
-	print("OK!\n");*/
+	print("OK!\n");
 	
 	print("Testing radix sort... ");
 	test_sort();
