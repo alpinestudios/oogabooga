@@ -32,6 +32,7 @@
 
 #define _INTSIZEOF(n)         ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
 
+// #Cleanup we only need vsnprintf
 typedef void* (__cdecl *Crt_Memcpy_Proc)    (void*, const void*, size_t);
 typedef int   (__cdecl *Crt_Memcmp_Proc)    (const void*, const void*, size_t);
 typedef void* (__cdecl *Crt_Memset_Proc)    (void*, int, size_t);
@@ -45,6 +46,7 @@ typedef struct Os_Info {
 	
 	Dynamic_Library_Handle crt;
 	
+	// #Cleanup we only need vsnprintf
 	Crt_Memcpy_Proc    crt_memcpy;
 	Crt_Memcmp_Proc    crt_memcmp;
 	Crt_Memset_Proc    crt_memset;
@@ -144,6 +146,7 @@ void os_high_precision_sleep(f64 ms);
 // Time
 ///
 
+// #Cleanup getting the cycle count is an x86 intrinsic so this should be in cpu.c
 u64 os_get_current_cycle_count();
 float64 os_get_current_time_in_seconds();
 

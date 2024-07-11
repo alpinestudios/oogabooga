@@ -1,16 +1,11 @@
 
-
-
-
-
-
-
 #define thread_local _Thread_local
 
 #define local_persist static
 
 #define forward_global extern
-	
+
+#define null 0
 	
 void printf(const char* fmt, ...);
 #define ASSERT_STR_HELPER(x) #x

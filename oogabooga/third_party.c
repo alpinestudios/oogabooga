@@ -49,17 +49,9 @@ size_t stbtt_strlen(const char* str) {
 #undef C
 #undef L
 
-#define DR_MP3_NO_STDIO
-#define DRMP3_ASSERT(exp) assert(exp, "dr_mp3 assertion failed")
-#define DRMP3_MALLOC(sz)           third_party_malloc(sz)
-#define DRMP3_REALLOC(p,newsz)     third_party_allocator.proc(newsz, p, ALLOCATOR_REALLOCATE, 0)
-#define DRMP3_FREE(p)              third_party_free(p)
-#define DR_MP3_IMPLEMENTATION
-#include "third_party/dr_mp3.h"
-
 #define DR_WAV_NO_STDIO
 #define DR_WAV_NO_WCHAR
-#define DRWAV_ASSERT(exp) assert(exp, "dr_mp3 assertion failed")
+#define DRWAV_ASSERT(exp) assert(exp, "dr_wav assertion failed")
 #define DRWAV_MALLOC(sz)           third_party_malloc(sz)
 #define DRWAV_REALLOC(p,newsz)     third_party_allocator.proc(newsz, p, ALLOCATOR_REALLOCATE, 0)
 #define DRWAV_FREE(p)              third_party_free(p)

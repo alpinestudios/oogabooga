@@ -10,9 +10,7 @@ int entry(int argc, char **argv) {
 
 	while (!window.should_close) {
 		reset_temporary_storage();
-		
-		os_update(); 
-		
+				
 		float64 now = os_get_current_time_in_seconds();
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
@@ -21,6 +19,7 @@ int entry(int argc, char **argv) {
 		
 		draw_rect(v2(sin(now), -.8), v2(.5, .25), COLOR_RED);
 		
+		os_update(); 
 		gfx_update();
 	}
 

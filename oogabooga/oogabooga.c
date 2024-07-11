@@ -111,7 +111,11 @@
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
+#include <math.h>
+#include <immintrin.h>
+#include <intrin.h>
 #include <stdint.h>
+
 typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -233,8 +237,6 @@ typedef u8 bool;
 ///
 // Dependencies
 ///
-
-#include <math.h>
 
 #include "third_party.c"
 

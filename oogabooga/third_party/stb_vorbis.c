@@ -984,7 +984,7 @@ static void setup_temp_free(vorb *f, void *p, int sz)
       f->temp_offset += (sz+7)&~7;
       return;
    }
-   free(p);
+   third_party_free(p); // #Modified  malloc -> third_party_malloc  Charlie Malmqvist 2024-07-11
 }
 
 #define CRC32_POLY    0x04c11db7   // from spec

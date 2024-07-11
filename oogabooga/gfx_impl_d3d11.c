@@ -272,22 +272,38 @@ void gfx_init() {
 	};
 	s64 num_feature_levels = sizeof(feature_levels)/sizeof(D3D_FEATURE_LEVEL);
 	
-	for (s64 i = 0; i < num_drivers; i++) {
-		d3d11_driver_type = driver_types[i]; 
-		
-		hr = D3D11CreateDevice(0, d3d11_driver_type, 0, flags, feature_levels, num_feature_levels, D3D11_SDK_VERSION, &d3d11_device, &d3d11_feature_level, &d3d11_context);
-		
-		if (hr == E_INVALIDARG) {
-			// 11_1 not recognized in 11.0
-			hr = D3D11CreateDevice(0, d3d11_driver_type, 0, flags, feature_levels+1, num_feature_levels-1, D3D11_SDK_VERSION, &d3d11_device, &d3d11_feature_level, &d3d11_context);
+	bool debug_failed = false;
+	
+	for (s64 i = 0; i < 2; i++) {
+		for (s64 i = 0; i < num_drivers; i++) {
+			d3d11_driver_type = driver_types[i]; 
+			
+			hr = D3D11CreateDevice(0, d3d11_driver_type, 0, flags, feature_levels, num_feature_levels, D3D11_SDK_VERSION, &d3d11_device, &d3d11_feature_level, &d3d11_context);
+			
+			if (hr == E_INVALIDARG) {
+				// 11_1 not recognized in 11.0
+				hr = D3D11CreateDevice(0, d3d11_driver_type, 0, flags, feature_levels+1, num_feature_levels-1, D3D11_SDK_VERSION, &d3d11_device, &d3d11_feature_level, &d3d11_context);
+			}
+			
+			if (SUCCEEDED(hr)) break;
+			
+			log_verbose("Failed driver type number %d (%d)", i, driver_types[i]);
 		}
-		
-		if (SUCCEEDED(hr)) break;
-		
-		log_verbose("Failed driver type number %d (%d)", i, driver_types[i]);
+		if (SUCCEEDED(hr)) {
+			break;
+		} else {
+			debug_failed = true;
+			flags &= ~(D3D11_CREATE_DEVICE_DEBUG);
+			
+		}
 	}
 	
 	win32_check_hr(hr);
+	
+	if (debug_failed) {
+		log_error("We could not init D3D11 with DEBUG flag. This is likely because you have not enabled \"Graphics Tools\" in windows settings. https://github.com/microsoft/DirectX-Graphics-Samples/issues/447#issuecomment-415611443");
+	}
+	
 	assert(d3d11_device != 0, "D3D11CreateDevice failed");
 
 #if CONFIGURATION == DEBUG
