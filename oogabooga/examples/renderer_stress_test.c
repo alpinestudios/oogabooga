@@ -36,7 +36,7 @@ int entry(int argc, char **argv) {
 	Matrix4 camera_view = m4_scalar(1.0);
 	
 	float64 last_time = os_get_current_time_in_seconds();
-	while (!window.should_close) tm_scope_cycles("Frame") {
+	while (!window.should_close) tm_scope("Frame") {
 		reset_temporary_storage();
 		
 		float64 now = os_get_current_time_in_seconds();
@@ -47,7 +47,7 @@ int entry(int argc, char **argv) {
 			delta = now - last_time;
 		}
 		last_time = now;
-		tm_scope_cycles("os_update") {
+		tm_scope("os_update") {
 			os_update(); 
 		}
 		
@@ -134,7 +134,7 @@ int entry(int argc, char **argv) {
 		
 		if (show) draw_image(atlas->image, v2(-1.6, -1), v2(4, 4), COLOR_WHITE);
 		
-		tm_scope_cycles("gfx_update") {
+		tm_scope("gfx_update") {
 			gfx_update();
 		}
 		

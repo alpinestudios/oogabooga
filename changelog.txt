@@ -1,3 +1,21 @@
+
+## v0.01.001 - AUDIO!
+	- Added audio sources
+		- File stream sources & Fully decoded sources
+		- 16-bit int & 32-bit float support
+		- WAV & OGG support
+		- Usage:
+			bool audio_source_init_file_stream(*src, path, bit_width, allocator)
+			bool audio_source_init_file_decode(*src, path, bit_width, allocator)
+			void audio_source_destroy(*src)
+	- Misc
+		- Win32 audio impl
+		- Make default logger thread safe
+		- Rename tm_scope_cycles & tm_scope_cycles_xxx -> tm_scope & tm_scope_xxx
+		- Minor cleanups
+		
+		
+
 ## v0.00.005 - Z layers
 
 Renderer:

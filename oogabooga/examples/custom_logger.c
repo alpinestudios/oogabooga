@@ -5,6 +5,10 @@
 	and in-game logger.
 	
 	We also have log levels to be able to disable/enable the respective levels.
+	
+	BEWARE!!
+	This logger is not thread-safe. If multiple threads call log(), then nobody knows
+	what might happen. If you need to make it thread-safe, check out concurrency.c.
 
 */
 

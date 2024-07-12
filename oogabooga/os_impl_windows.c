@@ -1,5 +1,11 @@
 
+#define CINTERFACE
 #include <Shlwapi.h>
+#include <audioclient.h>
+#include <audiopolicy.h>
+#include <mmdeviceapi.h>
+#include <initguid.h>
+#include <avrt.h>
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 
@@ -132,12 +138,72 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
     return 0;
 }
 
+void win32_audio_thread(Thread *t);
+void
+win32_audio_init();
+void win32_init_window() {
+	memset(&window, 0, sizeof(window));
+	
+	window.title = STR("Unnamed Window");
+	window.width = 1280;
+	window.height = 720;
+	window.x = 0;
+	window.y = 0;
+	window.should_close = false;
+	window._initialized = false;
+	window.clear_color.r = 0.392f; 
+	window.clear_color.g = 0.584f;
+	window.clear_color.b = 0.929f;
+	window.clear_color.a = 1.0f;
+	
+	WNDCLASSEX wc = (WNDCLASSEX){0};
+    MSG msg;
+    HINSTANCE instance = GetModuleHandle(0);
+    assert(instance != INVALID_HANDLE_VALUE, "Failed getting current HINSTANCE");
+
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_OWNDC;
+    wc.lpfnWndProc = win32_window_proc;
+    wc.hInstance = instance;
+    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(0, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = "sigma balls";
+    wc.hIconSm = LoadIcon(0, IDI_APPLICATION);
+
+	BOOL ok = RegisterClassEx(&wc);
+	assert(ok, "Failed registering window class (error code %lu)", GetLastError());
+	
+	RECT rect = {0, 0, window.width, window.height};
+	DWORD style = WS_OVERLAPPEDWINDOW;
+	DWORD ex_style = WS_EX_CLIENTEDGE;
+	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	
+	u32 actual_window_width = rect.right - rect.left;
+	u32 actual_window_height = rect.bottom - rect.top;
+    // Create the window
+    window._os_handle = CreateWindowEx(
+        ex_style,
+        "sigma balls",
+        temp_convert_to_null_terminated_string(window.title),
+        style,
+        CW_USEDEFAULT, CW_USEDEFAULT, actual_window_width, actual_window_height,
+        0, 0, instance, 0);
+    assert(window._os_handle != 0, "Window creation failed, error: %lu", GetLastError());
+	window._initialized = true;
+    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
+    UpdateWindow(window._os_handle);
+}
 
 void os_init(u64 program_memory_size) {
 	
+	HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
+    win32_check_hr(hr);
+	
 	context.thread_id = GetCurrentThreadId();
 	
-	memset(&window, 0, sizeof(window));
+	
 	
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
@@ -159,7 +225,7 @@ void os_init(u64 program_memory_size) {
     unsigned char* addr = 0;
     while (VirtualQuery(addr, &mbi, sizeof(mbi))) {
         if (mbi.Type == MEM_IMAGE) {
-            if (os.static_memory_start == NULL) {
+            if (os.static_memory_start == 0) {
                 os.static_memory_start = mbi.BaseAddress;
             }
             os.static_memory_end = (unsigned char*)mbi.BaseAddress + mbi.RegionSize;
@@ -170,7 +236,6 @@ void os_init(u64 program_memory_size) {
 
 	program_memory_mutex = os_make_mutex();
 	os_grow_program_memory(program_memory_size);
-	
 	
 	heap_init();
 	
@@ -189,61 +254,8 @@ void os_init(u64 program_memory_size) {
 	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, STR("memset"));
 	assert(os.crt_memset, "Missing memset in crt");
 	
-	window.title = STR("Unnamed Window");
-	window.width = 1280;
-	window.height = 720;
-	window.x = 0;
-	window.y = 0;
-	window.should_close = false;
-	window._initialized = false;
-	window.clear_color.r = 0.392f; 
-	window.clear_color.g = 0.584f;
-	window.clear_color.b = 0.929f;
-	window.clear_color.a = 1.0f;
-	
-	WNDCLASSEX wc = (WNDCLASSEX){0};
-    MSG msg;
-    HINSTANCE instance = GetModuleHandle(NULL);
-    assert(instance != INVALID_HANDLE_VALUE, "Failed getting current HINSTANCE");
-
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.style = CS_OWNDC;
-    wc.lpfnWndProc = win32_window_proc;
-    wc.hInstance = instance;
-    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName = "sigma balls";
-    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-
-	BOOL ok = RegisterClassEx(&wc);
-	assert(ok, "Failed registering window class (error code %lu)", GetLastError());
-	
-	RECT rect = {0, 0, window.width, window.height};
-	DWORD style = WS_OVERLAPPEDWINDOW;
-	DWORD ex_style = WS_EX_CLIENTEDGE;
-	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
-	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
-	
-	u32 actual_window_width = rect.right - rect.left;
-	u32 actual_window_height = rect.bottom - rect.top;
-    // Create the window
-    window._os_handle = CreateWindowEx(
-        ex_style,
-        "sigma balls",
-        temp_convert_to_null_terminated_string(window.title),
-        style,
-        CW_USEDEFAULT, CW_USEDEFAULT, actual_window_width, actual_window_height,
-        NULL, NULL, instance, NULL);
-    assert(window._os_handle != NULL, "Window creation failed, error: %lu", GetLastError());
-	window._initialized = true;
-    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
-    UpdateWindow(window._os_handle);
-    
-    
-    
-    
-    
+    win32_init_window();
+    os_start_thread(os_make_thread(win32_audio_thread, get_heap_allocator()));
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -573,7 +585,7 @@ void os_write_string_to_stdout(string s) {
 	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (win32_stdout == INVALID_HANDLE_VALUE) return;
 	
-	WriteFile(win32_stdout, s.data, s.count, 0, NULL);
+	WriteFile(win32_stdout, s.data, s.count, 0, 0);
 }
 
 u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
@@ -591,7 +603,7 @@ u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) 
     int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
     if (result == 0) {
         dealloc(allocator, utf16_str);
-        return NULL;
+        return 0;
     }
 
     utf16_str[utf16_length] = 0;
@@ -646,7 +658,7 @@ File os_file_open_s(string path, Os_Io_Open_Flags flags) {
     
     u16 *wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 
-    return CreateFileW(wide, access, FILE_SHARE_READ, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+    return CreateFileW(wide, access, FILE_SHARE_READ, 0, creation, FILE_ATTRIBUTE_NORMAL, 0);
 }
 
 void os_file_close(File f) {
@@ -672,7 +684,7 @@ bool os_make_directory_s(string path, bool recursive) {
         wchar_t *sep = wcschr(wide_path + 1, L'\\');
         while (sep) {
             *sep = 0;
-            if (!CreateDirectoryW(wide_path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+            if (!CreateDirectoryW(wide_path, 0) && GetLastError() != ERROR_ALREADY_EXISTS) {
                 return false;
             }
             *sep = L'\\';
@@ -680,7 +692,7 @@ bool os_make_directory_s(string path, bool recursive) {
         }
     }
 
-    if (!CreateDirectoryW(wide_path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+    if (!CreateDirectoryW(wide_path, 0) && GetLastError() != ERROR_ALREADY_EXISTS) {
         return false;
     }
 
@@ -733,19 +745,19 @@ bool os_delete_directory_s(string path, bool recursive) {
 
 bool os_file_write_string(File f, string s) {
     DWORD written;
-    BOOL result = WriteFile(f, s.data, s.count, &written, NULL);
+    BOOL result = WriteFile(f, s.data, s.count, &written, 0);
     return result && (written == s.count);
 }
 
 bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes) {
     DWORD written;
-    BOOL result = WriteFile(f, buffer, (DWORD)size_in_bytes, &written, NULL);
+    BOOL result = WriteFile(f, buffer, (DWORD)size_in_bytes, &written, 0);
     return result && (written == size_in_bytes);
 }
 
 bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes) {
     DWORD read;
-    BOOL result = ReadFile(f, buffer, (DWORD)bytes_to_read, &read, NULL);
+    BOOL result = ReadFile(f, buffer, (DWORD)bytes_to_read, &read, 0);
     if (actual_read_bytes) {
         *actual_read_bytes = read;
     }
@@ -799,7 +811,7 @@ bool os_read_entire_file_s(string path, string *result, Allocator allocator) {
 bool os_is_file_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	assert(path_wide, "Invalid path string");
-    if (path_wide == NULL) {
+    if (path_wide == 0) {
         return false;
     }
 
@@ -815,7 +827,7 @@ bool os_is_file_s(string path) {
 bool os_is_directory_s(string path) {
     u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	assert(path_wide, "Invalid path string");
-    if (path_wide == NULL) {
+    if (path_wide == 0) {
         return false;
     }
 
@@ -901,10 +913,10 @@ bool os_do_paths_match(string a, string b) {
     wchar_t full_path_b[MAX_PATH];
 
     // Get the full path for both paths
-    if (!GetFullPathNameW(wide_path_a, MAX_PATH, full_path_a, NULL)) {
+    if (!GetFullPathNameW(wide_path_a, MAX_PATH, full_path_a, 0)) {
         return false;
     }
-    if (!GetFullPathNameW(wide_path_b, MAX_PATH, full_path_b, NULL)) {
+    if (!GetFullPathNameW(wide_path_b, MAX_PATH, full_path_b, 0)) {
         return false;
     }
 
@@ -950,9 +962,270 @@ void* os_get_stack_limit() {
     return tib->StackLimit;
 }
 
+// Actually fuck you bill gates
+const GUID CLSID_MMDeviceEnumerator = {0xbcde0395, 0xe52f, 0x467c, {0x8e,0x3d, 0xc4,0x57,0x92,0x91,0x69,0x2e}};
+const GUID IID_IMMDeviceEnumerator = {0xa95664d2, 0x9614, 0x4f35, {0xa7,0x46, 0xde,0x8d,0xb6,0x36,0x17,0xe6}};
+const GUID IID_IAudioClient = {0x1cb9ad4c, 0xdbfa, 0x4c32, {0xb1,0x78, 0xc2,0xf5,0x68,0xa7,0x03,0xb2}};
+const GUID IID_IAudioRenderClient = {0xf294acfc, 0x3146, 0x4483, {0xa7,0xbf, 0xad,0xdc,0xa7,0xc2,0x60,0xe2}};
+DEFINE_GUID(IID_ISimpleAudioVolume, 
+0x87CE5498, 0x68D6, 0x44E5, 0x92, 0x15, 0x6D, 0xA4, 0x7E, 0xF8, 0x83, 0xD8);
+
+IAudioClient* win32_audio_client;
+IAudioRenderClient* win32_render_client;
+bool win32_audio_deactivated = false;
+Audio_Format win32_output_format;
+IMMDevice* win32_audio_device = 0;
+IMMDeviceEnumerator* win32_device_enumerator = 0;
+ISimpleAudioVolume* win32_audio_volume = 0;
+
+void
+win32_audio_init() {
+
+	win32_audio_client = 0;
+	win32_render_client = 0;
+	win32_audio_deactivated = 0;
+	win32_audio_device = 0;
+	win32_device_enumerator = 0;
+
+	HRESULT hr;
+    WAVEFORMATEX* device_base_format = 0;
+    WAVEFORMATEX* output_format = 0;
+
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, 0, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void**)&win32_device_enumerator);
+    win32_check_hr(hr);
+    
+    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(win32_device_enumerator, eRender, eConsole, &win32_audio_device);
+    win32_check_hr(hr);
+    
+    hr = IMMDevice_Activate(
+    	win32_audio_device, 
+		&IID_IAudioClient, 
+		CLSCTX_ALL, 0, 
+		(void**)&win32_audio_client
+	);
+    win32_check_hr(hr);
+    
+    hr = IAudioClient_GetMixFormat(win32_audio_client, &device_base_format);
+    
+     WAVEFORMATEXTENSIBLE *format_f32 
+     	= (WAVEFORMATEXTENSIBLE*)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
+     WAVEFORMATEXTENSIBLE *format_s16 
+     	= (WAVEFORMATEXTENSIBLE*)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
+     	
+    memcpy(format_f32, device_base_format, sizeof(WAVEFORMATEX));
+    
+    format_f32->Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    format_f32->Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+    format_f32->Samples.wValidBitsPerSample = format_f32->Format.wBitsPerSample;
+    format_f32->dwChannelMask = KSAUDIO_SPEAKER_STEREO;
+    
+    memcpy(format_s16, format_f32, sizeof(WAVEFORMATEXTENSIBLE));
+    
+    format_f32->SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+    format_f32->Format.wBitsPerSample = 32;
+    format_f32->Format.nBlockAlign 
+    	= format_f32->Format.nChannels * format_f32->Format.wBitsPerSample / 8;
+    format_f32->Format.nAvgBytesPerSec 
+    	= format_f32->Format.nSamplesPerSec * format_f32->Format.nBlockAlign;
+    
+    format_s16->SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+    format_s16->Format.wBitsPerSample = 16;
+    format_s16->Format.nBlockAlign = format_s16->Format.nChannels * format_s16->Format.wBitsPerSample / 8;
+    format_s16->Format.nAvgBytesPerSec = format_s16->Format.nSamplesPerSec * format_s16->Format.nBlockAlign;
+    
+    // First look for f32 support
+    WAVEFORMATEX *closest_match = NULL;
+    hr = IAudioClient_IsFormatSupported(
+    	win32_audio_client, 
+    	AUDCLNT_SHAREMODE_SHARED, 
+    	(WAVEFORMATEX *)format_f32, 
+    	&closest_match
+	);
+	
+	// If f32 fails, look for s16
+	if (hr != S_OK) {	
+	    hr = IAudioClient_IsFormatSupported(
+	    	win32_audio_client, 
+	    	AUDCLNT_SHAREMODE_SHARED, 
+	    	(WAVEFORMATEX *)format_s16,
+	    	&closest_match
+		);
+		if (hr != S_OK) {
+			win32_audio_deactivated = true;
+			log_error("Default audio output device is not supported.");
+			return;
+		}
+		output_format = (WAVEFORMATEX*)format_s16;
+	} else {
+		output_format = (WAVEFORMATEX*)format_f32;
+	}
+	
+	const s64 BUFFER_DURATION_MS = 40;
+	hr = IAudioClient_Initialize(
+    	win32_audio_client, 
+    	AUDCLNT_SHAREMODE_SHARED, 
+    	0, 
+    	BUFFER_DURATION_MS*10000ll, 0, 
+    	output_format, 0
+	);
+    win32_check_hr(hr);
+	
+    hr = IAudioClient_GetService(win32_audio_client, &IID_IAudioRenderClient, (void**)&win32_render_client);
+    win32_check_hr(hr);
+    
+    win32_output_format.channels = output_format->nChannels;
+    win32_output_format.sample_rate = output_format->nSamplesPerSec;
+    if (output_format == (WAVEFORMATEX*)format_s16) {
+    	win32_output_format.bit_width = AUDIO_BITS_16;
+    } else if (output_format == (WAVEFORMATEX*)format_f32) {
+    	win32_output_format.bit_width = AUDIO_BITS_32;
+    } else {
+    	panic("What");
+    }
+    
+    DWORD task_index;
+	AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &task_index);
+
+	hr = IAudioClient_GetService(win32_audio_client, &IID_ISimpleAudioVolume, (void**)&win32_audio_volume);
+	if (SUCCEEDED(hr)) {
+	    hr = ISimpleAudioVolume_SetMasterVolume(win32_audio_volume, 1.0f, 0);
+	    win32_check_hr(hr);
+	    ISimpleAudioVolume_Release(win32_audio_volume);
+	}
+
+    log_info("Successfully initialized default audio device. Channels: %d, sample_rate: %d, bits: %d", win32_output_format.channels, win32_output_format.sample_rate, get_audio_bit_width_byte_size(win32_output_format.bit_width)*8);
+}
 
 
 
+void 
+win32_audio_thread(Thread *t) {
+	
+	win32_audio_init();
+        
+    timeBeginPeriod(1);
+	
+	u32 buffer_frame_count;
+    HRESULT hr = IAudioClient_GetBufferSize(win32_audio_client, &buffer_frame_count);
+    if (FAILED(hr)) win32_audio_deactivated = true;
+    
+    bool started = false;
+    
+	while (!window.should_close) tm_scope("Audio update") {
+		if (win32_audio_deactivated) tm_scope("Retry audio device") {
+			os_sleep(100);
+			win32_audio_init();
+			started = false;
+			if (win32_audio_deactivated) {
+				hr = IAudioClient_GetBufferSize(win32_audio_client, &buffer_frame_count);
+	    		if (FAILED(hr)) win32_audio_deactivated = true;
+			}
+			continue;
+		}
+		
+		// We gotta check if there is a new default endpoint (#Speed ?)
+		
+		IMMDevice *now_default = 0;
+		hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(win32_device_enumerator, eRender, eConsole, &now_default);
+    	win32_check_hr(hr);
+    	
+    	WCHAR *now_default_id = NULL;
+        hr = IMMDevice_GetId(now_default, &now_default_id);
+        win32_check_hr(hr);
+        
+        WCHAR *previous_id = NULL;
+        hr = IMMDevice_GetId(win32_audio_device, &previous_id);
+        win32_check_hr(hr);
+        
+        if (wcscmp(now_default_id, previous_id) != 0) {
+            win32_audio_deactivated = true;
+        }
+        
+        CoTaskMemFree(now_default_id);
+        CoTaskMemFree(previous_id);
+
+        IMMDevice_Release(now_default);
+        
+        if (win32_audio_deactivated) continue;
+		
+		BYTE *buffer = 0;
+		
+    	u32 num_frames_available = 0;
+    	hr = IAudioClient_GetCurrentPadding(win32_audio_client, &num_frames_available);
+		if (FAILED(hr)) {
+			win32_audio_deactivated = true;
+			continue;
+		}
+    	u32 num_frames_to_write = buffer_frame_count - num_frames_available;
+    	
+    	if (!started) {
+	    	hr = IAudioClient_Start(win32_audio_client);
+	    	win32_check_hr(hr);
+	    	started = true;
+    	}
+    	
+    	while (num_frames_to_write == 0) tm_scope("Chill") {
+    		// We yield & sleep until we have any work to do
+    		os_yield_thread();
+    		os_sleep(1);
+			
+	    	hr = IAudioClient_GetCurrentPadding(win32_audio_client, &num_frames_available);
+			if (FAILED(hr)) {
+				win32_audio_deactivated = true;
+				break;
+			}
+	    	num_frames_to_write = buffer_frame_count - num_frames_available;
+	    	
+    	}
+    	if (win32_audio_deactivated) continue;
+		
+		
+		if (num_frames_to_write > 0) tm_scope("Output frames") {
+			hr = IAudioRenderClient_GetBuffer(
+				win32_render_client, 
+				num_frames_to_write, 
+				&buffer
+			);
+			if (FAILED(hr)) {
+				win32_audio_deactivated = true;
+				continue;
+			}
+			
+			do_program_audio_sample(num_frames_to_write, win32_output_format, buffer);
+			//f32 s = 0.5;
+			//for (u32 i = 0; i < num_frames_to_write * win32_output_format.channels; ++i) {
+			//	((f32*)buffer)[i] = s;
+			//}
+			/*float64 time = 0;
+			float *fbuffer = (float *)buffer;
+			for (UINT32 frameIndex = 0; frameIndex < num_frames_to_write; frameIndex++) {
+	            float amplitude = (float)(sin(time)*0.2);
+	
+	            *fbuffer++ = amplitude; // left
+	            *fbuffer++ = amplitude; // right
+	
+	            time += 0.05;
+	        }*/
+			
+			
+			//for (u64 i = 0; i < num_frames_to_write; i++) {
+			//	f32 s = *(((f32*)buffer)+i*win32_output_format.channels);
+			//	print("%f ", s);
+			//}
+			hr = IAudioRenderClient_ReleaseBuffer(
+				win32_render_client, 
+				num_frames_to_write, 
+				0
+			);
+			if (FAILED(hr)) {
+				win32_audio_deactivated = true;
+				continue;
+			}
+			
+		}
+        
+	}
+}
 
 void os_update() {
 
@@ -989,7 +1262,7 @@ void os_update() {
 	    u32 actual_x = update_rect.left;
 	    u32 actual_y = screen_height - update_rect.top - (update_rect.bottom - update_rect.top);
 	    
-	    SetWindowPos(window._os_handle, NULL, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
+	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
 	
 	RECT client_rect;
@@ -1050,7 +1323,7 @@ void os_update() {
 	
 	MSG msg;
 	while (input_frame.number_of_events < MAX_EVENTS_PER_FRAME 
-			&& PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+			&& PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
             window.should_close = true;
             break;

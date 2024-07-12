@@ -14,7 +14,7 @@ int entry(int argc, char **argv) {
 	
 	const u32 font_height = 48;
 	
-	while (!window.should_close) tm_scope_cycles("Frame") {
+	while (!window.should_close) tm_scope("Frame") {
 		reset_temporary_storage();
 		
 		// Text is easiest to deal with if our projection matches window pixel size, because

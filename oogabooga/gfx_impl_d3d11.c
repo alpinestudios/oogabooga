@@ -6,6 +6,7 @@
 
 #endif
 
+// #Cleanup apparently there are C macros for these (COBJMACROS)
 #define D3D11Release(x) x->lpVtbl->Release(x)
 #define VTABLE(proc, ...) FIRST_ARG(__VA_ARGS__)->lpVtbl->proc(__VA_ARGS__)
 
@@ -114,28 +115,30 @@ void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAG
 
 #define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
 void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
-    if (FAILED(hr)) {
-        LPVOID errorMsg;
+    if (hr != S_OK) {
+    
+    	LPVOID errorMsg;
         DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | 
                         FORMAT_MESSAGE_FROM_SYSTEM | 
                         FORMAT_MESSAGE_IGNORE_INSERTS;
 
-        DWORD messageLength = FormatMessage(
+        DWORD messageLength = FormatMessageW(
             dwFlags,
             NULL,
             hr,
             MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-            (LPTSTR) &errorMsg,
+            (LPWSTR) &errorMsg,
             0,
             NULL );
 
         if (messageLength > 0) {
-            MessageBox(NULL, (LPCTSTR)errorMsg, TEXT("Error"), MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, (LPWSTR)errorMsg, L"Error", MB_OK | MB_ICONERROR);
         } else {
-            MessageBox(NULL, TEXT("Failed to retrieve error message."), TEXT("Error"), MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"Failed to retrieve error message.", L"Error", MB_OK | MB_ICONERROR);
         }
+    
 
-        panic("win32 hr failed in file %cs on line %d", file_name, line);
+        panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
     }
 }
 
@@ -176,8 +179,8 @@ void d3d11_update_swapchain() {
 		
 		
 		// Obtain DXGI factory from device
-		IDXGIDevice *dxgi_device;
-		hr = VTABLE(QueryInterface, d3d11_device, &IID_IDXGIDevice, cast(void**)&dxgi_device);
+		IDXGIDevice *dxgi_device = 0;
+		hr = ID3D11Device_QueryInterface(d3d11_device, &IID_IDXGIDevice, cast(void**)&dxgi_device);
 		win32_check_hr(hr);
 		
 		IDXGIAdapter *adapter;
@@ -599,8 +602,8 @@ void d3d11_process_draw_frame() {
 		D3D11_Vertex* pointer = head;
 		u64 number_of_rendered_quads = 0;
 		
-		tm_scope_cycles("Quad processing") {
-			if (draw_frame.enable_z_sorting) tm_scope_cycles("Z sorting") {
+		tm_scope("Quad processing") {
+			if (draw_frame.enable_z_sorting) tm_scope("Z sorting") {
 				if (!sort_quad_buffer || (sort_quad_buffer_size < allocated_quads*sizeof(Draw_Quad))) {
 					// #Memory #Heapalloc
 					if (sort_quad_buffer) dealloc(get_heap_allocator(), sort_quad_buffer);
@@ -721,23 +724,23 @@ void d3d11_process_draw_frame() {
 			}
 		}
 		
-		tm_scope_cycles("Write to gpu") {
+		tm_scope("Write to gpu") {
 		    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-			tm_scope_cycles("The Map call") {
+			tm_scope("The Map call") {
 				hr = VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 			win32_check_hr(hr);
 			}
-			tm_scope_cycles("The memcpy") {
+			tm_scope("The memcpy") {
 				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
 			}
-			tm_scope_cycles("The Unmap call") {
+			tm_scope("The Unmap call") {
 				VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 			}
 		}
 		
 		///
 		// Draw call
-		tm_scope_cycles("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
+		tm_scope("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
     }
     
     reset_draw_frame(&draw_frame);
@@ -762,7 +765,7 @@ void gfx_update() {
 
 	d3d11_process_draw_frame();
 
-	tm_scope_cycles("Present") {
+	tm_scope("Present") {
 		VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 	}
 	

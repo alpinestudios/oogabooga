@@ -101,6 +101,7 @@ typedef struct Thread {
 
 ///
 // Thread primitive
+// #Cleanup this shouldn't be allocating just for the pointer!! Just do os_thread_init(*)
 Thread* os_make_thread(Thread_Proc proc, Allocator allocator);
 void os_destroy_thread(Thread *t);
 void os_start_thread(Thread* t);

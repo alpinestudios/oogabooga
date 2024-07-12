@@ -223,16 +223,6 @@ typedef void(*Logger_Proc)(Log_Level level, string s);
 
 #define log(...) LOG_BASE(LOG_INFO, __VA_ARGS__)
 
-void default_logger(Log_Level level, string s) {
-	switch (level) {
-		case LOG_VERBOSE: print("[VERBOSE]: %s\n", s); break;
-		case LOG_INFO:    print("[INFO]:    %s\n", s); break;
-		case LOG_WARNING: print("[WARNING]: %s\n", s); break;
-		case LOG_ERROR:   print("[ERROR]:   %s\n", s); break;
-		case LOG_LEVEL_COUNT: break;
-	}
-}
-
 
 typedef struct String_Builder {
 	union {

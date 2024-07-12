@@ -98,16 +98,16 @@
 				
 			Note:
 				See timing macros in profile.c
-					tm_scope_cycles
-					tm_scope_cycles_var
-					tm_scope_cycles_accum
+					tm_scope
+					tm_scope_var
+					tm_scope_accum
 		
 
 */
 
 #define OGB_VERSION_MAJOR 0
-#define OGB_VERSION_MINOR 0
-#define OGB_VERSION_PATCH 5
+#define OGB_VERSION_MINOR 1
+#define OGB_VERSION_PATCH 0
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -212,6 +212,7 @@ typedef u8 bool;
 #define MACOS   2
 
 #ifdef _WIN32
+	#define COBJMACROS
 	#include <Windows.h>
 	#define TARGET_OS WINDOWS
 	#define OS_PATHS_HAVE_BACKSLASH 1
@@ -313,6 +314,26 @@ typedef u8 bool;
 
 #define malloc please_use_alloc_for_memory_allocations_instead_of_malloc
 #define free please_use_dealloc_for_memory_deallocations_instead_of_free
+
+Mutex _default_logger_mutex;
+bool _default_logger_mutex_initted = false;
+void default_logger(Log_Level level, string s) {
+
+	if (!_default_logger_mutex_initted) {
+		mutex_init(&_default_logger_mutex);
+		_default_logger_mutex_initted = true;
+	}
+	
+	mutex_acquire_or_wait(&_default_logger_mutex);
+	switch (level) {
+		case LOG_VERBOSE: print("[VERBOSE]: %s\n", s); break;
+		case LOG_INFO:    print("[INFO]:    %s\n", s); break;
+		case LOG_WARNING: print("[WARNING]: %s\n", s); break;
+		case LOG_ERROR:   print("[ERROR]:   %s\n", s); break;
+		case LOG_LEVEL_COUNT: break;
+	}
+	mutex_release(&_default_logger_mutex);
+}
 
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;

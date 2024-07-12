@@ -29,7 +29,8 @@ typedef struct Cpu_Capabilities {
 	#define inline __forceinline
 	#define alignat(x) __declspec(align(x))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline void crash() {
+    inline void 
+    crash() {
 		__debugbreak();
 		volatile int *a = 0;
 		*a = 5;
@@ -38,7 +39,8 @@ typedef struct Cpu_Capabilities {
 	}
     #include <intrin.h>
     #pragma intrinsic(__rdtsc)
-    inline u64 rdtsc() {
+    inline u64 
+    rdtsc() {
         return __rdtsc();
     }
     inline Cpu_Info_X86 cpuid(u32 function_id) {
@@ -77,23 +79,28 @@ typedef struct Cpu_Capabilities {
 	#pragma intrinsic(_InterlockedCompareExchange)
 	#pragma intrinsic(_InterlockedCompareExchange64)
 	
-	inline bool compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
+	inline bool 
+	compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
 	    return _InterlockedCompareExchange8((volatile char*)a, (char)b, (char)old) == old;
 	}
 	
-	inline bool compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
+	inline bool 
+	compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
 	    return _InterlockedCompareExchange16((volatile short*)a, (short)b, (short)old) == old;
 	}
 	
-	inline bool compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
+	inline bool 
+	compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
 	    return _InterlockedCompareExchange((volatile long*)a, (long)b, (long)old) == old;
 	}
 	
-	inline bool compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
+	inline bool 
+	compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
 	    return _InterlockedCompareExchange64((volatile long long*)a, (long long)b, (long long)old) == old;
 	}
 	
-	inline bool compare_and_swap_bool(bool *a, bool b, bool old) {
+	inline bool 
+	compare_and_swap_bool(bool *a, bool b, bool old) {
 	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
 	}
 	
@@ -103,20 +110,26 @@ typedef struct Cpu_Capabilities {
 	#define inline __attribute__((always_inline)) inline
 	#define alignat(x) __attribute__((aligned(x)))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
-    inline void crash() {
+    
+    inline void 
+    crash() {
 		__builtin_trap();
 		volatile int *a = 0;
 		*a = 5;
 		a = (int*)0xDEADBEEF;
     	*a = 5;
 	}
-    inline u64 rdtsc() {
+	
+    inline u64 
+    rdtsc() {
         unsigned int lo, hi;
         __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
         return ((u64)hi << 32) | lo;
     }
-    inline Cpu_Info_X86 cpuid(u32 function_id) {
-    Cpu_Info_X86 info;
+    
+    inline 
+    Cpu_Info_X86 cpuid(u32 function_id) {
+    	Cpu_Info_X86 info;
 	    __asm__ __volatile__(
 	        "cpuid"
 	        : "=a"(info.eax), "=b"(info.ebx), "=c"(info.ecx), "=d"(info.edx)
@@ -152,7 +165,8 @@ typedef struct Cpu_Capabilities {
 	
 	#define DEPRECATED(proc, msg) proc __attribute__((deprecated(msg)))
 	
-	inline bool compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
+	inline bool 
+	compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
 	    unsigned char result;
 	    __asm__ __volatile__(
 	        "lock; cmpxchgb %2, %1"
@@ -163,7 +177,8 @@ typedef struct Cpu_Capabilities {
 	    return result == old;
 	}
 	
-	inline bool compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
+	inline bool 
+	compare_and_swap_16(uint16_t *a, uint16_t b, uint16_t old) {
 	    unsigned short result;
 	    __asm__ __volatile__(
 	        "lock; cmpxchgw %2, %1"
@@ -174,7 +189,8 @@ typedef struct Cpu_Capabilities {
 	    return result == old;
 	}
 	
-	inline bool compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
+	inline bool 
+	compare_and_swap_32(uint32_t *a, uint32_t b, uint32_t old) {
 	    unsigned int result;
 	    __asm__ __volatile__(
 	        "lock; cmpxchgl %2, %1"
@@ -185,7 +201,8 @@ typedef struct Cpu_Capabilities {
 	    return result == old;
 	}
 	
-	inline bool compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
+	inline bool 
+	compare_and_swap_64(uint64_t *a, uint64_t b, uint64_t old) {
 	    unsigned long long result;
 	    __asm__ __volatile__(
 	        "lock; cmpxchgq %2, %1"
@@ -196,7 +213,8 @@ typedef struct Cpu_Capabilities {
 	    return result == old;
 	}
 	
-	inline bool compare_and_swap_bool(bool *a, bool b, bool old) {
+	inline bool 
+	compare_and_swap_bool(bool *a, bool b, bool old) {
 	    return compare_and_swap_8((uint8_t*)a, (uint8_t)b, (uint8_t)old);
 	}
 	
@@ -206,7 +224,8 @@ typedef struct Cpu_Capabilities {
 	#define inline inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 0
     
-    inline u64 rdtsc() { return 0; }
+    inline u64 
+    rdtsc() { return 0; }
     inline Cpu_Info_X86 cpuid(u32 function_id) {return (Cpu_Info_X86){0};}
     #define COMPILER_CAN_DO_SSE2 0
     #define COMPILER_CAN_DO_AVX 0
@@ -220,7 +239,8 @@ typedef struct Cpu_Capabilities {
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif
 
-Cpu_Capabilities query_cpu_capabilities() {
+Cpu_Capabilities 
+query_cpu_capabilities() {
     Cpu_Capabilities result = {0};
 
     Cpu_Info_X86 info = cpuid(1);
