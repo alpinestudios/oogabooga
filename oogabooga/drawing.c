@@ -48,6 +48,12 @@ Usage:
 	
 	API:
 	
+	// !! IMPORTANT
+	// The Draw_Quad* returned from draw procedures is a temporary pointer and may be
+	// invalid after the next draw_xxxx call. This is because quads are stored in a
+	// resizing buffer (because that gave us a non-trivial performance boost).
+	// So the purpose of returning them is to customize the quad right after the draw proc.
+	
 	Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip);
 	Draw_Quad *draw_quad(Draw_Quad quad);
 	Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform);
@@ -62,7 +68,7 @@ Usage:
 	
 */
 
-// We use radix sort so the exact bit count is of important
+// We use radix sort so the exact bit count is of importance
 #define MAX_Z_BITS 21
 #define MAX_Z ((1 << MAX_Z_BITS)/2)
 #define Z_STACK_MAX 4096

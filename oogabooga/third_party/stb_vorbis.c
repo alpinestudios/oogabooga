@@ -1,3 +1,88 @@
+/*
+#Modified
+	INFORMATION ABOUT MODIFICATION BY THE OOGABOOGA TEAM
+	
+	This file has been slightly modified from the original stb_vorbis.c (see license)
+	to integrate better into the oogabooga environment.
+
+	All small niche modifications are marked with #Modified and the name of whoever modified
+	it and at which date it was modified.
+	
+	Other than that:
+	
+	- All FILE * stdio procedures are replaced with the equivalent for the oogabooga
+	file API.
+	
+
+*/
+
+// #Modified
+//////////////////////////////////////
+//// C stdio ports to oogabooga File API
+
+#define EOF -1
+
+int fgetc(File f) {
+    u8 ch;
+    u64 bytes_read;
+    if (os_file_read(f, &ch, 1, &bytes_read) && bytes_read == 1) {
+        return (int)ch;
+    } else {
+        return EOF;
+    }
+}
+
+size_t fread(void *buffer, size_t size, size_t count, File f) {
+    u64 bytes_to_read = size * count;
+    u64 actual_read_bytes;
+    if (os_file_read(f, buffer, bytes_to_read, &actual_read_bytes)) {
+        return actual_read_bytes / size;
+    } else {
+        return 0;
+    }
+}
+
+long ftell(File f) {
+    s64 pos = os_file_get_pos(f);
+    if (pos >= 0) {
+        return (long)pos;
+    } else {
+        return -1;
+    }
+}
+
+int fseek(File f, s64 offset, s64 origin) {
+    s64 new_pos;
+    switch (origin) {
+        case SEEK_SET:
+            new_pos = offset;
+            break;
+        case SEEK_CUR:
+            new_pos = os_file_get_pos(f) + offset;
+            break;
+        case SEEK_END:
+            new_pos = os_file_get_size(f) + offset;
+            break;
+        default:
+            return -1;
+    }
+    return os_file_set_pos(f, new_pos) ? 0 : -1;
+}
+
+File fopen(const char *filename, const char *mode) {
+    // Handling modes
+    File f = os_file_open_s(STR(filename), O_READ);
+    return f;
+}
+
+int fclose(File f) {
+    os_file_close(f);
+    return 0;
+}
+
+//////////////////////////////////////
+
+
 // Ogg Vorbis audio decoder - v1.22 - public domain
 // http://nothings.org/stb_vorbis/
 //
@@ -78,8 +163,11 @@
 #define STB_VORBIS_NO_STDIO 1
 #endif
 
+// #Modified Charlie Malmqvist 2024-07-14
+#undef STB_VORBIS_NO_STDIO
+
 #ifndef STB_VORBIS_NO_STDIO
-#include <stdio.h>
+//#include <stdio.h> // #Modified Charlie Malmqvist 2024-07-14
 #endif
 
 #ifdef __cplusplus
@@ -249,8 +337,8 @@ extern void stb_vorbis_flush_pushdata(stb_vorbis *f);
 #ifndef STB_VORBIS_NO_PULLDATA_API
 // This API assumes stb_vorbis is allowed to pull data from a source--
 // either a block of memory containing the _entire_ vorbis stream, or a
-// FILE * that you or it create, or possibly some other reading mechanism
-// if you go modify the source to replace the FILE * case with some kind
+// File  that you or it create, or possibly some other reading mechanism
+// if you go modify the source to replace the File  case with some kind
 // of callback to your code. (But if you don't support seeking, you may
 // just want to go ahead and use pushdata.)
 
@@ -276,9 +364,9 @@ extern stb_vorbis * stb_vorbis_open_filename(const char *filename,
 // create an ogg vorbis decoder from a filename via fopen(). on failure,
 // returns NULL and sets *error (possibly to VORBIS_file_open_failure).
 
-extern stb_vorbis * stb_vorbis_open_file(FILE *f, int close_handle_on_close,
+extern stb_vorbis * stb_vorbis_open_file(File f, int close_handle_on_close,
                                   int *error, const stb_vorbis_alloc *alloc_buffer);
-// create an ogg vorbis decoder from an open FILE *, looking for a stream at
+// create an ogg vorbis decoder from an open File , looking for a stream at
 // the _current_ seek point (ftell). on failure, returns NULL and sets *error.
 // note that stb_vorbis must "own" this stream; if you seek it in between
 // calls to stb_vorbis, it will become confused. Moreover, if you attempt to
@@ -286,9 +374,9 @@ extern stb_vorbis * stb_vorbis_open_file(FILE *f, int close_handle_on_close,
 // owns the _entire_ rest of the file after the start point. Use the next
 // function, stb_vorbis_open_file_section(), to limit it.
 
-extern stb_vorbis * stb_vorbis_open_file_section(FILE *f, int close_handle_on_close,
+extern stb_vorbis * stb_vorbis_open_file_section(File f, int close_handle_on_close,
                 int *error, const stb_vorbis_alloc *alloc_buffer, unsigned int len);
-// create an ogg vorbis decoder from an open FILE *, looking for a stream at
+// create an ogg vorbis decoder from an open File , looking for a stream at
 // the _current_ seek point (ftell); the stream will be of length 'len' bytes.
 // on failure, returns NULL and sets *error. note that stb_vorbis must "own"
 // this stream; if you seek it in between calls to stb_vorbis, it will become
@@ -434,7 +522,7 @@ enum STBVorbisError
 // #define STB_VORBIS_NO_PULLDATA_API
 
 // STB_VORBIS_NO_STDIO
-//     does not compile the code for the APIs that use FILE *s internally
+//     does not compile the code for the APIs that use File s internally
 //     or externally (implied by STB_VORBIS_NO_PULLDATA_API)
 // #define STB_VORBIS_NO_STDIO
 
@@ -558,6 +646,9 @@ enum STBVorbisError
    #define STB_VORBIS_NO_STDIO 1
 #endif
 
+// #Modified Charlie Malmqvist 2024-07-14
+#undef STB_VORBIS_NO_STDIO
+
 #ifndef STB_VORBIS_NO_INTEGER_CONVERSION
 #ifndef STB_VORBIS_NO_FAST_SCALED_FLOAT
 
@@ -575,11 +666,11 @@ enum STBVorbisError
 
 
 #ifndef STB_VORBIS_NO_STDIO
-#include <stdio.h>
+// #include <stdio.h> // #Modified Charlie Malmqvist 2024-07-14
 #endif
 
 #ifndef STB_VORBIS_NO_CRT
-   #include <stdlib.h>
+	   #include <stdlib.h>
    #include <string.h>
    #include <assert.h>
    #include <math.h>
@@ -799,7 +890,7 @@ struct stb_vorbis
 
   // input config
 #ifndef STB_VORBIS_NO_STDIO
-   FILE *f;
+   File f;
    uint32 f_start;
    int close_on_free;
 #endif
@@ -928,8 +1019,8 @@ static int error(vorb *f, enum STBVorbisError e)
 
 #define array_size_required(count,size)  (count*(sizeof(void *)+(size)))
 
-#define temp_alloc(f,size)              (f->alloc.alloc_buffer ? setup_temp_malloc(f,size) : alloca(size))
-#define temp_free(f,p)                  (void)0
+#define temp_alloc(f,size)              alloca(size) // #Modified
+#define temp_free(f,p)                  (void)0;
 #define temp_alloc_save(f)              ((f)->temp_offset)
 #define temp_alloc_restore(f,p)         ((f)->temp_offset = (p))
 
@@ -1241,7 +1332,8 @@ static int vorbis_validate(uint8 *data)
 // (formula implied by specification)
 static int lookup1_values(int entries, int dim)
 {
-   int r = (int) floor(exp((float) log((float) entries) / dim));
+	// #Modified (log -> natural_log) Charlie Malmqvist 2024-07-14
+   int r = (int) floor(exp((float) natural_log((float) entries) / dim));
    if ((int) floor(pow((float) r+1, dim)) <= entries)   // (int) cast for MinGW warning;
       ++r;                                              // floor() to avoid _ftol() when non-CRT
    if (pow((float) r+1, dim) <= entries)
@@ -1344,6 +1436,7 @@ static uint8 get8(vorb *z)
 
    #ifndef STB_VORBIS_NO_STDIO
    {
+   
    int c = fgetc(z->f);
    if (c == EOF) { z->eof = TRUE; return 0; }
    return c;
@@ -5050,7 +5143,7 @@ int stb_vorbis_get_frame_float(stb_vorbis *f, int *channels, float ***output)
 
 #ifndef STB_VORBIS_NO_STDIO
 
-stb_vorbis * stb_vorbis_open_file_section(FILE *file, int close_on_free, int *error, const stb_vorbis_alloc *alloc, unsigned int length)
+stb_vorbis * stb_vorbis_open_file_section(File file, int close_on_free, int *error, const stb_vorbis_alloc *alloc, unsigned int length)
 {
    stb_vorbis *f, p;
    vorbis_init(&p, alloc);
@@ -5071,7 +5164,7 @@ stb_vorbis * stb_vorbis_open_file_section(FILE *file, int close_on_free, int *er
    return NULL;
 }
 
-stb_vorbis * stb_vorbis_open_file(FILE *file, int close_on_free, int *error, const stb_vorbis_alloc *alloc)
+stb_vorbis * stb_vorbis_open_file(File file, int close_on_free, int *error, const stb_vorbis_alloc *alloc)
 {
    unsigned int len, start;
    start = (unsigned int) ftell(file);
@@ -5083,13 +5176,9 @@ stb_vorbis * stb_vorbis_open_file(FILE *file, int close_on_free, int *error, con
 
 stb_vorbis * stb_vorbis_open_filename(const char *filename, int *error, const stb_vorbis_alloc *alloc)
 {
-   FILE *f;
-#if defined(_WIN32) && defined(__STDC_WANT_SECURE_LIB__)
-   if (0 != fopen_s(&f, filename, "rb"))
-      f = NULL;
-#else
+   File f;
+   // #Modified (no open_s) Charlie Malmqvist 2024-07-14
    f = fopen(filename, "rb");
-#endif
    if (f)
       return stb_vorbis_open_file(f, TRUE, error, alloc);
    if (error) *error = VORBIS_file_open_failure;
@@ -5356,7 +5445,7 @@ int stb_vorbis_decode_filename(const char *filename, int *channels, int *sample_
       *sample_rate = v->sample_rate;
    offset = data_len = 0;
    total = limit;
-   data = (short *) malloc(total * sizeof(*data));
+   data = (short *) third_party_malloc(total * sizeof(*data)); // #Modified (malloc -> third_party_malloc) Charlie Malmqvist 2024-07-14
    if (data == NULL) {
       stb_vorbis_close(v);
       return -2;
@@ -5369,9 +5458,9 @@ int stb_vorbis_decode_filename(const char *filename, int *channels, int *sample_
       if (offset + limit > total) {
          short *data2;
          total *= 2;
-         data2 = (short *) realloc(data, total * sizeof(*data));
+         data2 = (short *) third_party_realloc(data, total * sizeof(*data)); // #Modified (realloc -> third_party_realloc) Charlie Malmqvist 2024-07-14
          if (data2 == NULL) {
-            free(data);
+            third_party_free(data); // #Modified (free -> third_party_free) Charlie Malmqvist 2024-07-14
             stb_vorbis_close(v);
             return -2;
          }
@@ -5396,7 +5485,7 @@ int stb_vorbis_decode_memory(const uint8 *mem, int len, int *channels, int *samp
       *sample_rate = v->sample_rate;
    offset = data_len = 0;
    total = limit;
-   data = (short *) malloc(total * sizeof(*data));
+   data = (short *) third_party_malloc(total * sizeof(*data)); // #Modified (malloc -> third_party_malloc) Charlie Malmqvist 2024-07-14
    if (data == NULL) {
       stb_vorbis_close(v);
       return -2;
@@ -5409,9 +5498,9 @@ int stb_vorbis_decode_memory(const uint8 *mem, int len, int *channels, int *samp
       if (offset + limit > total) {
          short *data2;
          total *= 2;
-         data2 = (short *) realloc(data, total * sizeof(*data));
+         data2 = (short *) third_party_realloc(data, total * sizeof(*data)); // #Modified (realloc -> third_party_realloc) Charlie Malmqvist 2024-07-14
          if (data2 == NULL) {
-            free(data);
+            third_party_free(data); // #Modified (free -> third_party_free) Charlie Malmqvist 2024-07-14
             stb_vorbis_close(v);
             return -2;
          }
@@ -5583,3 +5672,4 @@ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 */
+

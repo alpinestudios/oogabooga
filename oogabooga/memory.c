@@ -74,7 +74,7 @@ typedef struct Heap_Block {
 } Heap_Block;
 
 #define HEAP_META_SIGNATURE 6969694206942069ull
-typedef struct {
+typedef alignat(16) struct Heap_Allocation_Metadata {
 	u64 size;
 	Heap_Block *block;
 #if CONFIGURATION == DEBUG
@@ -111,14 +111,26 @@ bool is_pointer_valid(void *p) {
 }
 
 // Meant for debug
-void santiy_check_free_node_tree(Heap_Block *block) {
-	Heap_Free_Node *node = block->free_head;
+void sanity_check_block(Heap_Block *block) {
+
+	assert(is_pointer_in_program_memory(block), "Heap_Block pointer is corrupt");
+	assert(is_pointer_in_program_memory(block->start), "Heap_Block pointer is corrupt");
+	if(block->next) { assert(is_pointer_in_program_memory(block->next), "Heap_Block next pointer is corrupt"); }
+	assert(block->size < GB(256), "A heap block is corrupt.");
+	assert((u64)block->start == (u64)block + sizeof(Heap_Block), "A heap block is corrupt.");
+	
+
+	Heap_Free_Node *node = block->free_head;	
 	
 	u64 total_free = 0;
 	while (node != 0) {
 		Heap_Free_Node *other_node = node->next;
 		
+		assert(node->size < GB(256), "Heap is corrupt");
+		assert(is_pointer_in_program_memory(node), "Heap is corrupt");
+		
 		while (other_node != 0) {
+			assert(is_pointer_in_program_memory(other_node), "Heap is corrupt");
 			assert(other_node != node, "Circular reference in heap free node tree. This is probably an internal error, or an extremely unlucky result from heap corruption.");
 			other_node = other_node->next;
 		}
@@ -192,6 +204,8 @@ Heap_Search_Result search_heap_block(Heap_Block *block, u64 size) {
 
 Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 
+	size += sizeof(Heap_Block);
+
 	size = (size) & ~(HEAP_ALIGNMENT-1);	
 
 	Heap_Block *block;
@@ -247,7 +261,7 @@ void *heap_alloc(u64 size) {
 	spinlock_acquire_or_wait(&heap_lock);
 	
 
-	
+
 
 	
 	size += sizeof(Heap_Allocation_Metadata);
@@ -266,7 +280,11 @@ void *heap_alloc(u64 size) {
 	// Maybe instead of going through EVERY free node to find best fit we do a good-enough fit
 	while (block != 0) {
 	
-		if (block->size < size) {
+#if VERY_DEBUG
+		sanity_check_block(block);
+#endif
+
+		if (get_heap_block_size_excluding_metadata(block) < size) {
 			last_block = block;
 			block = block->next;
 			continue;
@@ -342,7 +360,7 @@ void *heap_alloc(u64 size) {
 	check_meta(meta);
 
 #if VERY_DEBUG
-	santiy_check_free_node_tree(meta->block);
+	sanity_check_block(meta->block);
 #endif
 	
 	// #Sync #Speed oof
@@ -369,8 +387,12 @@ void heap_dealloc(void *p) {
 	Heap_Block *block = meta->block;
 	u64 size = meta->size;
 	
+#if CONFIGURATION == DEBUG
+	memset(p, 0x69696969, size);
+#endif
+	
 	#if VERY_DEBUG
-		santiy_check_free_node_tree(block);
+		sanity_check_block(block);
 	#endif
 	
 	Heap_Free_Node *new_node = cast(Heap_Free_Node*)p;
@@ -428,7 +450,9 @@ void heap_dealloc(void *p) {
 	}
 	
 
-
+#if VERY_DEBUG
+	sanity_check_block(block);
+#endif
 	// #Sync #Speed oof
 	spinlock_release(&heap_lock);
 }
@@ -440,9 +464,6 @@ void* heap_allocator_proc(u64 size, void *p, Allocator_Message message, void* da
 			break;
 		}
 		case ALLOCATOR_DEALLOCATE: {
-			assert(is_pointer_valid(p), "Invalid pointer passed to heap allocator deallocate");
-			Heap_Allocation_Metadata *meta = (Heap_Allocation_Metadata*)(((u64)p)-sizeof(Heap_Allocation_Metadata));
-			check_meta(meta);
 			heap_dealloc(p);
 			return 0;
 		}

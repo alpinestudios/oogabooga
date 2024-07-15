@@ -333,8 +333,7 @@ void test_strings() {
 	    // Test handling of empty strings
 	    string empty_str = STR("");
 	    string concat_empty_str = string_concat(empty_str, empty_str, heap);
-	    assert(concat_empty_str.count == 0, "Failed: string_concat with empty strings");
-	    dealloc_string(heap, concat_empty_str);
+	    assert(concat_empty_str.count == 0 && !concat_empty_str.data, "Failed: string_concat with empty strings");
 	
 	    // Test very large strings (performance test)
 	    string large_str1 = alloc_string(heap, 1024 * 1024);
@@ -1253,4 +1252,6 @@ void oogabooga_run_tests() {
 	print("Testing radix sort... ");
 	test_sort();
 	print("OK!\n");
+	
+	print("All tests ok!\n");
 }

@@ -1,19 +1,50 @@
 
-## v0.01.001 - AUDIO!
+## v0.01.000 - AUDIO!
 	- Added audio sources
 		- File stream sources & Fully decoded sources
 		- 16-bit int & 32-bit float support
-		- WAV & OGG support
+		- WAV & OGG support (in-house wav decoder, stb_vorbis for ogg)
 		- Usage:
-			bool audio_source_init_file_stream(*src, path, bit_width, allocator)
-			bool audio_source_init_file_decode(*src, path, bit_width, allocator)
+			bool audio_open_source_stream(*src, path, allocator)
+			bool audio_open_source_load(*src, path, allocator)
 			void audio_source_destroy(*src)
+	- Added audio playback
+		- The simple way:
+			play_one_audio_clip_source(source);
+			play_one_audio_clip(path);
+		- With Audio_Player:
+			audio_player_get_one();
+			audio_player_release(*player);
+			audio_player_set_state(*player, state);
+			audio_player_set_time_stamp(*player, time_in_seconds);
+			audio_player_set_progression_factor(*player, factor);
+			audio_player_get_time_stamp(*player);
+			audio_player_get_current_progression_factor(*player);
+			audio_player_set_source(*player, src, bool retain_progression_factor);
+			audio_player_clear_source(*player);
+			audio_player_set_looping(*player, bool looping);
+	- Added some basic features in the audio system
+		- Conversion & resampling between audio formats
+		- Automatically detects new default device
+		- Small fade in pause/play for less noise from sudden changes in playback buffer
+	- Added a audio_test.c example
+	- More OS procuedres
+		- os_file_set_pos(file, pos)
+		- os_file_get_pos(file)
+		- os_file_get_size(file)
+		- os_get_stack_trace(allocator)
 	- Misc
 		- Win32 audio impl
+		- Link to more win32 junk
 		- Make default logger thread safe
 		- Rename tm_scope_cycles & tm_scope_cycles_xxx -> tm_scope & tm_scope_xxx
 		- Minor cleanups
-		
+		- Fix Vector types align woopsies
+		- Fix bug in heap allocator which caused internal heap corruption
+		- Maybe fixed spinlocks with memory barriers?
+		- Bunch of more asserts & better detection for heap allocation issues
+		- lerpf, lerpi, smerpf, smerpi
+		- Failed asserts now prints the stack trace.
 		
 
 ## v0.00.005 - Z layers

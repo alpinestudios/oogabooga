@@ -46,13 +46,16 @@ void spinlock_init(Spinlock *l) {
 void spinlock_acquire_or_wait(Spinlock* l) {
 	while (true) {
         bool expected = false;
+        MEMORY_BARRIER;
         if (compare_and_swap_bool(&l->locked, true, expected)) {
         	MEMORY_BARRIER;
             return;
         }
         while (l->locked) {
             // spinny boi
+            MEMORY_BARRIER;
         }
+        MEMORY_BARRIER;
     }
 }
 // Returns true on aquired, false if timeout seconds reached
@@ -60,6 +63,7 @@ bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds) {
     f64 start = os_get_current_time_in_seconds();
 	while (true) {
         bool expected = false;
+        MEMORY_BARRIER;
         if (compare_and_swap_bool(&l->locked, true, expected)) {
         	MEMORY_BARRIER;
             return true;
@@ -67,15 +71,17 @@ bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds) {
         while (l->locked) {
             // spinny boi
             if ((os_get_current_time_in_seconds()-start) >= timeout_seconds) return false;
+            MEMORY_BARRIER;
         }
     }
     return true;
 }
 void spinlock_release(Spinlock* l) {
 	bool expected = true;
-    bool success = compare_and_swap_bool(&l->locked, false, expected);
-    assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
     MEMORY_BARRIER;
+    bool success = compare_and_swap_bool(&l->locked, false, expected);
+    MEMORY_BARRIER;
+    assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
 }
 
 

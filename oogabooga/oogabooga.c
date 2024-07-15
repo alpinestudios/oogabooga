@@ -214,6 +214,9 @@ typedef u8 bool;
 #ifdef _WIN32
 	#define COBJMACROS
 	#include <Windows.h>
+#if CONFIGURATION == DEBUG
+	#include <dbghelp.h>
+#endif
 	#define TARGET_OS WINDOWS
 	#define OS_PATHS_HAVE_BACKSLASH 1
 #elif defined(__linux__)
@@ -233,15 +236,6 @@ typedef u8 bool;
 
 // This needs to be included before dependencies
 #include "base.c"
-
-///
-///
-// Dependencies
-///
-
-#include "third_party.c"
-
-/////
 
 #include "simd.c"        
 
@@ -274,8 +268,21 @@ typedef u8 bool;
 #include "hash_table.c"
 
 #include "os_interface.c"
+
+///
+///
+// Dependencies
+///
+// The reason dependencies are compiled here is because we modify stb_vorbis to use our
+// file API instead of the stdio.h (cmoooon Sean)
+
+#include "third_party.c"
+
+/////
+
 #include "concurrency.c"
 #include "gfx_interface.c"
+
 
 #include "font.c"
 
@@ -359,9 +366,13 @@ int ENTRY_PROC(int argc, char **argv);
 
 int main(int argc, char **argv) {
 
+
 	print("Ooga booga program started\n");
 	oogabooga_init(INITIAL_PROGRAM_MEMORY_SIZE); 
 	
+	assert(sizeof(Vector3) == 12, "%d", sizeof(Vector3));
+	assert(sizeof(Vector2) == 8 , "%d", sizeof(Vector2));
+	assert(sizeof(Vector4) == 16, "%d", sizeof(Vector4));
 	
 	assert(main != ENTRY_PROC, "You've ooga'd your last booga");
 	

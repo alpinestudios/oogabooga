@@ -6,6 +6,13 @@
 #define RAD_PER_DEG (PI64 / 180.0)
 #define DEG_PER_RAD (180.0 / PI64)
 
+#if ENABLE_SIMD
+	// #Redundant maybe, possibly even degrades performance #Speed
+	#define LMATH_ALIGN alignat(16)
+#else
+	#define LMATH_ALIGN
+#endif
+
 #define to_radians  (degrees) (((float)degrees)*(float)RAD_PER_DEG)
 #define to_degrees  (radians) (((float)radians)*(float)DEG_PER_RAD)
 #define to_radians64(degrees) (((float64)degrees)*(float64)RAD_PER_DEG)
@@ -13,112 +20,115 @@
 #define to_radians32 to_radians
 #define to_degrees32 to_degrees
 
-typedef alignat(16) union Vector2 {
-	struct {float32 x, y;};
+typedef union Vector2 {
+	float data[2];
+	struct {float32  x, y;};
 } Vector2;
 inline Vector2 v2(float32 x, float32 y) { return (Vector2){x, y}; }
 #define v2_expand(v) (v).x, (v).y
 
-typedef alignat(16) union Vector3 {
-	struct {float32 x, y, z;};
-	struct {float32 r, g, b;};
-	struct {Vector2 xy;};
-	struct {float32 _x; Vector2 yz;};
+typedef union Vector3 {
+	float data[3];
+	struct  {float32  x, y, z;};
+	struct  {float32  r, g, b;};
+	struct  {Vector2  xy;};
+	struct  {float32  _x; Vector2 yz;};
 } Vector3;
 inline Vector3 v3(float32 x, float32 y, float32 z) { return (Vector3){x, y, z}; }
 #define v3_expand(v) (v).x, (v).y, (v).z
 
-typedef alignat(16) union Vector4 {
-	struct {float32 x, y, z, w;};
-	struct {float32 x1, y1, x2, y2;};
-	struct {float32 r, g, b, a;};
-	struct {float32 left, bottom, right, top;};
-	struct {Vector2 xy; Vector2 zw;};
-	struct {Vector3 xyz;};
-	struct {float32 _x; Vector3 yzw;};
+typedef union alignat(16) Vector4 {
+	float data[4];
+	struct {float32  x, y, z, w;};
+	struct {Vector2  xy; Vector2 zw;};
+	struct {float32  x1, y1, x2, y2;};
+	struct {float32  r, g, b, a;};
+	struct {float32  left, bottom, right, top;};
+	struct {Vector3  xyz;};
+	struct {float32  _x; Vector3 yzw;};
 } Vector4;
 inline Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
 #define v4_expand(v) (v).x, (v).y, (v).z, (v).w
 
-inline Vector2 v2_add(Vector2 a, Vector2 b) {
+inline Vector2 v2_add(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_add_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_sub(Vector2 a, Vector2 b) {
+inline Vector2 v2_sub(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_sub_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_mul(Vector2 a, Vector2 b) {
+inline Vector2 v2_mul(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_mul_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_mulf(Vector2 a, float32 s) {
+inline Vector2 v2_mulf(LMATH_ALIGN Vector2 a, float32 s) {
 	return v2_mul(a, v2(s, s));
 }
-inline Vector2 v2_div(Vector2 a, Vector2 b) {
+inline Vector2 v2_div(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_div_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_divf(Vector2 a, float32 s) {
+inline Vector2 v2_divf(LMATH_ALIGN Vector2 a, float32 s) {
 	return v2_div(a, v2(s, s));
 }
 
-inline Vector3 v3_add(Vector3 a, Vector3 b) {
-	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
-	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+inline Vector3 v3_add(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_add_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
-inline Vector3 v3_sub(Vector3 a, Vector3 b) {
-	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
-	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+inline Vector3 v3_sub(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_sub_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
-inline Vector3 v3_mul(Vector3 a, Vector3 b) {
-	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
-	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+inline Vector3 v3_mul(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_mul_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
-inline Vector3 v3_mulf(Vector3 a, float32 s) {
+inline Vector3 v3_mulf(LMATH_ALIGN Vector3 a, float32 s) {
 	return v3_mul(a, v3(s, s, s));
 }
-inline Vector3 v3_div(Vector3 a, Vector3 b) {
-	Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
-	Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
+inline Vector3 v3_div(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
+	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_div_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
-inline Vector3 v3_divf(Vector3 a, float32 s) {
+inline Vector3 v3_divf(LMATH_ALIGN Vector3 a, float32 s) {
 	return v3_div(a, v3(s, s, s));
 }
 
-inline Vector4 v4_add(Vector4 a, Vector4 b) {
+inline Vector4 v4_add(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	simd_add_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector4 v4_sub(Vector4 a, Vector4 b) {
+inline Vector4 v4_sub(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	simd_sub_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector4 v4_mul(Vector4 a, Vector4 b) {
+inline Vector4 v4_mul(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	simd_mul_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector4 v4_mulf(Vector4 a, float32 s) {
+inline Vector4 v4_mulf(LMATH_ALIGN Vector4 a, float32 s) {
 	return v4_mul(a, v4(s, s, s, s));
 }
-inline Vector4 v4_div(Vector4 a, Vector4 b) {
+inline Vector4 v4_div(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	simd_div_float32_128_aligned((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector4 v4_divf(Vector4 a, float32 s) {
+inline Vector4 v4_divf(LMATH_ALIGN Vector4 a, float32 s) {
 	return v4_div(a, v4(s, s, s, s));
 }
 
 
-inline Vector2 v2_normalize(Vector2 a) {
+inline Vector2 v2_normalize(LMATH_ALIGN Vector2 a) {
     float32 length = sqrt(a.x * a.x + a.y * a.y);
     if (length == 0) {
         return (Vector2){0, 0};
@@ -126,13 +136,13 @@ inline Vector2 v2_normalize(Vector2 a) {
     return v2_divf(a, length);
 }
 
-inline float v2_dot_product(Vector2 a, Vector2 b) {
+inline float v2_dot_product(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	return simd_dot_product_float32_64((float*)&a, (float*)&b);
 }
-inline float v3_dot_product(Vector3 a, Vector3 b) {
+inline float v3_dot_product(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
 	return simd_dot_product_float32_96((float*)&a, (float*)&b);
 }
-inline float v4_dot_product(Vector4 a, Vector4 b) {
+inline float v4_dot_product(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	return simd_dot_product_float32_128_aligned((float*)&a, (float*)&b);
 }
 
@@ -184,7 +194,7 @@ Matrix4 m4_make_translation(Vector3 translation) {
     return m;
 }
 
-Matrix4 m4_make_rotation(Vector3 axis, float32 radians) {
+Matrix4 m4_make_rotation(LMATH_ALIGN Vector3 axis, float32 radians) {
     Matrix4 m = m4_scalar(1.0);
     float32 c = cosf(radians);
     float32 s = sinf(radians);
@@ -219,7 +229,7 @@ Matrix4 m4_make_scale(Vector3 scale) {
     return m;
 }
 
-Matrix4 m4_mul(Matrix4 a, Matrix4 b) {
+Matrix4 m4_mul(LMATH_ALIGN Matrix4 a, LMATH_ALIGN Matrix4 b) {
     Matrix4 result;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -237,7 +247,7 @@ inline Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
     return m4_mul(m, translation_matrix);
 }
 
-inline Matrix4 m4_rotate(Matrix4 m, Vector3 axis, float32 radians) {
+inline Matrix4 m4_rotate(Matrix4 m, LMATH_ALIGN Vector3 axis, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(axis, radians);
     return m4_mul(m, rotation_matrix);
 }
@@ -273,7 +283,7 @@ Vector4 m4_transform(Matrix4 m, Vector4 v) {
     result.w = m.m[3][0] * v.x + m.m[3][1] * v.y + m.m[3][2] * v.z + m.m[3][3] * v.w;
     return result;
 }
-Matrix4 m4_inverse(Matrix4 m) {
+Matrix4 m4_inverse(LMATH_ALIGN Matrix4 m) {
     Matrix4 inv;
     float32 det;
 
@@ -410,3 +420,18 @@ Matrix4 m4_inverse(Matrix4 m) {
 // This isn't really linmath but just putting it here for now
 #define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
 
+f64 lerpf(f64 from, f64 to, f64 x) {
+	return (to-from)*x+from;
+}
+s64 lerpi(s64 from, s64 to, f64 x) {
+	return (s64)((round((f64)to-(f64)from)*x)+from);
+}
+
+f64 smerpf(f64 from, f64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpf(from, to, smooth);
+}
+s64 smerpi(s64 from, s64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpi(from, to, smooth);
+}

@@ -192,6 +192,11 @@ bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
 
 bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes);
 
+bool os_file_set_pos(File f, s64 pos_in_bytes);
+s64  os_file_get_pos(File f);
+
+s64 os_file_get_size(File f);
+
 bool os_write_entire_file_handle(File f, string data);
 bool os_write_entire_file_s(string path, string data);
 bool os_read_entire_file_handle(File f, string *result, Allocator allocator);
@@ -294,10 +299,28 @@ void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 ///
 // Memory
 ///
-void* os_get_stack_base();
-void* os_get_stack_limit();
+void* 
+os_get_stack_base();
+void* 
+os_get_stack_limit();
 
 
+///
+///
+// Debug
+///
+string *
+os_get_stack_trace(u64 *trace_count, Allocator allocator);
+
+void dump_stack_trace() {
+	u64 count;
+	string *strings = os_get_stack_trace(&count, get_temporary_allocator());
+	
+	for (u64 i = 0; i < count; i++) {
+		string s = strings[i];
+		print("\n%s", s);
+	}
+}
 
 ///
 ///
@@ -324,15 +347,5 @@ typedef struct Os_Window {
 	
 } Os_Window;
 Os_Window window;
-
-
-
-
-///
-///
-// Window input
-///
-
-
 
 void os_update();

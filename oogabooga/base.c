@@ -5,12 +5,15 @@
 
 #define forward_global extern
 
+#define alignas _Alignas
+
 #define null 0
 	
 void printf(const char* fmt, ...);
+void dump_stack_trace();
 #define ASSERT_STR_HELPER(x) #x
 #define ASSERT_STR(x) ASSERT_STR_HELPER(x)
-#define assert_line(line, cond, ...) {if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); crash(); }}
+#define assert_line(line, cond, ...) {if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); dump_stack_trace(); crash(); }}
 #define assert(cond, ...) {assert_line(__LINE__, cond, __VA_ARGS__)}
 
 #define DEFER(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
@@ -93,6 +96,7 @@ forward_global thread_local Allocator temp;
 
 void* memset(void* dest, int value, size_t amount);
 void* alloc(Allocator allocator, u64 size) {
+	assert(size > 0, "You requested an allocation of zero bytes. I'm not sure what you want with that.");
 	void *p = allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);
 #if DO_ZERO_INITIALIZATION
 	memset(p, 0, size);
@@ -100,9 +104,11 @@ void* alloc(Allocator allocator, u64 size) {
 	return p;
 }
 void* alloc_uninitialized(Allocator allocator, u64 size) {
+	assert(size > 0, "You requested an allocation of zero bytes. I'm not sure what you want with that.");
 	return allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);	
 }
 void dealloc(Allocator allocator, void *p) {
+	assert(p != 0, "You tried to deallocate a pointer at adress 0. That doesn't make sense!");
 	allocator.proc(0, p, ALLOCATOR_DEALLOCATE, allocator.data);
 }
 

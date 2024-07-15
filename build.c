@@ -3,8 +3,6 @@
 ///
 // Build config stuff
 
-#define OOGABOOGA_DEV 1
-
 #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
 
 typedef struct Context_Extra {
@@ -14,7 +12,7 @@ typedef struct Context_Extra {
 #define CONTEXT_EXTRA Context_Extra
 
 // This defaults to "entry", but we can set it to anything (except "main" or other existing proc names"
-#define ENTRY_PROC entry
+	#define ENTRY_PROC entry
 
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
@@ -27,14 +25,14 @@ typedef struct Context_Extra {
 // Comment & Uncomment these to swap projects (only include one at a time)
 //
 
-// this is a minimal starting point for new projects. Copy & rename to get started
-// #include "oogabooga/examples/minimal_game_loop.c"
+// This is a minimal starting point for new projects. Copy & rename to get started
+#include "oogabooga/examples/minimal_game_loop.c"
 
 // #include "oogabooga/examples/text_rendering.c"
 // #include "oogabooga/examples/custom_logger.c"
 // #include "oogabooga/examples/renderer_stress_test.c"
 // #include "oogabooga/examples/tile_game.c"
-#include "oogabooga/examples/audio_test.c"
+// #include "oogabooga/examples/audio_test.c"
 
 // This is where you swap in your own project!
 // #include "entry_yourepicgamename.c"

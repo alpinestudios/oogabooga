@@ -83,6 +83,13 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
     
     return bufp - buffer;
 }
+u64 format_string_to_buffer_va(char* buffer, u64 count, const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	u64 r = format_string_to_buffer(buffer, count, fmt, args);
+	va_end(args);
+	return r;
+}
 string sprint_null_terminated_string_va_list_to_buffer(const char *fmt, va_list args, void* buffer, u64 buffer_size) {
     u64 formatted_length = format_string_to_buffer((char*)buffer, buffer_size, fmt, args);
     

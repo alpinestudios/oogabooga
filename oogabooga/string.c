@@ -12,6 +12,8 @@ typedef struct string {
 	u8 *data;
 } string;
 
+const string null_string = {0, 0};
+
 #define fixed_string STR
 #define STR(s) ((string){ length_of_null_terminated_string((const char*)s), (u8*)s })
 
@@ -31,6 +33,7 @@ string alloc_string(Allocator allocator, u64 count) {
 	return s;
 }
 void dealloc_string(Allocator allocator, string s) {
+	assert(s.count > 0 && s.data, "You tried to deallocate an empty string. That's doesn't make sense.");
 	dealloc(allocator, s.data);
 }
 string talloc_string(u64 count) {
@@ -39,6 +42,11 @@ string talloc_string(u64 count) {
 }
 
 string string_concat(const string left, const string right, Allocator allocator) {
+
+	if (right.count + left.count == 0) return null_string;
+	if (left.count == 0) return right;
+	if (right.count == 0) return left;
+
 	string result;
 	result.count = left.count + right.count;
 	result.data = cast(u8*)alloc(allocator, result.count);

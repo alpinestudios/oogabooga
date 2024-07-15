@@ -10,7 +10,7 @@ int entry(int argc, char **argv) {
 	window.clear_color = hex_to_rgba(0x6495EDff);
 	
 	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
-	assert(font, "Failed loading arial.ttf, %d", GetLastError());
+	assert(font, "Failed loading arial.ttf");
 	
 	const u32 font_height = 48;
 	
