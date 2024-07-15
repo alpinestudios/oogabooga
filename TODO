@@ -1,6 +1,7 @@
 
 - Audio
 	- Player volume control
+	- Spatial audio
 	- Optimize
 		- Spam simd
 		- Concurrent jobs for players?
