@@ -1137,8 +1137,6 @@ Mutex audio_init_mutex;
 void
 win32_audio_init() {
 
-	win32_has_audio_thread_started = true;
-
 	win32_audio_client = 0;
 	win32_render_client = 0;
 	win32_audio_deactivated = 0;

@@ -544,9 +544,7 @@ audio_open_source_stream_format(Audio_Source *src, string path, Audio_Format for
 	src->allocator = allocator;
 	src->kind = AUDIO_SOURCE_FILE_STREAM;
 	
-	mutex_acquire_or_wait(&audio_init_mutex);
 	src->format = format;
-	mutex_release(&audio_init_mutex);
 	
 	File file = os_file_open(path, O_READ);
 	if (file == OS_INVALID_FILE) return false;
@@ -586,7 +584,10 @@ audio_open_source_stream_format(Audio_Source *src, string path, Audio_Format for
 }
 bool
 audio_open_source_stream(Audio_Source *src, string path, Allocator allocator) {
-	return audio_open_source_stream_format(src, path, audio_output_format, allocator);
+	mutex_acquire_or_wait(&audio_init_mutex);
+	Audio_Format format = audio_output_format;
+	mutex_release(&audio_init_mutex);
+	return audio_open_source_stream_format(src, path, format, allocator);
 }
 bool
 audio_open_source_load_format(Audio_Source *src, string path, Audio_Format format, 
@@ -597,9 +598,7 @@ audio_open_source_load_format(Audio_Source *src, string path, Audio_Format forma
 	
 	src->allocator = allocator;
 	src->kind = AUDIO_SOURCE_MEMORY;
-	mutex_acquire_or_wait(&audio_init_mutex);
 	src->format = format;
-	mutex_release(&audio_init_mutex);
 	
 	File file = os_file_open(path, O_READ);
 	if (file == OS_INVALID_FILE) return false;
@@ -659,7 +658,10 @@ audio_open_source_load_format(Audio_Source *src, string path, Audio_Format forma
 }
 bool
 audio_open_source_load(Audio_Source *src, string path, Allocator allocator) {
-	return audio_open_source_load_format(src, path, audio_output_format, allocator);
+	mutex_acquire_or_wait(&audio_init_mutex);
+	Audio_Format format = audio_output_format;
+	mutex_release(&audio_init_mutex);
+	return audio_open_source_load_format(src, path, format, allocator);
 }
 
 void 
