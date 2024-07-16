@@ -71,7 +71,7 @@ int entry(int argc, char **argv) {
 		Vector4 rect;
 		rect.x = -window.width/2+40;
 		rect.y = window.height/2-FONT_HEIGHT-40;
-		rect.z = FONT_HEIGHT*5;
+		rect.z = FONT_HEIGHT*8;
 		rect.w = FONT_HEIGHT*1.5;
 		
 		bool clip_playing = clip_player->state == AUDIO_PLAYER_STATE_PLAYING;
@@ -96,7 +96,23 @@ int entry(int argc, char **argv) {
 			audio_player_set_progression_factor(song_player, 0);
 		}
 		
+		rect.y = window.height/2-FONT_HEIGHT-40;
+		rect.x += rect.z + FONT_HEIGHT;
+		if (button(STR("Song vol up"), rect.xy, rect.zw, false)) {
+			song_player->volume += 0.05;
+		}
+		rect.y -= FONT_HEIGHT*1.8;
+		if (button(STR("Song vol down"), rect.xy, rect.zw, false)) {
+			song_player->volume -= 0.05;
+		}
+		song_player->volume = clamp(song_player->volume, 0, 5);
+		rect.x += rect.z + FONT_HEIGHT;
+		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
+		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);
+		
+		
 		rect.y -= FONT_HEIGHT*3;
+		
 		draw_text(font, STR("Right-click for thing"), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
 		draw_text(font, STR("Right-click for thing"), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);
 		

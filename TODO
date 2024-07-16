@@ -1,17 +1,16 @@
 
 - Audio
-	- Player volume control
-	- Optimize
-		- Spam simd
-		- Concurrent jobs for players?
-		- Mega buffer for contiguous intermediate buffers
-			We definitely also want a limit to how much memory we want allocated to intermediate buffers.
 	- Avoid playing identical audio at the same time
 	- Custom audio mixing
 	- Fix vorbis >FILE< streaming (#StbVorbisFileStream)
 	- Handle audio sources which had their format defaulted to update when default device changes
 		For streamed audio sources this should be easy enough, because the conversion happens from raw format to source format as we stream it.
 		For loaded sources though, we would need to convert the source->pcm_frames.
+	- Optimize
+		- Spam simd
+		- Concurrent jobs for players?
+		- Mega buffer for contiguous intermediate buffers
+			We definitely also want a limit to how much memory we want allocated to intermediate buffers.
 	- Bugs:
 		- Small fadeout on pause is slightly noisy
 		- Setting time stamp/progression causes noise (need fade transition like on pause/play)

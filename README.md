@@ -52,6 +52,7 @@ Other than examples, a great way to learn is to delve into the code of whatever 
 
 ## Known bugs
 - Window positioning & sizing is fucky wucky
+- Converting 24-bit audio files doesn't really work
 
 ## Licensing
 By default, the repository has an educational license that makes the engine free to use for personal projects.
