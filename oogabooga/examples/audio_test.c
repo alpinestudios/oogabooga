@@ -57,8 +57,13 @@ int entry(int argc, char **argv) {
 		draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 		
 		if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
+			float mx = input_frame.mouse_x;
+			float my = input_frame.mouse_y;
 			// Easy mode (when you don't care and just want to play a clip)
-			play_one_audio_clip(STR("oogabooga/examples/block.wav"));
+			Vector3 p = v3(mx/(f32)window.width*2.0-1, my/(f32)window.height*2.0-1, 0);
+			log("%f, %f", p.x, p.y);
+			play_one_audio_clip_at_position(STR("oogabooga/examples/block.wav"), p);
+			// Or just play_one_audio_clip if you don't care about spacialization
 		}
 		
 		

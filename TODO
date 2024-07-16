@@ -1,7 +1,6 @@
 
 - Audio
 	- Player volume control
-	- Spatial audio
 	- Optimize
 		- Spam simd
 		- Concurrent jobs for players?
@@ -20,11 +19,6 @@
 		- Setting audio source to a format which differs from audio output format in both channels and bit_width at the same time will produce pure loud noise.
 		- 24-Bit audio conversion doesn't really work
 		
-- Juice
-	- draw_line
-	- vx_length
-	- Occlude quads out of view
-	
 - General bugs & issues
 	- Release freeze in run_tests
 	
@@ -32,3 +26,4 @@
 	- Audio format channel conversions
 	- sample rate downsampling
 	- non stereo or mono audio
+	- Audio spacialization on anything that's not stereo

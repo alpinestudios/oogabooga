@@ -1011,13 +1011,13 @@ void test_linmath() {
     assert(mixed_v4_result.x == 1.0f && mixed_v4_result.y == 2.0f && mixed_v4_result.z == 3.0f && mixed_v4_result.w == 4.0f, "Mixed Vector4 scalar multiplication failed");
     
     
-    float v2_dot = v2_dot_product(v2(2, 7), v2(3, 2));
-    float v3_dot = v3_dot_product(v3(2, 7, 2), v3(3, 2, 9));
-    float v4_dot = v4_dot_product(v4(2, 7, 6, 1), v4(3, 2, 1, 4));
+    float v2_dot_product = v2_dot(v2(2, 7), v2(3, 2));
+    float v3_dot_product = v3_dot(v3(2, 7, 2), v3(3, 2, 9));
+    float v4_dot_product = v4_dot(v4(2, 7, 6, 1), v4(3, 2, 1, 4));
     
-    assert(floats_roughly_match(v2_dot, 20), "Failed: v2_dot_product");
-	assert(floats_roughly_match(v3_dot, 38), "Failed: v3_dot_product");
-	assert(floats_roughly_match(v4_dot, 30), "Failed: v4_dot_product");
+    assert(floats_roughly_match(v2_dot_product, 20), "Failed: v2_dot");
+	assert(floats_roughly_match(v3_dot_product, 38), "Failed: v3_dot");
+	assert(floats_roughly_match(v4_dot_product, 30), "Failed: v4_dot");
 }
 void test_hash_table() {
     Hash_Table table = make_hash_table(string, int, get_heap_allocator());

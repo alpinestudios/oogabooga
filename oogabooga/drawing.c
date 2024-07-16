@@ -127,11 +127,22 @@ void pop_z_layer() {
 	draw_frame.z_count -= 1;
 }
 
+Draw_Quad _nil_quad = {0};
 Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.bottom_left  = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_left), 0, 1)).xy;
 	quad.top_left     = m4_transform(world_to_clip, v4(v2_expand(quad.top_left), 0, 1)).xy;
 	quad.top_right    = m4_transform(world_to_clip, v4(v2_expand(quad.top_right), 0, 1)).xy;
 	quad.bottom_right = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_right), 0, 1)).xy;
+	
+	bool should_cull = 
+		(quad.bottom_left.x < -1 || quad.bottom_left.x > 1 || quad.bottom_left.y < -1 || quad.bottom_left.y > 1)
+	 && (quad.top_left.x < -1 || quad.top_left.x > 1 || quad.top_left.y < -1 || quad.top_left.y > 1)
+	 && (quad.top_right.x < -1 || quad.top_right.x > 1 || quad.top_right.y < -1 || quad.top_right.y > 1)
+	 && (quad.bottom_right.x < -1 || quad.bottom_right.x > 1 || quad.bottom_right.y < -1 || quad.bottom_right.y > 1);
+
+	if (should_cull) {
+		return &_nil_quad;
+	}
 	
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
 	quad.image_mag_filter = GFX_FILTER_MODE_NEAREST;
@@ -272,6 +283,16 @@ Gfx_Text_Metrics draw_text_and_measure(Gfx_Font *font, string text, u32 raster_h
 	return measure_text(font, text, raster_height, scale);
 }
 
+void draw_line(Vector2 p0, Vector2 p1, float line_width, Vector4 color) {
+	Vector2 dir = v2(p1.x - p0.x, p1.y - p0.y);
+	float length = sqrt(dir.x * dir.x + dir.y * dir.y);
+	float r = atan2(-dir.y, dir.x);
+	Matrix4 line_xform = m4_scalar(1);
+	line_xform = m4_translate(line_xform, v3(p0.x, p0.y, 0));
+	line_xform = m4_rotate_z(line_xform, r);
+	line_xform = m4_translate(line_xform, v3(0, -line_width/2, 0));
+	draw_rect_xform(line_xform, v2(length, line_width), color);
+}
 
 #define COLOR_RED   ((Vector4){1.0, 0.0, 0.0, 1.0})
 #define COLOR_GREEN ((Vector4){0.0, 1.0, 0.0, 1.0})
