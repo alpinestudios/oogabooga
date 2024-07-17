@@ -58,11 +58,6 @@ By default, the repository has an educational license that makes the engine free
 
 [Educational license terms](https://github.com/alpinestudios/oogabooga/blob/master/LICENSE.md)
 
-When you're ready to take the next step and work on a commercial game, you can upgrade to the full commercial license.
+You can obtain the full commercial license by being an active member of the community and making your first game.
 
-Here are the benefits of obtaining the full license:
-- Permanent Ownership: You completely own the source code for life.
-- No Recurring Fees or Royalties: Just an affordable one-time payment.
-- It qualifies you to enter the private Skool community, where there's daily calls with Randy & Charlie, to help speedrun your game's development
-
-You can [contact us](https://randy.gg/contact) to find out more.
+[Learn more here](https://www.skool.com/game-dev)
