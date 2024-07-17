@@ -3,7 +3,9 @@ struct VS_INPUT
     float4 position : POSITION;
     float2 uv : TEXCOORD;
     float4 color : COLOR;
-    int data1: DATA1_;
+    int texture_index : TEXTURE_INDEX;
+    uint type : TYPE;
+    uint sampler_index : SAMPLER_INDEX;
     // s8 texture_index
     // u8 type
     // u8 sampler_index
@@ -26,9 +28,9 @@ PS_INPUT vs_main(VS_INPUT input)
     output.position = input.position;
     output.uv = input.uv;
     output.color = input.color;
-    output.texture_index = (input.data1) & 0xFF;
-    output.type          = (input.data1 >> 8) & 0xFF;
-    output.sampler_index = (input.data1 >> 16) & 0xFF;
+    output.texture_index = input.texture_index;
+    output.type          = input.type;
+    output.sampler_index = input.sampler_index;
     return output;
 }
 

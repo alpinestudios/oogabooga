@@ -147,6 +147,7 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.image_min_filter = GFX_FILTER_MODE_NEAREST;
 	quad.image_mag_filter = GFX_FILTER_MODE_NEAREST;
 	
+	
 	quad.z = 0;
 	if (draw_frame.z_count > 0)  quad.z = draw_frame.z_stack[draw_frame.z_count-1];
 	

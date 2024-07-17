@@ -24,6 +24,9 @@
 - Renderer
 	- Custom shaders (just do hlsl for now, later we transpile)
 		- Still compile a default that's set by default and we can set with set_shader_for_basic_2d
+		
+- Fonts
+	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)
 	
 - Needs testing:
 	- Audio format channel conversions

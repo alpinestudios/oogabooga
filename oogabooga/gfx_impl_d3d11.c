@@ -480,7 +480,7 @@ void gfx_init() {
 
 
 
-	D3D11_INPUT_ELEMENT_DESC layout[4];
+	D3D11_INPUT_ELEMENT_DESC layout[6];
 	memset(layout, 0, sizeof(layout));
 	
 	layout[0].SemanticName = "POSITION";
@@ -507,15 +507,31 @@ void gfx_init() {
 	layout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[2].InstanceDataStepRate = 0;
 	
-	layout[3].SemanticName = "DATA1_";
+	layout[3].SemanticName = "TEXTURE_INDEX";
 	layout[3].SemanticIndex = 0;
-	layout[3].Format = DXGI_FORMAT_R32_SINT;
+	layout[3].Format = DXGI_FORMAT_R8_SINT;
 	layout[3].InputSlot = 0;
-	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, data1);
+	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, texture_index);
 	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[3].InstanceDataStepRate = 0;
 	
-	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 4, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	layout[4].SemanticName = "TYPE";
+	layout[4].SemanticIndex = 0;
+	layout[4].Format = DXGI_FORMAT_R8_UINT;
+	layout[4].InputSlot = 0;
+	layout[4].AlignedByteOffset = offsetof(D3D11_Vertex, type);
+	layout[4].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[4].InstanceDataStepRate = 0;
+	
+	layout[5].SemanticName = "SAMPLER_INDEX";
+	layout[5].SemanticIndex = 0;
+	layout[5].Format = DXGI_FORMAT_R8_SINT;
+	layout[5].InputSlot = 0;
+	layout[5].AlignedByteOffset = offsetof(D3D11_Vertex, sampler);
+	layout[5].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[5].InstanceDataStepRate = 0;
+	
+	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 6, vs_buffer, vs_size, &d3d11_image_vertex_layout);
 	win32_check_hr(hr);
 
 #if OOGABOOGA_DEV
