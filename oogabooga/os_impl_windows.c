@@ -255,22 +255,17 @@ void os_init(u64 program_memory_size) {
 	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
 	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
 	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
-	os.crt_vprintf = (Crt_Vprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vprintf"));
-	assert(os.crt_vprintf, "Missing vprintf in crt");
-	os.crt_vsprintf = (Crt_Vsprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsprintf"));
-	assert(os.crt_vsprintf, "Missing vsprintf in crt");
-	os.crt_memcpy = (Crt_Memcpy_Proc)os_dynamic_library_load_symbol(os.crt, STR("memcpy"));
-	assert(os.crt_memcpy, "Missing memcpy in crt");
-	os.crt_memcmp = (Crt_Memcmp_Proc)os_dynamic_library_load_symbol(os.crt, STR("memcmp"));
-	assert(os.crt_memcmp, "Missing crt_memcmp in crt");
-	os.crt_memset = (Crt_Memset_Proc)os_dynamic_library_load_symbol(os.crt, STR("memset"));
-	assert(os.crt_memset, "Missing memset in crt");
 	
     win32_init_window();
     
     
-    os_start_thread(os_make_thread(win32_audio_thread, get_heap_allocator()));
-    os_start_thread(os_make_thread(win32_audio_poll_default_device_thread, get_heap_allocator()));
+    local_persist Thread audio_thread, audio_poll_default_device_thread;
+    
+    os_thread_init(&audio_thread, win32_audio_thread);
+    os_thread_init(&audio_poll_default_device_thread, win32_audio_poll_default_device_thread);
+    
+    os_thread_start(&audio_thread);
+    os_thread_start(&audio_poll_default_device_thread);
     
     while (!win32_has_audio_thread_started) { os_yield_thread(); }
 }
@@ -404,6 +399,8 @@ DWORD WINAPI win32_thread_invoker(LPVOID param) {
 	return 0;
 }
 
+
+////// DEPRECATED   vvvvvvvvvvvvvvvvv
 Thread* os_make_thread(Thread_Proc proc, Allocator allocator) {
 	Thread *t = (Thread*)alloc(allocator, sizeof(Thread));
 	t->id = 0; // This is set when we start it
@@ -431,6 +428,33 @@ void os_start_thread(Thread *t) {
     assert(t->os_handle, "Failed creating thread");
 }
 void os_join_thread(Thread *t) {
+	WaitForSingleObject(t->os_handle, INFINITE);
+}
+////// DEPRECATED   ^^^^^^^^^^^^^^^^
+
+void os_thread_init(Thread *t, Thread_Proc proc) {
+	memset(t, 0, sizeof(Thread));
+	t->id = 0;
+	t->proc = proc;
+	t->initial_context = context;
+}
+void os_thread_destroy(Thread *t) {
+	os_thread_join(t);
+	CloseHandle(t->os_handle);
+}
+void os_thread_start(Thread *t) {
+	t->os_handle = CreateThread(
+        0,
+        0,
+        win32_thread_invoker,
+        t,
+        0,
+        (DWORD*)&t->id
+    );
+    
+    assert(t->os_handle, "Failed creating thread");
+}
+void os_thread_join(Thread *t) {
 	WaitForSingleObject(t->os_handle, INFINITE);
 }
 
@@ -473,59 +497,6 @@ void os_unlock_mutex(Mutex_Handle m) {
 	BOOL result = ReleaseMutex(m);
 	assert(result, "Unlock mutex 0x%x failed with error %d", m, GetLastError());
 }
-
-///
-// Spinlock "primitive"
-
-Spinlock *os_make_spinlock(Allocator allocator) {
-	// #Memory #Cleanup do we need to heap allocate this ?
-	Spinlock *l = cast(Spinlock*)alloc(allocator, sizeof(Spinlock));
-	l->locked = false;
-	return l;
-}
-void os_spinlock_lock(Spinlock *l) {
-    while (true) {
-        bool expected = false;
-        if (compare_and_swap_bool(&l->locked, true, expected)) {
-            return;
-        }
-        while (l->locked) {
-            // spinny boi
-        }
-    }
-}
-
-void os_spinlock_unlock(Spinlock *l) {
-    bool expected = true;
-    bool success = compare_and_swap_bool(&l->locked, false, expected);
-    assert(success, "This thread should have acquired the spinlock but compare_and_swap failed");
-}
-
-
-///
-// Concurrency utilities
-
-bool os_compare_and_swap_8(u8 *a, u8 b, u8 old) {
-	// #Portability not sure how portable this is.
-    return _InterlockedCompareExchange8((volatile CHAR*)a, (CHAR)b, (CHAR)old) == (CHAR)old;
-}
-
-bool os_compare_and_swap_16(u16 *a, u16 b, u16 old) {
-    return InterlockedCompareExchange16((volatile SHORT*)a, (SHORT)b, (SHORT)old) == (SHORT)old;
-}
-
-bool os_compare_and_swap_32(u32 *a, u32 b, u32 old) {
-    return InterlockedCompareExchange((volatile LONG*)a, (LONG)b, (LONG)old) == (LONG)old;
-}
-
-bool os_compare_and_swap_64(u64 *a, u64 b, u64 old) {
-    return InterlockedCompareExchange64((volatile LONG64*)a, (LONG64)b, (LONG64)old) == (LONG64)old;
-}
-
-bool os_compare_and_swap_bool(bool *a, bool b, bool old) {
-	return os_compare_and_swap_8(cast(u8*)a, cast(u8)b, cast(u8)old);
-}
-
 
 
 void os_sleep(u32 ms) {

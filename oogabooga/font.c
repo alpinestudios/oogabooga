@@ -161,7 +161,7 @@ void font_variation_init(Gfx_Font_Variation *variation, Gfx_Font *font, u32 font
 		// This one is bottom-top as opposed to normally in stbtt where it's top-bottom
 		int x0, y0, x1, y1;
 		stbtt_GetCodepointBitmapBox(&font->stbtt_handle, (int)c, variation->scale, variation->scale, &x0, &y0, &x1, &y1);
-		float c_ascent = (float)(y1-y0); // #Bugprone #Cleanup I am not at all sure about this!
+		float c_ascent = (float)(y1-y0);
 		
 		if (c_ascent > variation->metrics.latin_ascent) 
 			variation->metrics.latin_ascent = c_ascent;

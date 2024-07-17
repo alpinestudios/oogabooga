@@ -28,7 +28,7 @@ int entry(int argc, char **argv) {
 	
 	render_atlas_if_not_yet_rendered(font, 32, 'A');
 	
-	seed_for_random = os_get_current_cycle_count();
+	seed_for_random = rdtsc();
 	
 	const float64 fps_limit = 69000;
 	const float64 min_frametime = 1.0 / fps_limit;
@@ -106,7 +106,7 @@ int entry(int argc, char **argv) {
 			draw_image(bush_image, v2(x, y), v2(0.1, 0.1), COLOR_WHITE);
 			pop_z_layer();
 		}
-		seed_for_random = os_get_current_cycle_count();
+		seed_for_random = rdtsc();
 		
 		Matrix4 hammer_xform = m4_scalar(1.0);
 		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);

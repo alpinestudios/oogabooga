@@ -1,6 +1,7 @@
 /*
 <<<<<< Bytecode compiled fro HLSL code below: >>>>>>
 
+
 struct VS_INPUT
 {
     float4 position : POSITION;
@@ -9,10 +10,6 @@ struct VS_INPUT
     int texture_index : TEXTURE_INDEX;
     uint type : TYPE;
     uint sampler_index : SAMPLER_INDEX;
-    // s8 texture_index
-    // u8 type
-    // u8 sampler_index
-    // u8
 };
 
 struct PS_INPUT

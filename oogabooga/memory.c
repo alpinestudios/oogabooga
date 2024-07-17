@@ -218,7 +218,6 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 	
 	
 	
-	// #Speed #Cleanup
 	if (((u8*)block)+size >= ((u8*)program_memory)+program_memory_size) {
 		u64 minimum_size = ((u8*)block+size) - (u8*)program_memory + 1;
 		u64 new_program_size = get_next_power_of_two(minimum_size);
