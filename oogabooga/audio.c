@@ -1,5 +1,4 @@
 
-
 /*
 
 		Loading audio:
@@ -26,7 +25,6 @@
 	float64 audio_player_get_time_stamp(Audio_Player *p);
 	float64 audio_player_get_current_progression_factor(Audio_Player *p);
 	void    audio_player_set_source(Audio_Player *p, Audio_Source src, bool retain_progression_factor);
-	void    audio_player_clear_source(Audio_Player *p);
 	void    audio_player_clear_source(Audio_Player *p);
 	void    audio_player_set_looping(Audio_Player *p, bool looping);
 	

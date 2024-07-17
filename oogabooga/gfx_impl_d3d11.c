@@ -6,9 +6,7 @@
 
 #endif
 
-// #Cleanup apparently there are C macros for these (COBJMACROS)
 #define D3D11Release(x) x->lpVtbl->Release(x)
-#define VTABLE(proc, ...) FIRST_ARG(__VA_ARGS__)->lpVtbl->proc(__VA_ARGS__)
 
 const Gfx_Handle GFX_INVALID_HANDLE = 0;
 
@@ -184,14 +182,14 @@ void d3d11_update_swapchain() {
 		win32_check_hr(hr);
 		
 		IDXGIAdapter *adapter;
-		hr = VTABLE(GetAdapter, dxgi_device, &adapter);
+		hr = IDXGIDevice_GetAdapter(dxgi_device, &adapter);
 		win32_check_hr(hr);
 		
 		IDXGIFactory2 *dxgi_factory;
-		hr = VTABLE(GetParent, adapter, &IID_IDXGIFactory2, cast(void**)&dxgi_factory); 
+		hr = IDXGIAdapter_GetParent(adapter, &IID_IDXGIFactory2, cast(void**)&dxgi_factory); 
 		win32_check_hr(hr);
 	
-		hr = VTABLE(CreateSwapChainForHwnd, dxgi_factory, (IUnknown*)d3d11_device, window._os_handle, &scd, 0, 0, &d3d11_swap_chain); 	
+		hr = IDXGIFactory2_CreateSwapChainForHwnd(dxgi_factory, (IUnknown*)d3d11_device, window._os_handle, &scd, 0, 0, &d3d11_swap_chain); 	
 		win32_check_hr(hr);
 		
 		RECT client_rect;
@@ -202,15 +200,15 @@ void d3d11_update_swapchain() {
 		d3d11_swap_chain_height = client_rect.bottom-client_rect.top;
 		
 		// store the swap chain description, as created by CreateSwapChainForHwnd
-		hr = VTABLE(GetDesc1, d3d11_swap_chain, &d3d11_swap_chain_desc);
+		hr = IDXGISwapChain1_GetDesc1(d3d11_swap_chain, &d3d11_swap_chain_desc);
 		win32_check_hr(hr);
 		
 		// disable alt enter
-		VTABLE(MakeWindowAssociation, dxgi_factory, window._os_handle, cast (u32) DXGI_MWA_NO_ALT_ENTER); 
+		IDXGIFactory_MakeWindowAssociation(dxgi_factory, window._os_handle, cast (u32) DXGI_MWA_NO_ALT_ENTER); 
 		
-		D3D11Release(dxgi_device);
-		D3D11Release(adapter);
-		D3D11Release(dxgi_factory);
+		IDXGIDevice_Release(dxgi_device);
+		IDXGIAdapter_Release(adapter);
+		IDXGIFactory_Release(dxgi_factory);
 		
 		log("Created swap chain of size %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height);
 	} else {
@@ -224,11 +222,11 @@ void d3d11_update_swapchain() {
 		u32 window_width  = client_rect.right-client_rect.left;
 		u32 window_height = client_rect.bottom-client_rect.top;
 		
-		hr = VTABLE(ResizeBuffers, d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window_width, window_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
+		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window_width, window_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
 		win32_check_hr(hr);
 		
 		// update swap chain description
-		hr = VTABLE(GetDesc1, d3d11_swap_chain, &d3d11_swap_chain_desc);
+		hr = IDXGISwapChain1_GetDesc1(d3d11_swap_chain, &d3d11_swap_chain_desc);
 		win32_check_hr(hr);
 		
 		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window_width, window_height);
@@ -240,9 +238,9 @@ void d3d11_update_swapchain() {
 	
 	
 	
-	hr = VTABLE(GetBuffer, d3d11_swap_chain, 0, &IID_ID3D11Texture2D, (void**)&d3d11_back_buffer);
+	hr = IDXGISwapChain1_GetBuffer(d3d11_swap_chain, 0, &IID_ID3D11Texture2D, (void**)&d3d11_back_buffer);
 	win32_check_hr(hr);
-	hr = VTABLE(CreateRenderTargetView, d3d11_device, (ID3D11Resource*)d3d11_back_buffer, 0, &d3d11_window_render_target_view); 
+	hr = ID3D11Device_CreateRenderTargetView(d3d11_device, (ID3D11Resource*)d3d11_back_buffer, 0, &d3d11_window_render_target_view); 
 	win32_check_hr(hr);
 }
 
@@ -310,7 +308,7 @@ void gfx_init() {
 	assert(d3d11_device != 0, "D3D11CreateDevice failed");
 
 #if CONFIGURATION == DEBUG
-	hr = VTABLE(QueryInterface, d3d11_device, &IID_ID3D11Debug, (void**)&d3d11_debug);
+	hr = ID3D11Device_QueryInterface(d3d11_device, &IID_ID3D11Debug, (void**)&d3d11_debug);
 	if (SUCCEEDED(hr)) {
 		log_verbose("D3D11 debug is active");
 	}
@@ -320,13 +318,13 @@ void gfx_init() {
 	
 	IDXGIDevice *dxgi_device = 0;
 	IDXGIAdapter *target_adapter = 0;
-	hr = VTABLE(QueryInterface, d3d11_device, &IID_IDXGIDevice, (void **)&dxgi_device);
+	hr = ID3D11Device_QueryInterface(d3d11_device, &IID_IDXGIDevice, (void **)&dxgi_device);
 	
 	
-	hr = VTABLE(GetAdapter, dxgi_device, &target_adapter);
+	hr = IDXGIDevice_GetAdapter(dxgi_device, &target_adapter);
     if (SUCCEEDED(hr)) {
         DXGI_ADAPTER_DESC adapter_desc = ZERO(DXGI_ADAPTER_DESC);
-        hr = VTABLE(GetDesc, target_adapter, &adapter_desc);
+        hr = IDXGIAdapter_GetDesc(target_adapter, &adapter_desc);
         if (SUCCEEDED(hr)) {
             string desc = temp_win32_null_terminated_wide_to_fixed_utf8(adapter_desc.Description);
             log("D3D11 adapter is: %s", desc);
@@ -349,9 +347,9 @@ void gfx_init() {
 	    bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
 	    bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-	    hr = VTABLE(CreateBlendState, d3d11_device, &bd, &d3d11_blend_state);
+	    hr = ID3D11Device_CreateBlendState(d3d11_device, &bd, &d3d11_blend_state);
 	    win32_check_hr(hr);
-	    VTABLE(OMSetBlendState, d3d11_context, d3d11_blend_state, NULL, 0xffffffff);
+	    ID3D11DeviceContext_OMSetBlendState(d3d11_context, d3d11_blend_state, NULL, 0xffffffff);
 	}
 	
 	{
@@ -361,9 +359,9 @@ void gfx_init() {
 	    desc.FrontCounterClockwise = FALSE;
 	    desc.DepthClipEnable = FALSE;
 	    desc.CullMode = D3D11_CULL_NONE;
-	    hr = VTABLE(CreateRasterizerState, d3d11_device, &desc, &d3d11_rasterizer);
+	    hr = ID3D11Device_CreateRasterizerState(d3d11_device, &desc, &d3d11_rasterizer);
 	    win32_check_hr(hr);
-	    VTABLE(RSSetState, d3d11_context, d3d11_rasterizer);
+	    ID3D11DeviceContext_RSSetState(d3d11_context, d3d11_rasterizer);
 	}
 	
 	// COnst buffer
@@ -394,19 +392,19 @@ void gfx_init() {
 	    sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	    
 	    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_np_fp);
+	    hr = ID3D11Device_CreateSamplerState(d3d11_device, &sd, &d3d11_image_sampler_np_fp);
 	    win32_check_hr(hr);
 	    
 	    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_nl_fl);
+	    hr =ID3D11Device_CreateSamplerState(d3d11_device, &sd, &d3d11_image_sampler_nl_fl);
 	    win32_check_hr(hr);
 	    
 	    sd.Filter = D3D11_FILTER_MIN_LINEAR_MAG_MIP_POINT;
-	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_np_fl);
+	    hr = ID3D11Device_CreateSamplerState(d3d11_device, &sd, &d3d11_image_sampler_np_fl);
 	    win32_check_hr(hr);
 	    
 	    sd.Filter = D3D11_FILTER_MIN_POINT_MAG_MIP_LINEAR;
-	    hr = VTABLE(CreateSamplerState, d3d11_device, &sd, &d3d11_image_sampler_nl_fp);
+	    hr = ID3D11Device_CreateSamplerState(d3d11_device, &sd, &d3d11_image_sampler_nl_fp);
 	    win32_check_hr(hr);
 	}
 	
@@ -421,17 +419,17 @@ void gfx_init() {
     ID3DBlob* vs_blob = NULL;
     ID3DBlob* err_blob = NULL;
     hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "vs_main", "vs_5_0", 0, 0, &vs_blob, &err_blob);
-	assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)VTABLE(GetBufferPointer, err_blob));
+	assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
 
     // Compile pixel shader
     ID3DBlob* ps_blob = NULL;
     hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "ps_main", "ps_5_0", 0, 0, &ps_blob, &err_blob);
-    assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)VTABLE(GetBufferPointer, err_blob));
+    assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
 
-	void *vs_buffer = VTABLE(GetBufferPointer, vs_blob);
-	u64   vs_size   = VTABLE(GetBufferSize, vs_blob);
-	void *ps_buffer = VTABLE(GetBufferPointer, ps_blob);
-	u64   ps_size   = VTABLE(GetBufferSize, ps_blob);
+	void *vs_buffer = ID3D10Blob_GetBufferPointer(vs_blob);
+	u64   vs_size   = ID3D10Blob_GetBufferSize(vs_blob);
+	void *ps_buffer = ID3D10Blob_GetBufferPointer(ps_blob);
+	u64   ps_size   = ID3D10Blob_GetBufferSize(ps_blob);
 
     log_verbose("Shaders compiled");
     
@@ -472,10 +470,10 @@ void gfx_init() {
 #endif
 
     // Create the shaders
-    hr = VTABLE(CreateVertexShader, d3d11_device, vs_buffer, vs_size, NULL, &d3d11_image_vertex_shader);
+    hr = ID3D11Device_CreateVertexShader(d3d11_device, vs_buffer, vs_size, NULL, &d3d11_image_vertex_shader);
     win32_check_hr(hr);
 
-    hr = VTABLE(CreatePixelShader, d3d11_device, ps_buffer, ps_size, NULL, &d3d11_image_pixel_shader);
+    hr = ID3D11Device_CreatePixelShader(d3d11_device, ps_buffer, ps_size, NULL, &d3d11_image_pixel_shader);
     win32_check_hr(hr);
 
     log_verbose("Shaders created");
@@ -517,7 +515,7 @@ void gfx_init() {
 	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[3].InstanceDataStepRate = 0;
 	
-	hr = VTABLE(CreateInputLayout, d3d11_device, layout, 4, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 4, vs_buffer, vs_size, &d3d11_image_vertex_layout);
 	win32_check_hr(hr);
 
 #if OOGABOOGA_DEV
@@ -530,39 +528,39 @@ void gfx_init() {
 }
 
 void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures) {
-	VTABLE(OMSetBlendState, d3d11_context, d3d11_blend_state, 0, 0xffffffff);
-	VTABLE(OMSetRenderTargets, d3d11_context, 1, &d3d11_window_render_target_view, 0); 
-	VTABLE(RSSetState, d3d11_context, d3d11_rasterizer);
+	ID3D11DeviceContext_OMSetBlendState(d3d11_context, d3d11_blend_state, 0, 0xffffffff);
+	ID3D11DeviceContext_OMSetRenderTargets(d3d11_context, 1, &d3d11_window_render_target_view, 0); 
+	ID3D11DeviceContext_RSSetState(d3d11_context, d3d11_rasterizer);
 	D3D11_VIEWPORT viewport = ZERO(D3D11_VIEWPORT);
 	viewport.Width = d3d11_swap_chain_width;
 	viewport.Height = d3d11_swap_chain_height;
 	viewport.MaxDepth = 1.0;
-	VTABLE(RSSetViewports, d3d11_context, 1, &viewport);
+	ID3D11DeviceContext_RSSetViewports(d3d11_context, 1, &viewport);
 	
     UINT stride = sizeof(D3D11_Vertex);
     UINT offset = 0;
 	
-	VTABLE(IASetInputLayout, d3d11_context, d3d11_image_vertex_layout);
-    VTABLE(IASetVertexBuffers, d3d11_context, 0, 1, &d3d11_quad_vbo, &stride, &offset);
-    VTABLE(IASetPrimitiveTopology, d3d11_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	ID3D11DeviceContext_IASetInputLayout(d3d11_context, d3d11_image_vertex_layout);
+    ID3D11DeviceContext_IASetVertexBuffers(d3d11_context, 0, 1, &d3d11_quad_vbo, &stride, &offset);
+    ID3D11DeviceContext_IASetPrimitiveTopology(d3d11_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    VTABLE(VSSetShader, d3d11_context, d3d11_image_vertex_shader, NULL, 0);
-    VTABLE(PSSetShader, d3d11_context, d3d11_image_pixel_shader, NULL, 0);
+    ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_image_vertex_shader, NULL, 0);
+    ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_image_pixel_shader, NULL, 0);
     
-    VTABLE(PSSetSamplers, d3d11_context, 0, 1, &d3d11_image_sampler_np_fp);
-    VTABLE(PSSetSamplers, d3d11_context, 1, 1, &d3d11_image_sampler_nl_fl);
-    VTABLE(PSSetSamplers, d3d11_context, 2, 1, &d3d11_image_sampler_np_fl);
-    VTABLE(PSSetSamplers, d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
-    VTABLE(PSSetShaderResources, d3d11_context, 0, num_textures, textures);
+    ID3D11DeviceContext_PSSetSamplers(d3d11_context, 0, 1, &d3d11_image_sampler_np_fp);
+    ID3D11DeviceContext_PSSetSamplers(d3d11_context, 1, 1, &d3d11_image_sampler_nl_fl);
+    ID3D11DeviceContext_PSSetSamplers(d3d11_context, 2, 1, &d3d11_image_sampler_np_fl);
+    ID3D11DeviceContext_PSSetSamplers(d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
+    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 0, num_textures, textures);
 
-    VTABLE(Draw, d3d11_context, number_of_rendered_quads * 6, 0);
+    ID3D11DeviceContext_Draw(d3d11_context, number_of_rendered_quads * 6, 0);
 }
 
 void d3d11_process_draw_frame() {
 
 	HRESULT hr;
 	
-	VTABLE(ClearRenderTargetView, d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
+	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
 	///
 	// Maybe grow quad vbo
@@ -578,7 +576,7 @@ void d3d11_process_draw_frame() {
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		desc.ByteWidth = required_size;
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		HRESULT hr = VTABLE(CreateBuffer, d3d11_device, &desc, 0, &d3d11_quad_vbo);
+		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
 		d3d11_quad_vbo_size = required_size;
 		
@@ -639,9 +637,9 @@ void d3d11_process_draw_frame() {
 							if (num_textures >= 32) {
 								// If max textures reached, make a draw call and start over
 								D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-								VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
+								ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 								memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
-								VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
+								ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 								d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
 								head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
 								num_textures = 0;
@@ -727,14 +725,14 @@ void d3d11_process_draw_frame() {
 		tm_scope("Write to gpu") {
 		    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
 			tm_scope("The Map call") {
-				hr = VTABLE(Map, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
+				hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 			win32_check_hr(hr);
 			}
 			tm_scope("The memcpy") {
 				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
 			}
 			tm_scope("The Unmap call") {
-				VTABLE(Unmap, d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
+				ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 			}
 		}
 		
@@ -766,7 +764,7 @@ void gfx_update() {
 	d3d11_process_draw_frame();
 
 	tm_scope("Present") {
-		VTABLE(Present, d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+		IDXGISwapChain1_Present(d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 	}
 	
 	
@@ -774,16 +772,16 @@ void gfx_update() {
 	///
 	// Check debug messages, output to stdout
 	ID3D11InfoQueue* info_q = 0;
-	hr = VTABLE(QueryInterface, d3d11_device, &IID_ID3D11InfoQueue, (void**)&info_q);
+	hr = ID3D11Device_QueryInterface(d3d11_device, &IID_ID3D11InfoQueue, (void**)&info_q);
 	if (SUCCEEDED(hr)) {
-		u64 msg_count = VTABLE(GetNumStoredMessagesAllowedByRetrievalFilter, info_q);
+		u64 msg_count = ID3D11InfoQueue_GetNumStoredMessagesAllowedByRetrievalFilter(info_q);
 		for (u64 i = 0; i < msg_count; i++) {
 		    SIZE_T msg_size = 0;
-		    VTABLE(GetMessage, info_q, i, 0, &msg_size);
+		    ID3D11InfoQueue_GetMessage(info_q, i, 0, &msg_size);
 		
 		    D3D11_MESSAGE* msg = (D3D11_MESSAGE*)talloc(msg_size);
 		    if (msg) {
-		        VTABLE(GetMessage, info_q, i, msg, &msg_size); // Get the actual message
+		        ID3D11InfoQueue_GetMessage(info_q, i, msg, &msg_size); // Get the actual message
 		        
 		        d3d11_debug_callback(msg->Category, msg->Severity, msg->ID, msg->pDescription);
 		    }
@@ -828,10 +826,10 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	data_desc.SysMemPitch  = image->width * image->channels;
 	
 	ID3D11Texture2D* texture = 0;
-	HRESULT hr = VTABLE(CreateTexture2D, d3d11_device, &desc, &data_desc, &texture);
+	HRESULT hr = ID3D11Device_CreateTexture2D(d3d11_device, &desc, &data_desc, &texture);
 	win32_check_hr(hr);
 	
-	hr = VTABLE(CreateShaderResourceView, d3d11_device, (ID3D11Resource*)texture, 0, &image->gfx_handle);
+	hr = ID3D11Device_CreateShaderResourceView(d3d11_device, (ID3D11Resource*)texture, 0, &image->gfx_handle);
 	win32_check_hr(hr);
 	
 	if (!initial_data) {
@@ -845,14 +843,14 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
 
     ID3D11ShaderResourceView *view = image->gfx_handle;
     ID3D11Resource *resource = NULL;
-    VTABLE(GetResource, view, &resource);
+    ID3D11ShaderResourceView_GetResource(view, &resource);
     
     assert(resource, "Invalid image passed to gfx_set_image_data");
     
     assert(x+w <= image->width && y+h <= image->height, "Specified subregion in image is out of bounds");
 
     ID3D11Texture2D *texture = NULL;
-    HRESULT hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
+    HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
     assert(SUCCEEDED(hr), "Expected gfx resource to be a texture but it wasn't");
 
     D3D11_BOX destBox;
@@ -864,15 +862,15 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     destBox.back = 1;
 
 	// #Incomplete bit-width 8 assumed
-    VTABLE(UpdateSubresource, d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
+    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
 }
 void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11ShaderResourceView *view = image->gfx_handle;
 	ID3D11Resource *resource = 0;
-	VTABLE(GetResource, view, &resource);
+	ID3D11ShaderResourceView_GetResource(view, &resource);
 	
 	ID3D11Texture2D *texture = 0;
-	HRESULT hr = VTABLE(QueryInterface, resource, &IID_ID3D11Texture2D, (void**)&texture);
+	HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
 	if (SUCCEEDED(hr)) {
 		D3D11Release(view);
 		D3D11Release(texture);
