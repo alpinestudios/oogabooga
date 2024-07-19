@@ -21,10 +21,10 @@ Ooga booga is designed to keep things simple, and let you solve video game probl
 
 What we mean by simple, is twofold:
 
-1. Simple to use 
+1. <b>Simple to use</b><br>
 	Performing SIMPLE and TRIVIAL tasks should be ... SIMPLE. If you want to draw a rectangle, there should be a single procedure to draw a rectangle. If you want to play an audio clip, there should be a single procedure to play an audio clip. Etc. This is something OS & Graphics API's tend to be fascinatingly terrible at even for the most trivial of tasks, and that is a big chunk of what we set out to solve.
 
-2. Simple implementations
+2. <b>Simple to understand</b><br>
 	When you need to do something more complicated, you need to understand the library you're working with. For some reason, it seems like it's a standard for libraries today to obscure the implementation details as much as possible spread out in layers and layers of procedure calls and abstractions. This is terrible.
 	In Oogabooga, there is none of that. We WANT you to delve into our implementations and see exactly what we do. We do not hide ANYTHING from you. We do not impose RESTRICTIONS on how you solve problems. If you need to know what a procedure does, you search for the symbol and look at the implementation code. That's it.
 
