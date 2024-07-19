@@ -155,6 +155,7 @@ bool os_file_set_pos(File f, s64 pos_in_bytes);
 s64  os_file_get_pos(File f);
 
 s64 os_file_get_size(File f);
+s64 os_file_get_size_from_path(string path);
 
 bool os_write_entire_file_handle(File f, string data);
 bool os_write_entire_file_s(string path, string data);
@@ -291,8 +292,8 @@ typedef struct Os_Window {
 	string title;
 	union { s32 width;  s32 pixel_width;  };
 	union { s32 height; s32 pixel_height; };
-	s32 scaled_width;
-	s32 scaled_height;
+	s32 scaled_width; // DPI scaled!
+	s32 scaled_height; // DPI scaled!
 	s32 x;
 	s32 y;
 	Vector4 clear_color;

@@ -78,15 +78,12 @@ typedef struct Draw_Quad {
 	// r, g, b, a
 	Vector4 color;
 	Gfx_Image *image;
-	
-	// x1, y1, x2, y2
-	Vector4 uv;
-	u8 type;
-	
 	Gfx_Filter_Mode image_min_filter;
 	Gfx_Filter_Mode image_mag_filter;
-	
 	s32 z;
+	u8 type;
+	// x1, y1, x2, y2
+	Vector4 uv;
 	
 } Draw_Quad;
 
@@ -102,6 +99,9 @@ typedef struct Draw_Frame {
 	bool enable_z_sorting;
 	s32 z_stack[Z_STACK_MAX];
 	u64 z_count;
+	
+	void *cbuffer;
+	
 } Draw_Frame;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
@@ -135,10 +135,10 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.bottom_right = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_right), 0, 1)).xy;
 	
 	bool should_cull = 
-		(quad.bottom_left.x < -1 || quad.bottom_left.x > 1 || quad.bottom_left.y < -1 || quad.bottom_left.y > 1)
-	 && (quad.top_left.x < -1 || quad.top_left.x > 1 || quad.top_left.y < -1 || quad.top_left.y > 1)
-	 && (quad.top_right.x < -1 || quad.top_right.x > 1 || quad.top_right.y < -1 || quad.top_right.y > 1)
-	 && (quad.bottom_right.x < -1 || quad.bottom_right.x > 1 || quad.bottom_right.y < -1 || quad.bottom_right.y > 1);
+	    (quad.bottom_left.x < -1 && quad.top_left.x < -1 && quad.top_right.x < -1 && quad.bottom_right.x < -1) ||
+	    (quad.bottom_left.x > 1 && quad.top_left.x > 1 && quad.top_right.x > 1 && quad.bottom_right.x > 1) ||
+	    (quad.bottom_left.y < -1 && quad.top_left.y < -1 && quad.top_right.y < -1 && quad.bottom_right.y < -1) ||
+	    (quad.bottom_left.y > 1 && quad.top_left.y > 1 && quad.top_right.y > 1 && quad.bottom_right.y > 1);
 
 	if (should_cull) {
 		return &_nil_quad;

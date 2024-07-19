@@ -395,7 +395,7 @@ void test_strings() {
     assert(memcmp(builder.buffer, expected_result, builder.count) == 0, "Failed: string_builder_printf");
     
     // Test string_builder_get_string
-    string result_str = string_builder_get_string(&builder);
+    string result_str = string_builder_get_string(builder);
     assert(result_str.count == builder.count, "Failed: string_builder_get_string");
     assert(memcmp(result_str.data, builder.buffer, result_str.count) == 0, "Failed: string_builder_get_string");
     
@@ -405,7 +405,7 @@ void test_strings() {
     // Test handling of empty builder
     String_Builder empty_builder;
     string_builder_init(&empty_builder, heap);
-    result_str = string_builder_get_string(&empty_builder);
+    result_str = string_builder_get_string(empty_builder);
     assert(result_str.count == 0, "Failed: empty builder handling");
     dealloc(heap, empty_builder.buffer);
     
@@ -441,6 +441,15 @@ void test_strings() {
     assert(multi_append_builder.count == strlen(expected_result), "Failed: multiple appends");
     assert(memcmp(multi_append_builder.buffer, expected_result, multi_append_builder.count) == 0, "Failed: multiple appends");
     dealloc(heap, multi_append_builder.buffer);
+    
+    
+    
+    string cheese_hello = STR("HeCHEESElloCHEESE, WorCHEESEld!");
+    string hello = string_replace_all(cheese_hello, STR("CHEESE"), STR(""), heap);
+    assert(strings_match(hello, STR("Hello, World!")), "Failed: string_replace");
+    string hello_balls = string_replace_all(hello, STR("Hello"), STR("Greetings"), heap);
+    hello_balls        = string_replace_all(hello_balls, STR("World"), STR("Balls"), heap);
+    assert(strings_match(hello_balls, STR("Greetings, Balls!")), "Failed: string_replace");
 }
 
 void test_file_io() {

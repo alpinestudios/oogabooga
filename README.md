@@ -19,17 +19,15 @@ Ooga booga, often referred to as a *game engine* for simplicity, is more so desi
 
 Ooga booga is designed to keep things simple, and let you solve video game problems the simplest way possible.
 
-Performing SIMPLE and TRIVIAL tasks should be ... SIMPLE.
-If you want to draw a rectangle, there should be a single procedure to draw a rectangle.
-If you want to play an audio clip, there should be a single procedure to play an audio clip.
-Etc.
-This is something OS & Graphics API's tend to be fascinatingly terrible at even for the most trivial of tasks.
-Thankfully, this is a main problem which oogabooga seeks to solve with a thin-as-possible layer of abstraction over the 
-If you need to do something more complicated, you should be able to focus on that problem alone.
-We aim to give you tools at a low enough level where there are no constraints to how you can go about solving the problems which arise for your game.
-If you wonder what any of the oogabooga procedures do, you can search for that symbol, go to the definition, and see & digest the exact implementation.
-Almost all implementations are code written by us with this in mind (with the exception of 3 nothings stb headers).
-	
+What we mean by simple, is twofold:
+
+1. Simple to use 
+	Performing SIMPLE and TRIVIAL tasks should be ... SIMPLE. If you want to draw a rectangle, there should be a single procedure to draw a rectangle. If you want to play an audio clip, there should be a single procedure to play an audio clip. Etc. This is something OS & Graphics API's tend to be fascinatingly terrible at even for the most trivial of tasks, and that is a big chunk of what we set out to solve.
+
+2. Simple implementations
+	When you need to do something more complicated, you need to understand the library you're working with. For some reason, it seems like it's a standard for libraries today to obscure the implementation details as much as possible spread out in layers and layers of procedure calls and abstractions. This is terrible.
+	In Oogabooga, there is none of that. We WANT you to delve into our implementations and see exactly what we do. We do not hide ANYTHING from you. We do not impose RESTRICTIONS on how you solve problems. If you need to know what a procedure does, you search for the symbol and look at the implementation code. That's it.
+
 	
 ### The "Build System"
 

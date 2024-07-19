@@ -1496,7 +1496,6 @@ void apply_audio_spacialization(void* frames, Audio_Format format, u64 number_of
             if (format.channels == 2) {
             
             	// time delay and phase shift for vertical position
-			    float32 time_delay = (up_down_pan - 0.5f) * 0.0005f; // 0.5ms delay range
 			    float32 phase_shift = (up_down_pan - 0.5f) * 0.5f; // 0.5 radians phase shift range
             
                 // Stereo

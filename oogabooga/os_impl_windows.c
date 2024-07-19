@@ -336,6 +336,9 @@ bool os_grow_program_memory(u64 new_size) {
 		
 		memset(program_memory, 0xBA, program_memory_size);
 	} else {
+		// #Cleanup this mess
+		// Allocation size doesn't actually need to be aligned to granularity, page size is enough.
+		// Doesn't matter that much tho, but this is just a bit unfortunate to look at.
 		void* tail = (u8*)program_memory + program_memory_size;
 		u64 m = ((u64)program_memory_size % os.granularity);
 		assert(m == 0, "program_memory_size is not aligned to granularity!");
@@ -778,6 +781,18 @@ os_file_get_size(File f) {
     os_file_set_pos(f, backup_pos);
     
     return result;
+}
+
+s64 
+os_file_get_size_from_path(string path) {
+	File f = os_file_open(path, O_READ);
+	if (f == OS_INVALID_FILE) return -1;
+	
+	s64 size = os_file_get_size(f);
+	
+	os_file_close(f);
+	
+	return size;
 }
 
 s64 os_file_get_pos(File f) {

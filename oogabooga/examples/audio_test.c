@@ -105,7 +105,7 @@ int entry(int argc, char **argv) {
 		if (button(STR("Song vol down"), rect.xy, rect.zw, false)) {
 			song_player->volume -= 0.05;
 		}
-		song_player->volume = clamp(song_player->volume, 0, 5);
+		song_player->volume = clamp(song_player->volume, 0, 20);
 		rect.x += rect.z + FONT_HEIGHT;
 		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
 		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);

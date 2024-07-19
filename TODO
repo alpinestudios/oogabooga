@@ -1,7 +1,10 @@
 
 - Audio
 	- Avoid playing identical audio at the same time
-	- Custom audio mixing
+	- Allow audio programming
+		- Inject mixer proc per player
+		- Inject a mixer proc before and after filling output buffer
+	- Better spacialization
 	- Fix vorbis >FILE< streaming (#StbVorbisFileStream)
 	- Handle audio sources which had their format defaulted to update when default device changes
 		For streamed audio sources this should be easy enough, because the conversion happens from raw format to source format as we stream it.
@@ -17,16 +20,32 @@
 		- End of clip also causes noise if audio clip does not end smoothly
 		- Setting audio source to a format which differs from audio output format in both channels and bit_width at the same time will produce pure loud noise.
 		- 24-Bit audio conversion doesn't really work
+		- Converting 24-bit audio files doesn't really work
 			
 - General bugs & issues
 	- Release freeze in run_tests
+	- Window width&height is zero when minimized (and we make a 0x0 swap chain)
+	- Window positioning & sizing is fucky wucky
 	
 - Renderer
 	- Custom shaders (just do hlsl for now, later we transpile)
 		- Still compile a default that's set by default and we can set with set_shader_for_basic_2d
+	 // with screen space coords too (i.e, Vector2 instead of Matrix4)
+	  void draw_outline_rect_xform(Matrix4 xform, Vector2 size, float thickness, Vector4 color); // maybe have draw_rect_xform just be an outline and have another one for draw_filled_rect_xform or something
+	  void draw_rounded_rect_xform(Matrix4 xform, Vector2 size, float rounding, Vector4 color);
+	  void draw_circle_xform(Matrix4 xform, float radius, int segments, Vector4 color);
+	  void draw_line_xform(Matrix4 from, Matrix4 to, float thickness, Vector4 color);
+	  
+	  // purely for screen space coords (scissor rect shit)
+	  void push_clip_rect(Vector2 position, Vector2 size);
+	  void pop_clip_rect();
 		
 - Fonts
 	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)
+	
+- OS
+	Window::bool is_minimized
+	don't set window.width & window.height to 0
 	
 - Needs testing:
 	- Audio format channel conversions

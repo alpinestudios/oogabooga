@@ -30,17 +30,27 @@ typedef struct Gfx_Image {
 	Allocator allocator;
 } Gfx_Image;
 
-Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator);
-Gfx_Image *load_image_from_disk(string path, Allocator allocator);
-void delete_image(Gfx_Image *image);
+Gfx_Image *
+make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator);
+Gfx_Image *
+load_image_from_disk(string path, Allocator allocator);
+void 
+delete_image(Gfx_Image *image);
 
 // Implemented per renderer
-void gfx_init_image(Gfx_Image *image, void *data);
-void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
-void gfx_deinit_image(Gfx_Image *image);
+void 
+gfx_init_image(Gfx_Image *image, void *data);
+void 
+gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
+void 
+gfx_deinit_image(Gfx_Image *image);
+
+bool
+shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
 // initial_data can be null to leave image data uninitialized
-Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
+Gfx_Image *
+make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
 	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image) + width*height*channels);
 	
 	assert(channels > 0 && channels <= 4, "Only 1, 2, 3 or 4 channels allowed on images. Got %d", channels);
@@ -56,7 +66,8 @@ Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, A
     return image;
 }
 
-Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
+Gfx_Image *
+load_image_from_disk(string path, Allocator allocator) {
     string png;
     bool ok = os_read_entire_file(path, &png, allocator);
     if (!ok) return 0;
@@ -92,7 +103,8 @@ Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
     return image;
 }
 
-void delete_image(Gfx_Image *image) {
+void 
+delete_image(Gfx_Image *image) {
       // Free the image data allocated by stb_image
     image->width = 0;
     image->height = 0;

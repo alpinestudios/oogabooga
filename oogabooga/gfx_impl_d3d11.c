@@ -1,10 +1,5 @@
 
 
-#if !OOGABOOGA_DEV
-
-#include "d3d11_image_shader_bytecode.c"
-
-#endif
 
 #define D3D11Release(x) x->lpVtbl->Release(x)
 
@@ -49,16 +44,22 @@ ID3D11SamplerState *d3d11_image_sampler_nl_fl = 0;
 ID3D11SamplerState *d3d11_image_sampler_np_fl = 0;
 ID3D11SamplerState *d3d11_image_sampler_nl_fp = 0;
 
-ID3D11VertexShader *d3d11_image_vertex_shader = 0;
-ID3D11PixelShader  *d3d11_image_pixel_shader = 0;
+ID3D11VertexShader *d3d11_vertex_shader_for_2d = 0;
+ID3D11PixelShader  *d3d11_fragment_shader_for_2d = 0;
 ID3D11InputLayout  *d3d11_image_vertex_layout = 0;
 
 ID3D11Buffer *d3d11_quad_vbo = 0;
 u32 d3d11_quad_vbo_size = 0;
 void *d3d11_staging_quad_buffer = 0;
 
+ID3D11Buffer *d3d11_cbuffer = 0;
+u64 d3d11_cbuffer_size = 0;
+
 Draw_Quad *sort_quad_buffer = 0;
 u64 sort_quad_buffer_size = 0;
+
+// Defined at the bottom of this file
+extern const char *d3d11_image_shader_source;
 
 const char* d3d11_stringify_category(D3D11_MESSAGE_CATEGORY category) {
     switch (category) {
@@ -89,6 +90,14 @@ const char* d3d11_stringify_severity(D3D11_MESSAGE_SEVERITY severity) {
 
 void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAGE_SEVERITY severity, D3D11_MESSAGE_ID id, const char* description)
 {
+	if (id == 391) {
+		// Sigh:
+		/*
+			[WARNING]: D3D11 MESSAGE [Category: State Creation, Severity: Warning, id: 391]: ID3D11Device::CreateInputLayout: The provided input signature expects to read an element with SemanticName/Index: 'SAMPLER_INDEX'/0 and component(s) of the type 'uint32'.  However, the matching entry in the Input Layout declaration, element[5], specifies mismatched format: 'R8_SINT'.  This is not an error, since behavior is well defined: The element format determines what data conversion algorithm gets applied before it shows up in a shader register. Independently, the shader input signature defines how the shader will interpret the data that has been placed in its input registers, with no change in the bits stored.  It is valid for the application to reinterpret data as a different type once it is in the vertex shader, so this warning is issued just in case reinterpretation was not intended by the author.
+		*/
+		return;
+	}
+
 	string msg = tprint("D3D11 MESSAGE [Category: %cs, Severity: %cs, id: %d]: %cs", d3d11_stringify_category(category), d3d11_stringify_severity(severity), id, description);
 	
 	switch (severity) {
@@ -244,6 +253,112 @@ void d3d11_update_swapchain() {
 	win32_check_hr(hr);
 }
 
+bool
+d3d11_compile_shader(string source) {
+
+	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), temp);
+	
+	// #Leak on recompile
+	
+	///
+	// Make default shaders
+	
+	// Compile vertex shader
+    ID3DBlob* vs_blob = NULL;
+    ID3DBlob* err_blob = NULL;
+    HRESULT hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "vs_main", "vs_5_0", 0, 0, &vs_blob, &err_blob);
+	if (!SUCCEEDED(hr)) {
+		log_error("Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
+		return false;
+	}
+
+    // Compile pixel shader
+    ID3DBlob* ps_blob = NULL;
+    hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "ps_main", "ps_5_0", 0, 0, &ps_blob, &err_blob);
+	if (!SUCCEEDED(hr)) {
+		log_error("Fragment Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
+		return false;
+	}
+
+	void *vs_buffer = ID3D10Blob_GetBufferPointer(vs_blob);
+	u64   vs_size   = ID3D10Blob_GetBufferSize(vs_blob);
+	void *ps_buffer = ID3D10Blob_GetBufferPointer(ps_blob);
+	u64   ps_size   = ID3D10Blob_GetBufferSize(ps_blob);
+
+    log_verbose("Shaders compiled");
+    
+    
+    // Create the shaders
+    hr = ID3D11Device_CreateVertexShader(d3d11_device, vs_buffer, vs_size, NULL, &d3d11_vertex_shader_for_2d);
+    win32_check_hr(hr);
+
+    hr = ID3D11Device_CreatePixelShader(d3d11_device, ps_buffer, ps_size, NULL, &d3d11_fragment_shader_for_2d);
+    win32_check_hr(hr);
+
+    log_verbose("Shaders created");
+
+
+
+	D3D11_INPUT_ELEMENT_DESC layout[6];
+	memset(layout, 0, sizeof(layout));
+	
+	layout[0].SemanticName = "POSITION";
+	layout[0].SemanticIndex = 0;
+	layout[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	layout[0].InputSlot = 0;
+	layout[0].AlignedByteOffset = offsetof(D3D11_Vertex, position);
+	layout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[0].InstanceDataStepRate = 0;
+	
+	layout[1].SemanticName = "TEXCOORD";
+	layout[1].SemanticIndex = 0;
+	layout[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+	layout[1].InputSlot = 0;
+	layout[1].AlignedByteOffset = offsetof(D3D11_Vertex, uv);
+	layout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[1].InstanceDataStepRate = 0;
+	
+	layout[2].SemanticName = "COLOR";
+	layout[2].SemanticIndex = 0;
+	layout[2].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	layout[2].InputSlot = 0;
+	layout[2].AlignedByteOffset = offsetof(D3D11_Vertex, color);
+	layout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[2].InstanceDataStepRate = 0;
+	
+	layout[3].SemanticName = "TEXTURE_INDEX";
+	layout[3].SemanticIndex = 0;
+	layout[3].Format = DXGI_FORMAT_R8_SINT;
+	layout[3].InputSlot = 0;
+	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, texture_index);
+	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[3].InstanceDataStepRate = 0;
+	
+	layout[4].SemanticName = "TYPE";
+	layout[4].SemanticIndex = 0;
+	layout[4].Format = DXGI_FORMAT_R8_UINT;
+	layout[4].InputSlot = 0;
+	layout[4].AlignedByteOffset = offsetof(D3D11_Vertex, type);
+	layout[4].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[4].InstanceDataStepRate = 0;
+	
+	layout[5].SemanticName = "SAMPLER_INDEX";
+	layout[5].SemanticIndex = 0;
+	layout[5].Format = DXGI_FORMAT_R8_SINT;
+	layout[5].InputSlot = 0;
+	layout[5].AlignedByteOffset = offsetof(D3D11_Vertex, sampler);
+	layout[5].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[5].InstanceDataStepRate = 0;
+	
+	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 6, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	win32_check_hr(hr);
+
+	D3D11Release(vs_blob);
+    D3D11Release(ps_blob);
+
+	return true;
+}
+
 void gfx_init() {
 
 	window.enable_vsync = false;
@@ -302,7 +417,7 @@ void gfx_init() {
 	win32_check_hr(hr);
 	
 	if (debug_failed) {
-		log_error("We could not init D3D11 with DEBUG flag. This is likely because you have not enabled \"Graphics Tools\" in windows settings. https://github.com/microsoft/DirectX-Graphics-Samples/issues/447#issuecomment-415611443");
+		log_error("We could not init D3D11 with DEBUG flag. To fix this, you can try:\n1. Go to windows settings\n2. Go to System -> Optional features\n3. Add the feature called \"Graphics Tools\"\n4. Restart your computer\n5. Be frustrated that windows is like this.\nhttps://devblogs.microsoft.com/cppblog/visual-studio-2015-and-graphics-tools-for-windows-10/");
 	}
 	
 	assert(d3d11_device != 0, "D3D11CreateDevice failed");
@@ -408,136 +523,10 @@ void gfx_init() {
 	    win32_check_hr(hr);
 	}
 	
-	// We are ooga booga devs so we read the file and compile
-#if OOGABOOGA_DEV
+	string source = STR(d3d11_image_shader_source);
+	bool ok = d3d11_compile_shader(source);
 	
-	string source;
-	bool source_ok = os_read_entire_file("oogabooga/dev/d3d11_image_shader.hlsl", &source, get_heap_allocator()); // #Leak
-	assert(source_ok, "Could not open d3d11_image_shader source");
-	
-	// Compile vertex shader
-    ID3DBlob* vs_blob = NULL;
-    ID3DBlob* err_blob = NULL;
-    hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "vs_main", "vs_5_0", 0, 0, &vs_blob, &err_blob);
-	assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
-
-    // Compile pixel shader
-    ID3DBlob* ps_blob = NULL;
-    hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "ps_main", "ps_5_0", 0, 0, &ps_blob, &err_blob);
-    assert(SUCCEEDED(hr), "Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
-
-	void *vs_buffer = ID3D10Blob_GetBufferPointer(vs_blob);
-	u64   vs_size   = ID3D10Blob_GetBufferSize(vs_blob);
-	void *ps_buffer = ID3D10Blob_GetBufferPointer(ps_blob);
-	u64   ps_size   = ID3D10Blob_GetBufferSize(ps_blob);
-
-    log_verbose("Shaders compiled");
-    
-    ///
-    // Dump blobs to the .c
-    File blob_file = os_file_open("oogabooga/d3d11_image_shader_bytecode.c", O_WRITE | O_CREATE);
-    os_file_write_string(blob_file, STR("/*\n"));
-    os_file_write_string(blob_file, STR("<<<<<< Bytecode compiled fro HLSL code below: >>>>>>\n\n"));
-    os_file_write_string(blob_file, source);
-    os_file_write_string(blob_file, STR("\n*/\n\n"));
-    
-    os_file_write_string(blob_file, STR("const u8 IMAGE_SHADER_VERTEX_BLOB_BYTES[]= {\n"));
-    for (u64 i = 0; i < vs_size; i++) {
-    	os_file_write_string(blob_file, tprint("0x%02x", (int)((u8*)vs_buffer)[i]));
-    	if (i < vs_size-1) os_file_write_string(blob_file, STR(", "));
-    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, STR("\n"));
-}
-    os_file_write_string(blob_file, STR("\n};\n"));
-    
-    os_file_write_string(blob_file, STR("const u8 IMAGE_SHADER_PIXEL_BLOB_BYTES[]= {\n"));
-    for (u64 i = 0; i < ps_size; i++) {
-    	os_file_write_string(blob_file, tprint("0x%02x", (int)((u8*)ps_buffer)[i]));
-    	if (i < ps_size-1) os_file_write_string(blob_file, STR(", "));
-    	if (i % 15 == 0 && i != 0) os_file_write_string(blob_file, STR("\n"));
-}
-    os_file_write_string(blob_file, STR("\n};\n"));
- os_file_close(blob_file);
-    
-    
-#else
-
-	const void *vs_buffer = IMAGE_SHADER_VERTEX_BLOB_BYTES;
-	u64 vs_size = sizeof(IMAGE_SHADER_VERTEX_BLOB_BYTES);
-	const void *ps_buffer = IMAGE_SHADER_PIXEL_BLOB_BYTES;
-	u64 ps_size = sizeof(IMAGE_SHADER_PIXEL_BLOB_BYTES);
-	
-    log_verbose("Cached shaders loaded");
-#endif
-
-    // Create the shaders
-    hr = ID3D11Device_CreateVertexShader(d3d11_device, vs_buffer, vs_size, NULL, &d3d11_image_vertex_shader);
-    win32_check_hr(hr);
-
-    hr = ID3D11Device_CreatePixelShader(d3d11_device, ps_buffer, ps_size, NULL, &d3d11_image_pixel_shader);
-    win32_check_hr(hr);
-
-    log_verbose("Shaders created");
-
-
-
-	D3D11_INPUT_ELEMENT_DESC layout[6];
-	memset(layout, 0, sizeof(layout));
-	
-	layout[0].SemanticName = "POSITION";
-	layout[0].SemanticIndex = 0;
-	layout[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	layout[0].InputSlot = 0;
-	layout[0].AlignedByteOffset = offsetof(D3D11_Vertex, position);
-	layout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[0].InstanceDataStepRate = 0;
-	
-	layout[1].SemanticName = "TEXCOORD";
-	layout[1].SemanticIndex = 0;
-	layout[1].Format = DXGI_FORMAT_R32G32_FLOAT;
-	layout[1].InputSlot = 0;
-	layout[1].AlignedByteOffset = offsetof(D3D11_Vertex, uv);
-	layout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[1].InstanceDataStepRate = 0;
-	
-	layout[2].SemanticName = "COLOR";
-	layout[2].SemanticIndex = 0;
-	layout[2].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	layout[2].InputSlot = 0;
-	layout[2].AlignedByteOffset = offsetof(D3D11_Vertex, color);
-	layout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[2].InstanceDataStepRate = 0;
-	
-	layout[3].SemanticName = "TEXTURE_INDEX";
-	layout[3].SemanticIndex = 0;
-	layout[3].Format = DXGI_FORMAT_R8_SINT;
-	layout[3].InputSlot = 0;
-	layout[3].AlignedByteOffset = offsetof(D3D11_Vertex, texture_index);
-	layout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[3].InstanceDataStepRate = 0;
-	
-	layout[4].SemanticName = "TYPE";
-	layout[4].SemanticIndex = 0;
-	layout[4].Format = DXGI_FORMAT_R8_UINT;
-	layout[4].InputSlot = 0;
-	layout[4].AlignedByteOffset = offsetof(D3D11_Vertex, type);
-	layout[4].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[4].InstanceDataStepRate = 0;
-	
-	layout[5].SemanticName = "SAMPLER_INDEX";
-	layout[5].SemanticIndex = 0;
-	layout[5].Format = DXGI_FORMAT_R8_SINT;
-	layout[5].InputSlot = 0;
-	layout[5].AlignedByteOffset = offsetof(D3D11_Vertex, sampler);
-	layout[5].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	layout[5].InstanceDataStepRate = 0;
-	
-	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 6, vs_buffer, vs_size, &d3d11_image_vertex_layout);
-	win32_check_hr(hr);
-
-#if OOGABOOGA_DEV
-	D3D11Release(vs_blob);
-    D3D11Release(ps_blob);
-#endif
+	assert(ok, "Failed compiling default shader");
 
 	log_info("D3D11 init done");
 	
@@ -560,8 +549,17 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     ID3D11DeviceContext_IASetVertexBuffers(d3d11_context, 0, 1, &d3d11_quad_vbo, &stride, &offset);
     ID3D11DeviceContext_IASetPrimitiveTopology(d3d11_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_image_vertex_shader, NULL, 0);
-    ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_image_pixel_shader, NULL, 0);
+    ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_vertex_shader_for_2d, NULL, 0);
+    ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_fragment_shader_for_2d, NULL, 0);
+    
+	if (draw_frame.cbuffer && d3d11_cbuffer && d3d11_cbuffer_size) {
+		D3D11_MAPPED_SUBRESOURCE cbuffer_mapping;
+		ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &cbuffer_mapping);
+		memcpy(cbuffer_mapping.pData, draw_frame.cbuffer, d3d11_cbuffer_size);
+		ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0);
+		
+		ID3D11DeviceContext_PSSetConstantBuffers(d3d11_context, 0, 1, &d3d11_cbuffer);
+	}
     
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 0, 1, &d3d11_image_sampler_np_fp);
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 1, 1, &d3d11_image_sampler_nl_fl);
@@ -895,3 +893,242 @@ void gfx_deinit_image(Gfx_Image *image) {
 		panic("Unhandled D3D11 resource deletion");
 	}
 }
+
+bool 
+shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
+	
+
+	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, temp);
+	
+	if (!d3d11_compile_shader(source)) return false;
+	
+	u64 aligned_cbuffer_size = (max(cbuffer_size, 16) + 16) & ~(15);
+	
+	if (d3d11_cbuffer) {
+		D3D11Release(d3d11_cbuffer);
+	}
+	D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
+	desc.ByteWidth      = aligned_cbuffer_size;
+	desc.Usage          = D3D11_USAGE_DYNAMIC;
+	desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, null, &d3d11_cbuffer);
+	win32_check_hr(hr);
+	
+	d3d11_cbuffer_size = cbuffer_size;
+	
+	return true;
+}
+    
+    
+
+const char *d3d11_image_shader_source = RAW_STRING(
+	
+struct VS_INPUT
+{
+    float4 position : POSITION;
+    float2 uv : TEXCOORD;
+    float4 color : COLOR;
+    int texture_index : TEXTURE_INDEX;
+    uint type : TYPE;
+    uint sampler_index : SAMPLER_INDEX;
+};
+
+struct PS_INPUT
+{
+    float4 position_screen : SV_POSITION;
+    float4 position : POSITION;
+    float2 uv : TEXCOORD0;
+    float4 color : COLOR;
+    int texture_index: TEXTURE_INDEX;
+    int type: TYPE;
+    int sampler_index: SAMPLER_INDEX;
+};
+
+PS_INPUT vs_main(VS_INPUT input)
+{
+    PS_INPUT output;
+    output.position_screen = input.position;
+    output.position = input.position;
+    output.uv = input.uv;
+    output.color = input.color;
+    output.texture_index = input.texture_index;
+    output.type          = input.type;
+    output.sampler_index = input.sampler_index;
+    return output;
+}
+
+// #Magicvalue
+Texture2D textures[32] : register(t0);
+SamplerState image_sampler_0 : register(s0);
+SamplerState image_sampler_1 : register(s1);
+SamplerState image_sampler_2 : register(s2);
+SamplerState image_sampler_3 : register(s3);
+
+float4 sample_texture(int texture_index, int sampler_index, float2 uv) {
+	// I love hlsl
+	if (sampler_index == 0) {
+		if (texture_index ==  0)       return textures[0].Sample(image_sampler_0, uv);
+		else if (texture_index ==  1)  return textures[1].Sample(image_sampler_0, uv);
+		else if (texture_index ==  2)  return textures[2].Sample(image_sampler_0, uv);
+		else if (texture_index ==  3)  return textures[3].Sample(image_sampler_0, uv);
+		else if (texture_index ==  4)  return textures[4].Sample(image_sampler_0, uv);
+		else if (texture_index ==  5)  return textures[5].Sample(image_sampler_0, uv);
+		else if (texture_index ==  6)  return textures[6].Sample(image_sampler_0, uv);
+		else if (texture_index ==  7)  return textures[7].Sample(image_sampler_0, uv);
+		else if (texture_index ==  8)  return textures[8].Sample(image_sampler_0, uv);
+		else if (texture_index ==  9)  return textures[9].Sample(image_sampler_0, uv);
+		else if (texture_index ==  10) return textures[10].Sample(image_sampler_0, uv);
+		else if (texture_index ==  11) return textures[11].Sample(image_sampler_0, uv);
+		else if (texture_index ==  12) return textures[12].Sample(image_sampler_0, uv);
+		else if (texture_index ==  13) return textures[13].Sample(image_sampler_0, uv);
+		else if (texture_index ==  14) return textures[14].Sample(image_sampler_0, uv);
+		else if (texture_index ==  15) return textures[15].Sample(image_sampler_0, uv);
+		else if (texture_index ==  16) return textures[16].Sample(image_sampler_0, uv);
+		else if (texture_index ==  17) return textures[17].Sample(image_sampler_0, uv);
+		else if (texture_index ==  18) return textures[18].Sample(image_sampler_0, uv);
+		else if (texture_index ==  19) return textures[19].Sample(image_sampler_0, uv);
+		else if (texture_index ==  20) return textures[20].Sample(image_sampler_0, uv);
+		else if (texture_index ==  21) return textures[21].Sample(image_sampler_0, uv);
+		else if (texture_index ==  22) return textures[22].Sample(image_sampler_0, uv);
+		else if (texture_index ==  23) return textures[23].Sample(image_sampler_0, uv);
+		else if (texture_index ==  24) return textures[24].Sample(image_sampler_0, uv);
+		else if (texture_index ==  25) return textures[25].Sample(image_sampler_0, uv);
+		else if (texture_index ==  26) return textures[26].Sample(image_sampler_0, uv);
+		else if (texture_index ==  27) return textures[27].Sample(image_sampler_0, uv);
+		else if (texture_index ==  28) return textures[28].Sample(image_sampler_0, uv);
+		else if (texture_index ==  29) return textures[29].Sample(image_sampler_0, uv);
+		else if (texture_index ==  30) return textures[30].Sample(image_sampler_0, uv);
+		else if (texture_index ==  31) return textures[31].Sample(image_sampler_0, uv);
+	} else if (sampler_index == 1) {
+		if (texture_index ==  0)       return textures[0].Sample(image_sampler_1, uv);
+		else if (texture_index ==  1)  return textures[1].Sample(image_sampler_1, uv);
+		else if (texture_index ==  2)  return textures[2].Sample(image_sampler_1, uv);
+		else if (texture_index ==  3)  return textures[3].Sample(image_sampler_1, uv);
+		else if (texture_index ==  4)  return textures[4].Sample(image_sampler_1, uv);
+		else if (texture_index ==  5)  return textures[5].Sample(image_sampler_1, uv);
+		else if (texture_index ==  6)  return textures[6].Sample(image_sampler_1, uv);
+		else if (texture_index ==  7)  return textures[7].Sample(image_sampler_1, uv);
+		else if (texture_index ==  8)  return textures[8].Sample(image_sampler_1, uv);
+		else if (texture_index ==  9)  return textures[9].Sample(image_sampler_1, uv);
+		else if (texture_index ==  10) return textures[10].Sample(image_sampler_1, uv);
+		else if (texture_index ==  11) return textures[11].Sample(image_sampler_1, uv);
+		else if (texture_index ==  12) return textures[12].Sample(image_sampler_1, uv);
+		else if (texture_index ==  13) return textures[13].Sample(image_sampler_1, uv);
+		else if (texture_index ==  14) return textures[14].Sample(image_sampler_1, uv);
+		else if (texture_index ==  15) return textures[15].Sample(image_sampler_1, uv);
+		else if (texture_index ==  16) return textures[16].Sample(image_sampler_1, uv);
+		else if (texture_index ==  17) return textures[17].Sample(image_sampler_1, uv);
+		else if (texture_index ==  18) return textures[18].Sample(image_sampler_1, uv);
+		else if (texture_index ==  19) return textures[19].Sample(image_sampler_1, uv);
+		else if (texture_index ==  20) return textures[20].Sample(image_sampler_1, uv);
+		else if (texture_index ==  21) return textures[21].Sample(image_sampler_1, uv);
+		else if (texture_index ==  22) return textures[22].Sample(image_sampler_1, uv);
+		else if (texture_index ==  23) return textures[23].Sample(image_sampler_1, uv);
+		else if (texture_index ==  24) return textures[24].Sample(image_sampler_1, uv);
+		else if (texture_index ==  25) return textures[25].Sample(image_sampler_1, uv);
+		else if (texture_index ==  26) return textures[26].Sample(image_sampler_1, uv);
+		else if (texture_index ==  27) return textures[27].Sample(image_sampler_1, uv);
+		else if (texture_index ==  28) return textures[28].Sample(image_sampler_1, uv);
+		else if (texture_index ==  29) return textures[29].Sample(image_sampler_1, uv);
+		else if (texture_index ==  30) return textures[30].Sample(image_sampler_1, uv);
+		else if (texture_index ==  31) return textures[31].Sample(image_sampler_1, uv);
+	} else if (sampler_index == 2) {
+		if (texture_index ==  0)       return textures[0].Sample(image_sampler_2, uv);
+		else if (texture_index ==  1)  return textures[1].Sample(image_sampler_2, uv);
+		else if (texture_index ==  2)  return textures[2].Sample(image_sampler_2, uv);
+		else if (texture_index ==  3)  return textures[3].Sample(image_sampler_2, uv);
+		else if (texture_index ==  4)  return textures[4].Sample(image_sampler_2, uv);
+		else if (texture_index ==  5)  return textures[5].Sample(image_sampler_2, uv);
+		else if (texture_index ==  6)  return textures[6].Sample(image_sampler_2, uv);
+		else if (texture_index ==  7)  return textures[7].Sample(image_sampler_2, uv);
+		else if (texture_index ==  8)  return textures[8].Sample(image_sampler_2, uv);
+		else if (texture_index ==  9)  return textures[9].Sample(image_sampler_2, uv);
+		else if (texture_index ==  10) return textures[10].Sample(image_sampler_2, uv);
+		else if (texture_index ==  11) return textures[11].Sample(image_sampler_2, uv);
+		else if (texture_index ==  12) return textures[12].Sample(image_sampler_2, uv);
+		else if (texture_index ==  13) return textures[13].Sample(image_sampler_2, uv);
+		else if (texture_index ==  14) return textures[14].Sample(image_sampler_2, uv);
+		else if (texture_index ==  15) return textures[15].Sample(image_sampler_2, uv);
+		else if (texture_index ==  16) return textures[16].Sample(image_sampler_2, uv);
+		else if (texture_index ==  17) return textures[17].Sample(image_sampler_2, uv);
+		else if (texture_index ==  18) return textures[18].Sample(image_sampler_2, uv);
+		else if (texture_index ==  19) return textures[19].Sample(image_sampler_2, uv);
+		else if (texture_index ==  20) return textures[20].Sample(image_sampler_2, uv);
+		else if (texture_index ==  21) return textures[21].Sample(image_sampler_2, uv);
+		else if (texture_index ==  22) return textures[22].Sample(image_sampler_2, uv);
+		else if (texture_index ==  23) return textures[23].Sample(image_sampler_2, uv);
+		else if (texture_index ==  24) return textures[24].Sample(image_sampler_2, uv);
+		else if (texture_index ==  25) return textures[25].Sample(image_sampler_2, uv);
+		else if (texture_index ==  26) return textures[26].Sample(image_sampler_2, uv);
+		else if (texture_index ==  27) return textures[27].Sample(image_sampler_2, uv);
+		else if (texture_index ==  28) return textures[28].Sample(image_sampler_2, uv);
+		else if (texture_index ==  29) return textures[29].Sample(image_sampler_2, uv);
+		else if (texture_index ==  30) return textures[30].Sample(image_sampler_2, uv);
+		else if (texture_index ==  31) return textures[31].Sample(image_sampler_2, uv);
+	} else if (sampler_index == 3) {
+		if (texture_index ==  0)       return textures[0].Sample(image_sampler_3, uv);
+		else if (texture_index ==  1)  return textures[1].Sample(image_sampler_3, uv);
+		else if (texture_index ==  2)  return textures[2].Sample(image_sampler_3, uv);
+		else if (texture_index ==  3)  return textures[3].Sample(image_sampler_3, uv);
+		else if (texture_index ==  4)  return textures[4].Sample(image_sampler_3, uv);
+		else if (texture_index ==  5)  return textures[5].Sample(image_sampler_3, uv);
+		else if (texture_index ==  6)  return textures[6].Sample(image_sampler_3, uv);
+		else if (texture_index ==  7)  return textures[7].Sample(image_sampler_3, uv);
+		else if (texture_index ==  8)  return textures[8].Sample(image_sampler_3, uv);
+		else if (texture_index ==  9)  return textures[9].Sample(image_sampler_3, uv);
+		else if (texture_index ==  10) return textures[10].Sample(image_sampler_3, uv);
+		else if (texture_index ==  11) return textures[11].Sample(image_sampler_3, uv);
+		else if (texture_index ==  12) return textures[12].Sample(image_sampler_3, uv);
+		else if (texture_index ==  13) return textures[13].Sample(image_sampler_3, uv);
+		else if (texture_index ==  14) return textures[14].Sample(image_sampler_3, uv);
+		else if (texture_index ==  15) return textures[15].Sample(image_sampler_3, uv);
+		else if (texture_index ==  16) return textures[16].Sample(image_sampler_3, uv);
+		else if (texture_index ==  17) return textures[17].Sample(image_sampler_3, uv);
+		else if (texture_index ==  18) return textures[18].Sample(image_sampler_3, uv);
+		else if (texture_index ==  19) return textures[19].Sample(image_sampler_3, uv);
+		else if (texture_index ==  20) return textures[20].Sample(image_sampler_3, uv);
+		else if (texture_index ==  21) return textures[21].Sample(image_sampler_3, uv);
+		else if (texture_index ==  22) return textures[22].Sample(image_sampler_3, uv);
+		else if (texture_index ==  23) return textures[23].Sample(image_sampler_3, uv);
+		else if (texture_index ==  24) return textures[24].Sample(image_sampler_3, uv);
+		else if (texture_index ==  25) return textures[25].Sample(image_sampler_3, uv);
+		else if (texture_index ==  26) return textures[26].Sample(image_sampler_3, uv);
+		else if (texture_index ==  27) return textures[27].Sample(image_sampler_3, uv);
+		else if (texture_index ==  28) return textures[28].Sample(image_sampler_3, uv);
+		else if (texture_index ==  29) return textures[29].Sample(image_sampler_3, uv);
+		else if (texture_index ==  30) return textures[30].Sample(image_sampler_3, uv);
+		else if (texture_index ==  31) return textures[31].Sample(image_sampler_3, uv);
+	}
+	
+	return float4(1.0, 0.0, 0.0, 1.0);
+}
+
+
+\n
+
+$INJECT_PIXEL_POST_PROCESS
+
+\n
+\043define QUAD_TYPE_REGULAR 0\n
+\043define QUAD_TYPE_TEXT 1\n
+float4 ps_main(PS_INPUT input) : SV_TARGET
+{
+	if (input.type == QUAD_TYPE_REGULAR) {
+		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
+			return pixel_shader_extension(input, sample_texture(input.texture_index, input.sampler_index, input.uv)*input.color);
+		} else {
+			return pixel_shader_extension(input, input.color);
+		}
+	} else if (input.type == QUAD_TYPE_TEXT) {
+		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
+			float alpha = sample_texture(input.texture_index, input.sampler_index, input.uv).x;
+			return pixel_shader_extension(input, float4(1.0, 1.0, 1.0, alpha)*input.color);
+		} else {
+			return pixel_shader_extension(input, input.color);
+		}
+	}
+	
+	return float4(0.0, 1.0, 0.0, 1.0);
+}
+);

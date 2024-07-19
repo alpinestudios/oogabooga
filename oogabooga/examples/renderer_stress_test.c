@@ -92,7 +92,7 @@ int entry(int argc, char **argv) {
 		if (is_key_just_pressed('Z')) do_enable_z_sorting = !do_enable_z_sorting;
 		
 		seed_for_random = 69;
-		for (u64 i = 0; i < 50000; i++) {
+		for (u64 i = 0; i < 100000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;
