@@ -1,5 +1,9 @@
 const std = @import("std");
 
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
+}
+
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -38,7 +42,9 @@ pub fn build(b: *std.Build) void {
 
     exe.linkLibC();
 
-    exe.addCSourceFile(.{ .file = .{ .src_path = .{ .owner = b, .sub_path = "oogabooga/oogabooga.c" } } });
+    const c_flags = [_][]const u8{"-fno-sanitize=undefined"};
+    exe.addCSourceFile(.{ .file = .{ .cwd_relative = thisDir() ++ "/oogabooga/oogabooga.c" }, .flags = &c_flags });
+    // exe.addCSourceFile(.{ .file = .{ .src_path = .{ .owner = b, .sub_path = "oogabooga/oogabooga.c" } } });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
