@@ -16,7 +16,6 @@ int entry(int argc, char **argv) {
 		
 		reset_temporary_storage();
 		
-		float64 now = os_get_current_time_in_seconds();
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
 		rect_xform         = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
