@@ -42,7 +42,7 @@ pub fn build(b: *std.Build) void {
 
     exe.linkLibC();
     exe.addIncludePath(.{ .cwd_relative = thisDir() ++ "/oogabooga" });
-    const c_flags = [_][]const u8{"d.c -O0 -std=c11 -D_CRT_SECURE_NO_WARNINGS -Wextra -Wno-incompatible-library-redeclaration -Wno-sign-compare -Wno-unused-parameter -Wno-builtin-requires-header -lkernel32 -lgdi32 -luser32 -lruntimeobject -lwinmm -ld3d11 -ldxguid -ld3dcompiler -lshlwapi -lole32 -lavrt -lksuser -ldbghelp -femit-all-decls"};
+    const c_flags = [_][]const u8{"-std=c11 -D_CRT_SECURE_NO_WARNINGS -Wextra -Wno-incompatible-library-redeclaration -Wno-sign-compare -Wno-unused-parameter -Wno-builtin-requires-header -lkernel32 -lgdi32 -luser32 -lruntimeobject -lwinmm -ld3d11 -ldxguid -ld3dcompiler -lshlwapi -lole32 -lavrt -lksuser -ldbghelp -femit-all-decls"};
     exe.addCSourceFile(.{ .file = .{ .cwd_relative = thisDir() ++ "/oogabooga/oogabooga.c" }, .flags = &c_flags });
     // exe.addCSourceFile(.{ .file = .{ .src_path = .{ .owner = b, .sub_path = "oogabooga/oogabooga.c" } } });
 

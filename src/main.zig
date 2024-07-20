@@ -1,5 +1,4 @@
 const std = @import("std");
-const oogabooga = @cImport("oogabooga/oogabooga.c");
 
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
