@@ -7,20 +7,23 @@ const Gfx_Handle GFX_INVALID_HANDLE = 0;
 
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16);
 
+// We wanna pack this at some point
+// #Cleanup #Memory why am I doing alignat(16)?
 typedef struct alignat(16) D3D11_Vertex {
 	
 	Vector4 color;
 	Vector4 position;
 	Vector2 uv;
-	union {
-		s32 data1;
-		struct {
-			s8 texture_index;
-			u8 type;
-			u8 sampler;
-			u8 padding;
-		};
-	};
+	Vector2 self_uv;
+	s8 texture_index;
+	u8 type;
+	u8 sampler;
+	u8 has_scissor;
+	
+	Vector4 userdata[VERTEX_2D_USER_DATA_COUNT];
+	
+	Vector4 scissor;
+	
 } D3D11_Vertex;
 
 ID3D11Debug *d3d11_debug = 0;
@@ -257,6 +260,7 @@ bool
 d3d11_compile_shader(string source) {
 
 	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), temp);
+	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), temp);
 	
 	// #Leak on recompile
 	
@@ -299,7 +303,8 @@ d3d11_compile_shader(string source) {
 
 
 
-	D3D11_INPUT_ELEMENT_DESC layout[6];
+	#define layout_base_count 9
+	D3D11_INPUT_ELEMENT_DESC layout[layout_base_count+VERTEX_2D_USER_DATA_COUNT];
 	memset(layout, 0, sizeof(layout));
 	
 	layout[0].SemanticName = "POSITION";
@@ -350,8 +355,44 @@ d3d11_compile_shader(string source) {
 	layout[5].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[5].InstanceDataStepRate = 0;
 	
-	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, 6, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	layout[6].SemanticName = "SELF_UV";
+	layout[6].SemanticIndex = 0;
+	layout[6].Format = DXGI_FORMAT_R32G32_FLOAT;
+	layout[6].InputSlot = 0;
+	layout[6].AlignedByteOffset = offsetof(D3D11_Vertex, self_uv);
+	layout[6].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[6].InstanceDataStepRate = 0;
+	
+	layout[7].SemanticName = "SCISSOR";
+	layout[7].SemanticIndex = 0;
+	layout[7].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	layout[7].InputSlot = 0;
+	layout[7].AlignedByteOffset = offsetof(D3D11_Vertex, scissor);
+	layout[7].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[7].InstanceDataStepRate = 0;
+	
+	layout[8].SemanticName = "HAS_SCISSOR";
+	layout[8].SemanticIndex = 0;
+	layout[8].Format = DXGI_FORMAT_R8_UINT;
+	layout[8].InputSlot = 0;
+	layout[8].AlignedByteOffset = offsetof(D3D11_Vertex, has_scissor);
+	layout[8].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	layout[8].InstanceDataStepRate = 0;
+	
+	for (int i = 0; i < VERTEX_2D_USER_DATA_COUNT; ++i) {
+	    layout[layout_base_count + i].SemanticName = "USERDATA";
+	    layout[layout_base_count + i].SemanticIndex = i;
+	    layout[layout_base_count + i].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	    layout[layout_base_count + i].InputSlot = 0;
+	    layout[layout_base_count + i].AlignedByteOffset = offsetof(D3D11_Vertex, userdata) + sizeof(Vector4) * i;
+	    layout[layout_base_count + i].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	}
+	
+	
+	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, layout_base_count+VERTEX_2D_USER_DATA_COUNT, vs_buffer, vs_size, &d3d11_image_vertex_layout);
 	win32_check_hr(hr);
+	
+	#undef layout_base_count
 
 	D3D11Release(vs_blob);
     D3D11Release(ps_blob);
@@ -479,25 +520,6 @@ void gfx_init() {
 	    ID3D11DeviceContext_RSSetState(d3d11_context, d3d11_rasterizer);
 	}
 	
-	// COnst buffer
-	/*{
-	    D3D11_BUFFER_DESC bd;
-	    bd.ByteWidth = align_forward(sizeof(GlobalConstBuffer), 16);
-	    bd.Usage = D3D11_USAGE_DYNAMIC;
-	    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	    ID3D11Device_CreateBuffer(dx_state.d3d_device, &bd, NULL, &dx_state.const_buffer_resource);
-	}*/
-	
-	/*{
-	    D3D11_BUFFER_DESC bd;
-	    bd.ByteWidth = align_forward(sizeof(BatchUniforms), 16);
-	    bd.Usage = D3D11_USAGE_DYNAMIC;
-	    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	    ID3D11Device_CreateBuffer(dx_state.d3d_device, &bd, NULL, &render_st.batch.ubo);
-	}*/
-	
 	{
 	    D3D11_SAMPLER_DESC sd = ZERO(D3D11_SAMPLER_DESC);
 	    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
@@ -524,6 +546,7 @@ void gfx_init() {
 	}
 	
 	string source = STR(d3d11_image_shader_source);
+	
 	bool ok = d3d11_compile_shader(source);
 	
 	assert(ok, "Failed compiling default shader");
@@ -554,7 +577,14 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     
 	if (draw_frame.cbuffer && d3d11_cbuffer && d3d11_cbuffer_size) {
 		D3D11_MAPPED_SUBRESOURCE cbuffer_mapping;
-		ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &cbuffer_mapping);
+		ID3D11DeviceContext_Map(
+			d3d11_context, 
+			(ID3D11Resource*)d3d11_cbuffer, 
+			0, 
+			D3D11_MAP_WRITE_DISCARD, 
+			0, 
+			&cbuffer_mapping
+		);
 		memcpy(cbuffer_mapping.pData, draw_frame.cbuffer, d3d11_cbuffer_size);
 		ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0);
 		
@@ -706,10 +736,31 @@ void d3d11_process_draw_frame() {
 					TR->uv = v2(q->uv.x2, q->uv.y2);
 					BR->uv = v2(q->uv.x2, q->uv.y1);
 					
+					BL->self_uv = v2(0, 0);
+					TL->self_uv = v2(0, 1);
+					TR->self_uv = v2(1, 1);
+					BR->self_uv = v2(1, 0);
+					
+					// #Speed
+					memcpy(BL->userdata, q->userdata, sizeof(q->userdata));
+					memcpy(TL->userdata, q->userdata, sizeof(q->userdata));
+					memcpy(TR->userdata, q->userdata, sizeof(q->userdata));
+					memcpy(BR->userdata, q->userdata, sizeof(q->userdata));
+					
 					BL->color = TL->color = TR->color = BR->color = q->color;
 					
 					BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
 					BL->type=TL->type=TR->type=BR->type = (u8)q->type;
+					
+					float t = q->scissor.y1;
+					q->scissor.y1 = q->scissor.y2;
+					q->scissor.y2 = t;
+					
+					q->scissor.y1 = window.pixel_height - q->scissor.y1;
+					q->scissor.y2 = window.pixel_height - q->scissor.y2;
+					
+					BL->has_scissor=TL->has_scissor=TR->has_scissor=BR->has_scissor = q->has_scissor;
+					BL->scissor=TL->scissor=TR->scissor=BR->scissor = q->scissor;
 					
 					u8 sampler = -1;
 					if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
@@ -900,6 +951,7 @@ shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
 
 	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, temp);
 	
+	
 	if (!d3d11_compile_shader(source)) return false;
 	
 	u64 aligned_cbuffer_size = (max(cbuffer_size, 16) + 16) & ~(15);
@@ -928,10 +980,14 @@ struct VS_INPUT
 {
     float4 position : POSITION;
     float2 uv : TEXCOORD;
+    float2 self_uv : SELF_UV;
     float4 color : COLOR;
     int texture_index : TEXTURE_INDEX;
     uint type : TYPE;
     uint sampler_index : SAMPLER_INDEX;
+    uint has_scissor : HAS_SCISSOR;
+    float4 userdata[$VERTEX_2D_USER_DATA_COUNT] : USERDATA;
+    float4 scissor : SCISSOR;
 };
 
 struct PS_INPUT
@@ -939,11 +995,17 @@ struct PS_INPUT
     float4 position_screen : SV_POSITION;
     float4 position : POSITION;
     float2 uv : TEXCOORD0;
+    float2 self_uv : SELF_UV;
     float4 color : COLOR;
     int texture_index: TEXTURE_INDEX;
     int type: TYPE;
     int sampler_index: SAMPLER_INDEX;
+    uint has_scissor : HAS_SCISSOR;
+    float4 userdata[$VERTEX_2D_USER_DATA_COUNT] : USERDATA;
+    float4 scissor : SCISSOR;
 };
+
+
 
 PS_INPUT vs_main(VS_INPUT input)
 {
@@ -955,6 +1017,12 @@ PS_INPUT vs_main(VS_INPUT input)
     output.texture_index = input.texture_index;
     output.type          = input.type;
     output.sampler_index = input.sampler_index;
+    output.self_uv = input.self_uv;
+	for (int i = 0; i < $VERTEX_2D_USER_DATA_COUNT; i++) {
+    	output.userdata[i] = input.userdata[i];
+	}
+	output.scissor = input.scissor;
+	output.has_scissor = input.has_scissor;
     return output;
 }
 
@@ -1112,8 +1180,17 @@ $INJECT_PIXEL_POST_PROCESS
 \n
 \043define QUAD_TYPE_REGULAR 0\n
 \043define QUAD_TYPE_TEXT 1\n
+\043define QUAD_TYPE_CIRCLE 2\n
 float4 ps_main(PS_INPUT input) : SV_TARGET
 {
+
+	if (input.has_scissor) {
+		float2 screen_pos = input.position_screen.xy;
+		if (screen_pos.x < input.scissor.x || screen_pos.x >= input.scissor.z ||
+			screen_pos.y < input.scissor.y || screen_pos.y >= input.scissor.w)
+				discard;
+	}
+
 	if (input.type == QUAD_TYPE_REGULAR) {
 		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
 			return pixel_shader_extension(input, sample_texture(input.texture_index, input.sampler_index, input.uv)*input.color);
@@ -1127,8 +1204,19 @@ float4 ps_main(PS_INPUT input) : SV_TARGET
 		} else {
 			return pixel_shader_extension(input, input.color);
 		}
-	}
+	} else if (input.type == QUAD_TYPE_CIRCLE) {
 	
-	return float4(0.0, 1.0, 0.0, 1.0);
+		float dist = length(input.self_uv-float2(0.5, 0.5));
+	
+		if (dist > 0.5) return float4(0.0, 0.0, 0.0, 0.0);
+	
+		if (input.texture_index >= 0 && input.texture_index < 32 && input.sampler_index >= 0  && input.sampler_index <= 3) {
+			return pixel_shader_extension(input, sample_texture(input.texture_index, input.sampler_index, input.uv)*input.color);
+		} else {
+			return pixel_shader_extension(input, input.color);
+		}
+	} 
+	
+	return float4(1.0, 1.0, 0.0, 1.0);
 }
 );

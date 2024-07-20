@@ -26,18 +26,10 @@
 	- Release freeze in run_tests
 	- Window width&height is zero when minimized (and we make a 0x0 swap chain)
 	- Window positioning & sizing is fucky wucky
+	- Memory error messages are misleading when no VERY_DEBUG
 	
 - Renderer
-		- Still compile a default that's set by default and we can set with set_shader_for_basic_2d
-	 // with screen space coords too (i.e, Vector2 instead of Matrix4)
-	  void draw_outline_rect_xform(Matrix4 xform, Vector2 size, float thickness, Vector4 color); // maybe have draw_rect_xform just be an outline and have another one for draw_filled_rect_xform or something
-	  void draw_rounded_rect_xform(Matrix4 xform, Vector2 size, float rounding, Vector4 color);
-	  void draw_circle_xform(Matrix4 xform, float radius, int segments, Vector4 color);
-	  void draw_line_xform(Matrix4 from, Matrix4 to, float thickness, Vector4 color);
-	  
-	  // purely for screen space coords (scissor rect shit)
-	  void push_clip_rect(Vector2 position, Vector2 size);
-	  void pop_clip_rect();
+	- API to pass constant values to shader (codegen #define's)
 		
 - Fonts
 	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)

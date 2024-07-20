@@ -3,6 +3,7 @@ ooga booga
 
 ## TOC
 - [What is ooga booga?](#what-is-ooga-booga)
+	- [A new C Standard](#a-new-c-standard)
 	- [SIMPLICITY IS KING](#simplicity-is-king)
 	- [The "Build System"](#the-build-system)
 - [Course: From Scratch to Steam](#course-from-scratch-to-steam)
@@ -14,6 +15,14 @@ ooga booga
 ## What is ooga booga?
 
 Ooga booga, often referred to as a *game engine* for simplicity, is more so designed to be a new C Standard, i.e. a new way to develop software from scratch in C. Other than `<math.h>` we don't include a single C std header, but are instead writing a better standard library heavily optimized for developing games. Except for some image & audio file decoding, Ooga booga does not rely on any other third party code.
+
+### A new C Standard
+
+Let's face it. The C standard is terrible. Don't even get me started on `string.h`. To be fair, any mainstream language standard is terrible. 
+
+So what if we could strip out the nonsense standard of C and slap on something that's specifically made for video games, prioritizing speed and *simplicity*?
+
+That's exactly what oogabooga sets out to do.
 
 ### SIMPLICITY IS KING
 
@@ -49,7 +58,22 @@ Currently, we only support Windows x64 systems.
 3. Make a file my_file.c in <project_dir>
 ```
 int entry(int argc, char **argv) {
-	print("Ooga, booga!\n");
+	
+	window.title = STR("Minimal Game Example");
+	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
+	window.scaled_height = 720; 
+	window.x = 200;
+	window.y = 90;
+	window.clear_color = hex_to_rgba(0x6495EDff);
+
+	while (!window.should_close) {
+		reset_temporary_storage();
+		
+		os_update(); 
+		gfx_update();
+	}
+
+	return 0;
 }
 ```
 4. in build.c add this line to the bottom

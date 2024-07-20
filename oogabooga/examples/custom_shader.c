@@ -2,9 +2,20 @@
 // BEWARE std140 packing:
 // https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules
 typedef struct My_Cbuffer {
-	Vector2 mouse_pos_screen;
-	Vector2 window_size;
+	Vector2 mouse_pos_screen; // We use this to make a light around the mouse cursor
+	Vector2 window_size; // We only use this to revert the Y in the shader because for some reason d3d11 inverts it.
 } My_Cbuffer;
+
+
+// We implement these details which we implement in the shader
+#define DETAIL_TYPE_ROUNDED_CORNERS 1
+#define DETAIL_TYPE_OUTLINED 2
+
+// With custom shading we can extend the rendering library!
+Draw_Quad *draw_rounded_rect(Vector2 p, Vector2 size, Vector4 color, float radius);
+Draw_Quad *draw_rounded_rect_xform(Matrix4 xform, Vector2 size, Vector4 color, float radius);
+Draw_Quad *draw_outlined_rect(Vector2 p, Vector2 size, Vector4 color, float line_width);
+Draw_Quad *draw_outlined_rect_xform(Matrix4 xform, Vector2 size, Vector4 color, float line_width);
 
 int entry(int argc, char **argv) {
 	
@@ -51,9 +62,9 @@ int entry(int argc, char **argv) {
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
 		rect_xform         = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
-		draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_GREEN);
+		Draw_Quad *q = draw_rounded_rect_xform(rect_xform, v2(.5f, .5f), COLOR_GREEN, 0.1);
 		
-		draw_rect(v2(sin(now), -.8), v2(.5, .25), COLOR_RED);
+		draw_outlined_rect(v2(sin(now), -.8), v2(.5, .25), COLOR_RED, 15);
 		
 	
 		// Shader hot reloading
@@ -69,4 +80,37 @@ int entry(int argc, char **argv) {
 	}
 
 	return 0;
+}
+
+Draw_Quad *draw_rounded_rect(Vector2 p, Vector2 size, Vector4 color, float radius) {
+	Draw_Quad *q = draw_rect(p, size, color);
+	// detail_type
+	q->userdata[0].x = DETAIL_TYPE_ROUNDED_CORNERS;
+	// corner_radius
+	q->userdata[0].y = radius;
+	return q;
+}
+Draw_Quad *draw_rounded_rect_xform(Matrix4 xform, Vector2 size, Vector4 color, float radius) {
+	Draw_Quad *q = draw_rect_xform(xform, size, color);
+	// detail_type
+	q->userdata[0].x = DETAIL_TYPE_ROUNDED_CORNERS;
+	// corner_radius
+	q->userdata[0].y = radius;
+	return q;
+}
+Draw_Quad *draw_outlined_rect(Vector2 p, Vector2 size, Vector4 color, float line_width) {
+	Draw_Quad *q = draw_rect(p, size, color);
+	// detail_type
+	q->userdata[0].x = DETAIL_TYPE_OUTLINED;
+	// line_width
+	q->userdata[0].y = line_width;
+	return q;
+}
+Draw_Quad *draw_outlined_rect_xform(Matrix4 xform, Vector2 size, Vector4 color, float line_width) {
+	Draw_Quad *q = draw_rect_xform(xform, size, color);
+	// detail_type
+	q->userdata[0].x = DETAIL_TYPE_OUTLINED;
+	// line_width
+	q->userdata[0].y = line_width;
+	return q;
 }

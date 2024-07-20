@@ -15,9 +15,16 @@
 	#error "Unknown renderer GFX_RENDERER defined"
 #endif
 
+
+#ifndef VERTEX_2D_USER_DATA_COUNT
+	#define VERTEX_2D_USER_DATA_COUNT 1
+#endif
+
 forward_global const Gfx_Handle GFX_INVALID_HANDLE;
+// #Volatile reflected in 2D batch shader
 #define QUAD_TYPE_REGULAR 0
 #define QUAD_TYPE_TEXT 1
+#define QUAD_TYPE_CIRCLE 2
 
 typedef enum Gfx_Filter_Mode {
 	GFX_FILTER_MODE_NEAREST,

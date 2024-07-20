@@ -91,8 +91,15 @@ int entry(int argc, char **argv) {
 		draw_frame.enable_z_sorting = do_enable_z_sorting;
 		if (is_key_just_pressed('Z')) do_enable_z_sorting = !do_enable_z_sorting;
 		
+		if (do_enable_z_sorting) {
+			push_window_scissor(
+				v2(input_frame.mouse_x-256, input_frame.mouse_y-256), 
+				v2(input_frame.mouse_x+256, input_frame.mouse_y+256)
+			);
+		}
+		
 		seed_for_random = 69;
-		for (u64 i = 0; i < 100000; i++) {
+		for (u64 i = 0; i < 30000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;
@@ -117,7 +124,7 @@ int entry(int argc, char **argv) {
 		
 		Vector2 hover_position = v2_rotate_point_around_pivot(v2(-.5, -.5), v2(0, 0), (f32)now);
 		Vector2 local_pivot = v2(.125f, .125f);
-		draw_rect(v2_sub(hover_position, local_pivot), v2(.25f, .25f), v4((sin(now)+1.0)/2.0, 1.0, 0.0, 1.0));
+		draw_circle(v2_sub(hover_position, local_pivot), v2(.25f, .25f), v4((sin(now)+1.0)/2.0, 1.0, 0.0, 1.0));
 		
 		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
 		
@@ -133,6 +140,10 @@ int entry(int argc, char **argv) {
 		if (is_key_just_pressed('T')) show = !show;
 		
 		if (show) draw_image(atlas->image, v2(-1.6, -1), v2(4, 4), COLOR_WHITE);
+		
+		if (do_enable_z_sorting) {
+			pop_window_scissor();
+		}
 		
 		tm_scope("gfx_update") {
 			gfx_update();

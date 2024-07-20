@@ -1,79 +1,34 @@
 
 /*
-Usage:
-
-	Just call draw_xxx procedures anywhere in the frame when you want something to be drawn that frame.
-
-
-	// Examples:
-
-	// Verbose
-	Draw_Quad quad;
-	quad.bottom_left  = v2(x, y);
-	quad.top_left     = v2(x, y);
-	quad.top_right    = v2(x, y);
-	quad.bottom_right = v2(x, y);
-	quad.color        = v4(r, g, b, a);
-	quad.image        = my_image; // ZERO(Gfx_Image) To draw a plain color
-	quad.uv           = v4(0, 0, 1, 1); 
+	void push_z_layer(s32 z);
+	void pop_z_layer();
+	void push_window_scissor(Vector2 min, Vector2 max);
+	void pop_window_scissor();
 	
-	draw_quad(quad);
-	
-	
-	// Basic rect. Bottom left at X=-0.25, Y=-0.5 with a size of W=0.5, H=0.5
-	draw_rect(v2(-0.25, -0.5), v2(0.5, 0.5), COLOR_GREEN);
-	
-	// Rotated rect. Bottom left at X=-0.25, Y=-0.5 with a size of W=0.5, H=0.5
-	// With a centered pivot (half size) and a rotation of 2.4 radians
-	// If pivot is v2(0, 0), the rectangle will rotate around it's bottom left.
-	draw_rect_rotated(v2(-0.25, -0.5), v2(0.5, 0.5), COLOR_GREEN, v2(0.25, 0.25), 2.4f);
-	
-	// Basic image. Bottom left at X=-0.25, Y=-0.5 with a size of W=0.5, H=0.5
-	draw_image(v2(-0.25, -0.5), v2(0.5, 0.5), COLOR_GREEN);
-	
-	// Rotated image. Bottom left at X=-0.25, Y=-0.5 with a size of W=0.5, H=0.5
-	// With a centered pivot (half size) and a rotation of 2.4 radians
-	// If pivot is v2(0, 0), the rectangle will rotate around it's bottom left.
-	draw_image_rotated(v2(-0.25, -0.5), v2(0.5, 0.5), COLOR_GREEN, v2(0.25, 0.25), 2.4f);
-	
-	// Loading an image (png only)
-	Gfx_Image image = load_image_from_disk("my_image.png");
-	if (!image.data) {
-		// We failed loading the image.
-	}
-	
-	// If you ever need to free the image:
-	delete_image(image);
-	
-	
-	API:
-	
-	// !! IMPORTANT
-	// The Draw_Quad* returned from draw procedures is a temporary pointer and may be
-	// invalid after the next draw_xxxx call. This is because quads are stored in a
-	// resizing buffer (because that gave us a non-trivial performance boost).
-	// So the purpose of returning them is to customize the quad right after the draw proc.
-	
+	Draw_Quad *draw_rect(Vector2 position, Vector2 size, Vector4 color);
+	Draw_Quad *draw_rect_xform(Matrix4 xform, Vector2 size, Vector4 color);
+	Draw_Quad *draw_circle(Vector2 position, Vector2 size, Vector4 color);
+	Draw_Quad *draw_circle_xform(Matrix4 xform, Vector2 size, Vector4 color);
+	Draw_Quad *draw_image(Gfx_Image *image, Vector2 position, Vector2 size, Vector4 color);
+	Draw_Quad *draw_image_xform(Gfx_Image *image, Matrix4 xform, Vector2 size, Vector4 color);
 	Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip);
 	Draw_Quad *draw_quad(Draw_Quad quad);
 	Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform);
-	Draw_Quad *draw_rect(Vector2 position, Vector2 size, Vector4 color);
-	Draw_Quad *draw_rect_xform(Matrix4 xform, Vector2 size, Vector4 color);
-	Draw_Quad *draw_image(Gfx_Image *image, Vector2 position, Vector2 size, Vector4 color);
-	Draw_Quad *draw_image_xform(Gfx_Image *image, Matrix4 xform, Vector2 size, Vector4 color);
-	// raster_height is the pixel height that the text will be rasterized at. If text is blurry,
-	// you can try to increase raster_height and lower scale.
+	bool draw_text_callback(Gfx_Glyph glyph, Gfx_Font_Atlas *atlas, float glyph_x, float glyph_y, void *ud);
+	void draw_text_xform(Gfx_Font *font, string text, u32 raster_height, Matrix4 xform, Vector2 scale, Vector4 color);
 	void draw_text(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color);
-	void draw_text_xform(Gfx_Font *font, string text, u32 raster_height, Matrix4 xform, Vector4 color);
-	
+	Gfx_Text_Metrics draw_text_and_measure(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color);
+	void draw_line(Vector2 p0, Vector2 p1, float line_width, Vector4 color);
 */
 
 // We use radix sort so the exact bit count is of importance
 #define MAX_Z_BITS 21
 #define MAX_Z ((1 << MAX_Z_BITS)/2)
 #define Z_STACK_MAX 4096
+#define SCISSOR_STACK_MAX 4096
 
 typedef struct Draw_Quad {
+	// BEWARE !! These are in ndc
 	Vector2 bottom_left, top_left, top_right, bottom_right;
 	// r, g, b, a
 	Vector4 color;
@@ -82,8 +37,12 @@ typedef struct Draw_Quad {
 	Gfx_Filter_Mode image_mag_filter;
 	s32 z;
 	u8 type;
+	bool has_scissor;
 	// x1, y1, x2, y2
 	Vector4 uv;
+	Vector4 scissor;
+	
+	Vector4 userdata[VERTEX_2D_USER_DATA_COUNT]; // #Volatile do NOT change this to a pointer
 	
 } Draw_Quad;
 
@@ -99,6 +58,9 @@ typedef struct Draw_Frame {
 	bool enable_z_sorting;
 	s32 z_stack[Z_STACK_MAX];
 	u64 z_count;
+
+	Vector4 scissor_stack[SCISSOR_STACK_MAX];
+	u64 scissor_count;
 	
 	void *cbuffer;
 	
@@ -127,6 +89,17 @@ void pop_z_layer() {
 	draw_frame.z_count -= 1;
 }
 
+void push_window_scissor(Vector2 min, Vector2 max) {
+	assert(draw_frame.scissor_count < SCISSOR_STACK_MAX, "Too many scissors pushed. You can pop with pop_window_scissor() when you are done drawing to it.");
+	
+	draw_frame.scissor_stack[draw_frame.scissor_count] = v4(min.x, min.y, max.x, max.y);
+	draw_frame.scissor_count += 1;
+}
+void pop_window_scissor() {
+	assert(draw_frame.scissor_count > 0, "No scissors to pop!");
+	draw_frame.scissor_count -= 1;
+}
+
 Draw_Quad _nil_quad = {0};
 Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	quad.bottom_left  = m4_transform(world_to_clip, v4(v2_expand(quad.bottom_left), 0, 1)).xy;
@@ -150,6 +123,14 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	
 	quad.z = 0;
 	if (draw_frame.z_count > 0)  quad.z = draw_frame.z_stack[draw_frame.z_count-1];
+	
+	quad.has_scissor = false;
+	if (draw_frame.scissor_count > 0) {
+		quad.scissor = draw_frame.scissor_stack[draw_frame.scissor_count-1];
+		quad.has_scissor = true;
+	}
+	
+	memset(quad.userdata, 0, sizeof(quad.userdata));
 	
 	if (draw_frame.num_quads >= allocated_quads) {
 		// #Memory
@@ -185,6 +166,7 @@ Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform) {
 }
 
 Draw_Quad *draw_rect(Vector2 position, Vector2 size, Vector4 color) {
+	// #Copypaste #Volatile	
 	const float32 left   = position.x;
 	const float32 right  = position.x + size.x;
 	const float32 bottom = position.y;
@@ -202,6 +184,7 @@ Draw_Quad *draw_rect(Vector2 position, Vector2 size, Vector4 color) {
 	return draw_quad(q);
 }
 Draw_Quad *draw_rect_xform(Matrix4 xform, Vector2 size, Vector4 color) {
+	// #Copypaste #Volatile	
 	Draw_Quad q = ZERO(Draw_Quad);
 	q.bottom_left  = v2(0,  0);
 	q.top_left     = v2(0,  size.y);
@@ -210,6 +193,37 @@ Draw_Quad *draw_rect_xform(Matrix4 xform, Vector2 size, Vector4 color) {
 	q.color = color;
 	q.image = 0;
 	q.type = QUAD_TYPE_REGULAR;
+	
+	return draw_quad_xform(q, xform);
+}
+Draw_Quad *draw_circle(Vector2 position, Vector2 size, Vector4 color) {
+	// #Copypaste #Volatile	
+	const float32 left   = position.x;
+	const float32 right  = position.x + size.x;
+	const float32 bottom = position.y;
+	const float32 top    = position.y+size.y;
+	
+	Draw_Quad q;
+	q.bottom_left  = v2(left,  bottom);
+	q.top_left     = v2(left,  top);
+	q.top_right    = v2(right, top);
+	q.bottom_right = v2(right, bottom);
+	q.color = color;
+	q.image = 0;
+	q.type = QUAD_TYPE_CIRCLE;
+	
+	return draw_quad(q);
+}
+Draw_Quad *draw_circle_xform(Matrix4 xform, Vector2 size, Vector4 color) {
+	// #Copypaste #Volatile	
+	Draw_Quad q = ZERO(Draw_Quad);
+	q.bottom_left  = v2(0,  0);
+	q.top_left     = v2(0,  size.y);
+	q.top_right    = v2(size.x, size.y);
+	q.bottom_right = v2(size.x, 0);
+	q.color = color;
+	q.image = 0;
+	q.type = QUAD_TYPE_CIRCLE;
 	
 	return draw_quad_xform(q, xform);
 }

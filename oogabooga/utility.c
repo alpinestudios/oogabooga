@@ -101,3 +101,4 @@ void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
         }
     }
 }
+
