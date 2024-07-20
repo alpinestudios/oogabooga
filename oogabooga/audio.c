@@ -1,5 +1,4 @@
 
-
 /*
 
 		Loading audio:
@@ -12,6 +11,8 @@
 		
 	void play_one_audio_clip_source(Audio_Source source);
 	void play_one_audio_clip(string path);
+	void play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos);
+	void play_one_audio_clip_at_position(string path, Vector3 pos);
 	
 		Playing audio (with players):
 	
@@ -387,8 +388,8 @@ wav_read_frames(Wav_Stream *wav, Audio_Format format, void *frames,
 		return 0;
 	}
 	
-	bool raw_is_float = wav->format == 0x0003;
-	bool raw_is_f32 = raw_is_float && wav->valid_bits_per_sample == 32;
+	bool raw_is_float32 = wav->format == 0x0003;
+	bool raw_is_f32 = raw_is_float32 && wav->valid_bits_per_sample == 32;
 	bool raw_is_int = wav->format == 0x0001;
 	bool raw_is_s16 = raw_is_int && wav->valid_bits_per_sample == 16;
 
@@ -978,8 +979,8 @@ resample_frames(void *dst, Audio_Format dst_format,
             void *dst_comp = (u8*)dst_frame + c * dst_comp_size;
 
             if (src_format.bit_width == AUDIO_BITS_32) {
-                float sample_1 = *((f32*)src_comp_1);
-                float sample_2 = *((f32*)src_comp_2);
+                float32 sample_1 = *((f32*)src_comp_1);
+                float32 sample_2 = *((f32*)src_comp_2);
                 f32 s = sample_1 + lerp_factor * (sample_2 - sample_1);
                 memcpy(dst_comp, &s, sizeof(f32));
             } else if (src_format.bit_width == AUDIO_BITS_16) {
@@ -1154,10 +1155,15 @@ typedef struct Audio_Player {
 	u64 fade_frames;
 	u64 fade_frames_total;
 	bool release_when_done;
-
 	// I think we only need to sync when audio thread samples the source, which should be
 	// very quick and low contention, hence a spinlock.
 	Spinlock sample_lock; 
+	
+	// These can be set safely
+	Vector3 position; // ndc space -1 to 1
+	bool disable_spacialization;
+	float32 volume;
+	
 } Audio_Player;
 #define AUDIO_PLAYERS_PER_BLOCK 128
 typedef struct Audio_Player_Block {
@@ -1181,6 +1187,7 @@ audio_player_get_one() {
 			
 				memset(&block->players[i], 0, sizeof(block->players[i]));
 				block->players[i].allocated = true;
+				block->players[i].volume = 1.0;
 				
 				return &block->players[i];
 			}
@@ -1201,6 +1208,7 @@ audio_player_get_one() {
 	last->next = new_block;
 
 	new_block->players[0].allocated = true;
+	new_block->players[0].volume = 1.0;
 	return &new_block->players[0];
 }
 
@@ -1325,14 +1333,20 @@ Hash_Table just_audio_clips;
 bool just_audio_clips_initted = false;
 
 void
-play_one_audio_clip_source(Audio_Source source) {
+play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos) {
 	Audio_Player *p = audio_player_get_one();
 	audio_player_set_source(p, source, false);
 	audio_player_set_state(p, AUDIO_PLAYER_STATE_PLAYING);
+	p->position = pos;
 	p->release_when_done = true;
 }
+
+void inline 
+play_one_audio_clip_source(Audio_Source source) {
+	play_one_audio_clip_source_at_position(source, v3(0, 0, 0));
+}
 void
-play_one_audio_clip(string path) {
+play_one_audio_clip_at_position(string path, Vector3 pos) {
 	if (!just_audio_clips_initted) {
 		just_audio_clips_initted = true;
 		just_audio_clips = make_hash_table(string, Audio_Source, get_heap_allocator());
@@ -1340,7 +1354,7 @@ play_one_audio_clip(string path) {
 	
 	Audio_Source *src_ptr = hash_table_find(&just_audio_clips, path);
 	if (src_ptr) {
-		play_one_audio_clip_source(*src_ptr);
+		play_one_audio_clip_source_at_position(*src_ptr, pos);
 	} else {
 		Audio_Source new_src;
 		bool ok = audio_open_source_load(&new_src, path, get_heap_allocator());
@@ -1349,8 +1363,13 @@ play_one_audio_clip(string path) {
 			return;
 		}
 		hash_table_add(&just_audio_clips, path, new_src);
-		play_one_audio_clip_source(new_src);
+		play_one_audio_clip_source_at_position(new_src, pos);
 	}
+	
+}
+void inline
+play_one_audio_clip(string path) {
+	play_one_audio_clip_at_position(path, v3(0, 0, 0));
 }
 
 void
@@ -1403,6 +1422,163 @@ audio_apply_fade_out(void *frames, u64 number_of_frames, Audio_Format format,
 	    		}
 	    	}
 	    }
+    }
+}
+
+void apply_audio_spacialization_mono(void* frames, Audio_Format format, u64 number_of_frames, Vector3 pos) {
+	// No idea if this actually gives the perception of audio being positioned.
+	// I also don't have a mono audio device to test it.
+    float* audio_data = (float*)frames;
+
+    float32 distance = sqrtf(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+    float32 attenuation = 1.0f / (1.0f + distance); 
+
+    float32 alpha = 0.1f;
+    float32 prev_sample = 0.0f;
+    
+    u64 comp_size  = get_audio_bit_width_byte_size(format.bit_width);
+    u64 frame_size = comp_size * format.channels;
+
+    for (u64 i = 0; i < number_of_frames; ++i) {
+        float32 sample = audio_data[i];
+        convert_one_component(
+        	&sample, 
+        	AUDIO_BITS_32, 
+        	(u8*)frames+i*frame_size,
+        	format.bit_width
+    	);
+
+        sample *= attenuation;
+
+        sample = alpha * sample + (1.0f - alpha) * prev_sample;
+        prev_sample = sample;
+
+        convert_one_component(
+	    	(u8*)frames+i*frame_size,
+	    	format.bit_width,
+	    	&sample, 
+	    	AUDIO_BITS_32
+		);
+    }
+}
+void apply_audio_spacialization(void* frames, Audio_Format format, u64 number_of_frames, Vector3 pos) {
+
+	if (format.channels == 1) {
+		apply_audio_spacialization_mono(frames, format, number_of_frames, pos);
+	}
+
+    float32 distance = sqrtf(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+    float32 attenuation = 1.0f / (1.0f + distance);
+
+    float32 left_right_pan = (pos.x + 1.0f) * 0.5f;
+    float32 up_down_pan = (pos.y + 1.0f) * 0.5f;   
+    float32 front_back_pan = (pos.z + 1.0f) * 0.5f;
+
+	u64 comp_size  = get_audio_bit_width_byte_size(format.bit_width);
+    u64 frame_size = comp_size * format.channels;
+	
+	float32 high_pass_coeff = 0.8f + 0.2f * up_down_pan;
+    float32 low_pass_coeff = 1.0f - high_pass_coeff;
+	
+    // Apply gains to each frame
+    for (u64 i = 0; i < number_of_frames; ++i) {
+        for (u64 c = 0; c < format.channels; ++c) {
+        	// Convert whatever to float32 -1 to 1
+        	float32 sample;
+            convert_one_component(
+            	&sample, 
+            	AUDIO_BITS_32, 
+            	(u8*)frames+i*frame_size+c*comp_size, 
+            	format.bit_width
+        	);
+            float32 gain = 1.0f / format.channels;
+
+            if (format.channels == 2) {
+            
+            	// time delay and phase shift for vertical position
+			    float32 phase_shift = (up_down_pan - 0.5f) * 0.5f; // 0.5 radians phase shift range
+            
+                // Stereo
+                if (c == 0) {
+                    gain = (1.0f - left_right_pan) * attenuation;
+                    sample = sample * cos(phase_shift) - sample * sin(phase_shift);
+                } else if (c == 1) {
+                    gain = left_right_pan * attenuation;
+                    sample = sample * cos(phase_shift) + sample * sin(phase_shift);
+                }
+            } else if (format.channels == 4) {
+                // Quadraphonic sound (left-right, front-back)
+                if (c == 0) {
+                    gain = (1.0f - left_right_pan) * (1.0f - front_back_pan) * attenuation;
+                } else if (c == 1) {
+                    gain = left_right_pan * (1.0f - front_back_pan) * attenuation;
+                } else if (c == 2) {
+                    gain = (1.0f - left_right_pan) * front_back_pan * attenuation;
+                } else if (c == 3) {
+                    gain = left_right_pan * front_back_pan * attenuation;
+                }
+            } else if (format.channels == 6) {
+                // 5.1 surround sound (left, right, center, LFE, rear left, rear right)
+                if (c == 0) {
+                    gain = (1.0f - left_right_pan) * attenuation;
+                } else if (c == 1) {
+                    gain = left_right_pan * attenuation;
+                } else if (c == 2) {
+                    gain = (1.0f - front_back_pan) * attenuation;
+                } else if (c == 3) {
+                    gain = 0.5f * attenuation; // LFE (subwoofer) channel
+                } else if (c == 4) {
+                    gain = (1.0f - left_right_pan) * front_back_pan * attenuation;
+                } else if (c == 5) {
+                    gain = left_right_pan * front_back_pan * attenuation;
+                }
+            } else {
+            	// No idea what device this is, just distribute equally
+                gain = attenuation / format.channels;
+            }
+
+			sample *= gain;
+			// Convert back to whatever
+			convert_one_component(
+            	(u8*)frames+i*frame_size+c*comp_size, 
+            	format.bit_width,
+            	&sample, 
+            	AUDIO_BITS_32
+        	);
+        }
+    }
+}
+
+void apply_audio_volume(void* frames, Audio_Format format, u64 number_of_frames, float32 vol) {
+	
+	// #Speed
+	// This is lazy, also it can be combined with other passes.
+
+	u64 comp_size  = get_audio_bit_width_byte_size(format.bit_width);
+    u64 frame_size = comp_size * format.channels;
+	if (vol <= 0.0) {
+		memset(frames, 0, frame_size*number_of_frames);
+	}
+	
+	for (u64 i = 0; i < number_of_frames; ++i) {
+        for (u64 c = 0; c < format.channels; ++c) {
+        	float32 sample;
+            convert_one_component(
+            	&sample, 
+            	AUDIO_BITS_32, 
+            	(u8*)frames+i*frame_size+c*comp_size, 
+            	format.bit_width
+        	);
+        	
+        	sample *= vol;
+        	
+			convert_one_component(
+            	(u8*)frames+i*frame_size+c*comp_size, 
+            	format.bit_width,
+            	&sample, 
+            	AUDIO_BITS_32
+        	);
+        }
     }
 }
 
@@ -1579,6 +1755,13 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 					number_of_sample_frames
 				);
 				assert(converted == number_of_output_frames);
+			}
+
+			if (!p->disable_spacialization) {
+				apply_audio_spacialization(mix_buffer, out_format, number_of_output_frames, p->position);
+			}
+			if (p->volume != 0.0) {
+				apply_audio_volume(mix_buffer, out_format, number_of_output_frames, p->volume);
 			}
 			
 			mix_frames(output, mix_buffer, number_of_output_frames, out_format);

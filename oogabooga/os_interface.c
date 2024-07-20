@@ -32,13 +32,7 @@
 
 #define _INTSIZEOF(n)         ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
 
-// #Cleanup we only need vsnprintf
-typedef void* (__cdecl *Crt_Memcpy_Proc)    (void*, const void*, size_t);
-typedef int   (__cdecl *Crt_Memcmp_Proc)    (const void*, const void*, size_t);
-typedef void* (__cdecl *Crt_Memset_Proc)    (void*, int, size_t);
-typedef int   (__cdecl *Crt_Vprintf_Proc)   (const char*, va_list);
 typedef int   (__cdecl *Crt_Vsnprintf_Proc) (char*, size_t, const char*, va_list);
-typedef int   (__cdecl *Crt_Vsprintf_Proc)  (char*, const char*, va_list);
 
 typedef struct Os_Info {
 	u64 page_size;
@@ -46,35 +40,17 @@ typedef struct Os_Info {
 	
 	Dynamic_Library_Handle crt;
 	
-	// #Cleanup we only need vsnprintf
-	Crt_Memcpy_Proc    crt_memcpy;
-	Crt_Memcmp_Proc    crt_memcmp;
-	Crt_Memset_Proc    crt_memset;
-	Crt_Vprintf_Proc   crt_vprintf;
 	Crt_Vsnprintf_Proc crt_vsnprintf;
-	Crt_Vsprintf_Proc  crt_vsprintf;
     
     void *static_memory_start, *static_memory_end;
     
 } Os_Info;
 Os_Info os;
 
-inline int crt_vprintf(const char* fmt, va_list args) {
-	return os.crt_vprintf(fmt, args);
-}
-
 inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
 
 inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
 	return os.crt_vsnprintf(buffer, n, fmt, args);
-}
-
-inline int crt_sprintf(char *str, const char *format, ...) {
-	va_list args;
-	va_start(args, format);
-	int r = os.crt_vsprintf(str, format, args);
-	va_end(args);
-	return r;
 }
 
 Mutex_Handle program_memory_mutex = 0;
@@ -91,22 +67,25 @@ typedef struct Thread Thread;
 typedef void(*Thread_Proc)(Thread*);
 
 typedef struct Thread {
-	u64 id;
+	u64 id; // This is valid after os_thread_start
 	Context initial_context;
 	void* data;
 	Thread_Proc proc;
 	Thread_Handle os_handle;
-	Allocator allocator;
+	Allocator allocator;  // Deprecated !! #Cleanup
 } Thread;
 
 ///
 // Thread primitive
-// #Cleanup this shouldn't be allocating just for the pointer!! Just do os_thread_init(*)
-Thread* os_make_thread(Thread_Proc proc, Allocator allocator);
-void os_destroy_thread(Thread *t);
-void os_start_thread(Thread* t);
-void os_join_thread(Thread* t);
+DEPRECATED(Thread* os_make_thread(Thread_Proc proc, Allocator allocator), "Use os_thread_init instead");
+DEPRECATED(void os_destroy_thread(Thread *t), "Use os_thread_destroy instead");
+DEPRECATED(void os_start_thread(Thread* t), "Use os_thread_start instead");
+DEPRECATED(void os_join_thread(Thread* t), "Use os_thread_join instead");
 
+void os_thread_init(Thread *t, Thread_Proc proc);
+void os_thread_destroy(Thread *t);
+void os_thread_start(Thread *t);
+void os_thread_join(Thread *t);
 
 
 ///
@@ -116,27 +95,8 @@ void os_destroy_mutex(Mutex_Handle m);
 void os_lock_mutex(Mutex_Handle m);
 void os_unlock_mutex(Mutex_Handle m);
 
-typedef struct Spinlock Spinlock;
-// #Cleanup Moved to threading.c
-DEPRECATED(Spinlock *os_make_spinlock(Allocator allocator), "use spinlock_init instead");
-DEPRECATED(void os_spinlock_lock(Spinlock* l), "use spinlock_acquire_or_wait instead");
-DEPRECATED(void os_spinlock_unlock(Spinlock* l), "use spinlock_release instead");
-
 ///
-// Concurrency utilities
-
-// #Cleanup
-// In retrospect, I'm not sure why I choose to implement this per OS.
-// I think Win32 InterlockedCompareExchange just generates the cmpxchg
-// instruction anyways, so may as well just inline asm it (or Win32
-// if we're compiling with msvc) (LDREX/STREX on ARM)
-// - CharlieM July 8th 2024
-// compare_and_swap in cpu.c
-DEPRECATED(bool os_compare_and_swap_8   (u8   *a, u8   b, u8   old), "use compare_and_swap instead");
-DEPRECATED(bool os_compare_and_swap_16  (u16  *a, u16  b, u16  old), "use compare_and_swap instead");
-DEPRECATED(bool os_compare_and_swap_32  (u32  *a, u32  b, u32  old), "use compare_and_swap instead");
-DEPRECATED(bool os_compare_and_swap_64  (u64  *a, u64  b, u64  old), "use compare_and_swap instead");
-DEPRECATED(bool os_compare_and_swap_bool(bool *a, bool b, bool old), "use compare_and_swap instead");
+// Threading utilities
 
 void os_sleep(u32 ms);
 void os_yield_thread();
@@ -147,8 +107,7 @@ void os_high_precision_sleep(f64 ms);
 // Time
 ///
 
-// #Cleanup getting the cycle count is an x86 intrinsic so this should be in cpu.c
-u64 os_get_current_cycle_count();
+DEPRECATED(u64 os_get_current_cycle_count(), "use rdtsc() instead");
 float64 os_get_current_time_in_seconds();
 
 
@@ -196,6 +155,7 @@ bool os_file_set_pos(File f, s64 pos_in_bytes);
 s64  os_file_get_pos(File f);
 
 s64 os_file_get_size(File f);
+s64 os_file_get_size_from_path(string path);
 
 bool os_write_entire_file_handle(File f, string data);
 bool os_write_entire_file_s(string path, string data);
@@ -332,8 +292,8 @@ typedef struct Os_Window {
 	string title;
 	union { s32 width;  s32 pixel_width;  };
 	union { s32 height; s32 pixel_height; };
-	s32 scaled_width;
-	s32 scaled_height;
+	s32 scaled_width; // DPI scaled!
+	s32 scaled_height; // DPI scaled!
 	s32 x;
 	s32 y;
 	Vector4 clear_color;

@@ -1,3 +1,43 @@
+## v0.01.001 - Spacial audio, custom shading, scissor boxing
+	- Audio
+		- Implemented spacial audio playback
+			Simply set player->position (it's in ndc space (-1 to 1), see audio_test.c)
+			Save some computation with player->disable_spacialization = true
+		- Added position overloads for play_one_clip
+			play_one_audio_clip_source_at_position(source, pos)
+			play_one_audio_clip_at_position(path, pos)
+		- Implemented volume control with player->volume
+	- Renderer
+		- Implemented custom shading
+			- Recompile shader with your extension to the pixel stage with
+				shader_recompile_with_extension(source, cbuffer_size)
+			- pass a buffer to the shader constant buffer at b0 with
+				draw_frame.cbuffer = &my_cbuffer_data
+			- pass userdata in the form of Vector4's
+				define VERTEX_2D_USER_DATA_COUNT for the amount of Vertex4 userdata's to be part of each vertex.
+				You can set the userdata in Draw_Quad->userdata which is a Vector4[VERTEX_2D_USER_DATA_COUNT].
+				See custom_shading.c example.
+		- Added window scissor boxing (screen space)
+			push_window_scissor(min, max);
+			pop_window_scissor();
+		- Added draw_circle() and draw_circle_xform in drawing.c
+		- Made an example for custom shading (oogabooga/examples/custom_shading.c)
+		- Embed default shader into codebase & always compile
+		- Added draw_line(p0, p1, width, color)
+		- Implemented culling of quads out of view
+		- Fixed culling bug where big rectangles that overlapped the screen but had all corners outside the screen would get culled.
+	- Misc
+		- Improved text measure and added a better explanation for it in font.c.
+		- Added some useful Vector procedures:
+			vx_length()
+			vx_normalize()
+			vx_average()
+			vx_dot()
+			vx_abs()
+			vx_cross()
+		- added os_get_file_size_from_Path()
+		- Some simple restructuring of existing code
+	- Made heap corruption detection more robust
 
 ## v0.01.000 - AUDIO!
 	- Added audio sources

@@ -1,33 +1,45 @@
 
 - Audio
-	- Player volume control
+	- Avoid playing identical audio at the same time
+	- Allow audio programming
+		- Inject mixer proc per player
+		- Inject a mixer proc before and after filling output buffer
+	- Better spacialization
+	- Fix vorbis >FILE< streaming (#StbVorbisFileStream)
+	- Handle audio sources which had their format defaulted to update when default device changes
+		For streamed audio sources this should be easy enough, because the conversion happens from raw format to source format as we stream it.
+		For loaded sources though, we would need to convert the source->pcm_frames.
 	- Optimize
 		- Spam simd
 		- Concurrent jobs for players?
 		- Mega buffer for contiguous intermediate buffers
 			We definitely also want a limit to how much memory we want allocated to intermediate buffers.
-	- Avoid playing identical audio at the same time
-	- Custom audio mixing
-	- Fix vorbis >FILE< streaming (#StbVorbisFileStream)
-	- Handle audio sources which had their format defaulted to update when default device changes
-		For streamed audio sources this should be easy enough, because the conversion happens from raw format to source format as we stream it.
-		For loaded sources though, we would need to convert the source->pcm_frames.
 	- Bugs:
 		- Small fadeout on pause is slightly noisy
 		- Setting time stamp/progression causes noise (need fade transition like on pause/play)
 		- End of clip also causes noise if audio clip does not end smoothly
 		- Setting audio source to a format which differs from audio output format in both channels and bit_width at the same time will produce pure loud noise.
 		- 24-Bit audio conversion doesn't really work
-		
-- Juice
-	- draw_line
-	- vx_length
-	- Occlude quads out of view
-	
+		- Converting 24-bit audio files doesn't really work
+			
 - General bugs & issues
 	- Release freeze in run_tests
+	- Window width&height is zero when minimized (and we make a 0x0 swap chain)
+	- Window positioning & sizing is fucky wucky
+	- Memory error messages are misleading when no VERY_DEBUG
+	
+- Renderer
+	- API to pass constant values to shader (codegen #define's)
+		
+- Fonts
+	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)
+	
+- OS
+	Window::bool is_minimized
+	don't set window.width & window.height to 0
 	
 - Needs testing:
 	- Audio format channel conversions
 	- sample rate downsampling
 	- non stereo or mono audio
+	- Audio spacialization on anything that's not stereo

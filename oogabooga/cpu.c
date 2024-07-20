@@ -34,7 +34,7 @@ typedef struct Cpu_Capabilities {
 		__debugbreak();
 		volatile int *a = 0;
 		*a = 5;
-		a = (int*)0xDEADBEEF;
+		a = (volatile int*)0xDEADBEEF;
     	*a = 5;
 	}
     #include <intrin.h>
