@@ -281,10 +281,6 @@ typedef u8 bool;
 /////
 
 #include "concurrency.c"
-#include "gfx_interface.c"
-
-
-#include "font.c"
 
 #include "profiling.c"
 #include "random.c"
@@ -292,29 +288,38 @@ typedef u8 bool;
 #include "memory.c"
 #include "input.c"
 
-#include "drawing.c"
+#ifndef OOGABOOGA_HEADLESS
 
-#include "audio.c"
+    #include "gfx_interface.c"
 
-// #Portability
-#if GFX_RENDERER == GFX_RENDERER_D3D11
-	#include "gfx_impl_d3d11.c"
-#elif GFX_RENDERER == GFX_RENDERER_VULKAN
-	#error "We only have a D3D11 renderer at the moment"
-#elif GFX_RENDERER == GFX_RENDERER_METAL
-	#error "We only have a D3D11 renderer at the moment"
-#else
-	#error "Unknown renderer GFX_RENDERER defined"
+    #include "font.c"
+
+    #include "drawing.c"
+
+    #include "audio.c"
 #endif
 
 #if TARGET_OS == WINDOWS
 	#include "os_impl_windows.c"
 #elif TARGET_OS == LINUX
-	#error "Linux is not supported yet"
+    #include "os_impl_linux.c"
 #elif TARGET_OS == MACOS
 	#error "Macos is not supported yet"
 #else
 	#error "Current OS is not supported"
+#endif
+
+#ifndef OOGABOOGA_HEADLESS
+    // #Portability
+    #if GFX_RENDERER == GFX_RENDERER_D3D11
+        #include "gfx_impl_d3d11.c"
+    #elif GFX_RENDERER == GFX_RENDERER_VULKAN
+        #error "We only have a D3D11 renderer at the moment"
+    #elif GFX_RENDERER == GFX_RENDERER_METAL
+        #error "We only have a D3D11 renderer at the moment"
+    #else
+        #error "Unknown renderer GFX_RENDERER defined"
+    #endif
 #endif
 
 #include "tests.c"
@@ -350,7 +355,11 @@ void oogabooga_init(u64 program_memory_size) {
 	heap_init();
 	temporary_storage_init();
 	log_info("Ooga booga version is %d.%02d.%03d", OGB_VERSION_MAJOR, OGB_VERSION_MINOR, OGB_VERSION_PATCH);
+#ifndef OOGABOOGA_HEADLESS
 	gfx_init();
+#else
+    log_info("Headless mode on");
+#endif
 	log_verbose("CPU has sse1: %cs", features.sse1 ? "true" : "false");
 	log_verbose("CPU has sse2: %cs", features.sse2 ? "true" : "false");
 	log_verbose("CPU has sse3: %cs", features.sse3 ? "true" : "false");

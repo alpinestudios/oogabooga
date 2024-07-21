@@ -12,6 +12,37 @@
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
+#define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
+void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
+    if (hr != S_OK) {
+    
+    	LPVOID errorMsg;
+        DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+                        FORMAT_MESSAGE_FROM_SYSTEM | 
+                        FORMAT_MESSAGE_IGNORE_INSERTS;
+
+        DWORD messageLength = FormatMessageW(
+            dwFlags,
+            NULL,
+            hr,
+            MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
+            (LPWSTR) &errorMsg,
+            0,
+            NULL );
+
+        if (messageLength > 0) {
+            MessageBoxW(NULL, (LPWSTR)errorMsg, L"Error", MB_OK | MB_ICONERROR);
+        } else {
+            MessageBoxW(NULL, L"Failed to retrieve error message.", L"Error", MB_OK | MB_ICONERROR);
+        }
+    
+
+        panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
+    }
+}
+
+#ifndef OOGABOOGA_HEADLESS
+
 // Persistent
 Input_State_Flags win32_key_states[INPUT_KEY_CODE_COUNT];
 
@@ -202,6 +233,7 @@ void
 win32_audio_poll_default_device_thread(Thread *t);
 
 bool win32_has_audio_thread_started = false;
+#endif /* OOGABOOGA_HEADLESS */
 
 void os_init(u64 program_memory_size) {
 	
@@ -214,9 +246,9 @@ void os_init(u64 program_memory_size) {
     win32_check_hr(hr);
 	
 	context.thread_id = GetCurrentThreadId();
-	
-	
-	
+
+
+
 #if CONFIGURATION == RELEASE
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 #endif
@@ -256,8 +288,8 @@ void os_init(u64 program_memory_size) {
 	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
 	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
 	
+#ifndef OOGABOOGA_HEADLESS
     win32_init_window();
-    
     
     local_persist Thread audio_thread, audio_poll_default_device_thread;
     
@@ -268,6 +300,7 @@ void os_init(u64 program_memory_size) {
     os_thread_start(&audio_poll_default_device_thread);
     
     while (!win32_has_audio_thread_started) { os_yield_thread(); }
+#endif /* NOT OOGABOOGA_HEADLESS */
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -1103,6 +1136,9 @@ os_get_stack_trace(u64 *trace_count, Allocator allocator) {
 #endif // NOT DEBUG
 }
 
+
+#ifndef OOGABOOGA_HEADLESS
+
 // Actually fuck you bill gates
 const GUID CLSID_MMDeviceEnumerator = {0xbcde0395, 0xe52f, 0x467c, {0x8e,0x3d, 0xc4,0x57,0x92,0x91,0x69,0x2e}};
 const GUID IID_IMMDeviceEnumerator = {0xa95664d2, 0x9614, 0x4f35, {0xa7,0x46, 0xde,0x8d,0xb6,0x36,0x17,0xe6}};
@@ -1395,9 +1431,11 @@ win32_audio_thread(Thread *t) {
         
 	}
 }
+#endif /* OOGABOOGA_HEADLESS */
 
 void os_update() {
 
+#ifndef OOGABOOGA_HEADLESS
 	UINT dpi = GetDpiForWindow(window._os_handle);
     float dpi_scale_factor = dpi / 96.0f;
 
@@ -1512,8 +1550,10 @@ void os_update() {
 	if (window.should_close) {
 		win32_window_proc(window._os_handle, WM_CLOSE, 0, 0);
 	}
+#endif /* OOGABOOGA_HEADLESS */
 }
 
+#ifndef OOGABOOGA_HEADLESS
 Input_Key_Code os_key_to_key_code(void* os_key) {
 
 	UINT win32_key = (UINT)(u64)os_key;
@@ -1625,3 +1665,4 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
     panic("Invalid key code %d", key_code);
     return 0;
 }
+#endif /* OOGABOOGA_HEADLESS */
