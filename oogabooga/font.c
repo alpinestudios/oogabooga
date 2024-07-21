@@ -19,14 +19,43 @@ TODO:
 typedef struct Gfx_Font Gfx_Font;
 typedef struct Gfx_Text_Metrics {
 	
-	// "functional" is what you would use for example for text editing for constistent
-	// placements.
-	// To draw text with it's origin at the bottom left, you need to sub this from the bottom
-	// left. I.e:
-	// Vector2 justified_pos = v2_sub(bottom_left, metrics.functional_pos_min);
-	// If you want to center, you have to first justify to bottom left and then add half of
-	// metrics.functional_size (or visual_size if you want perfect alignment and the text 
-	// is static).
+	
+	/*
+	
+		FUNCTIONAL BOX:
+			x0: left start of text box
+			x1: right end of text box
+			y0: The baseline for the bottom line of text
+			y1: The baseline for the top line of text + latin_ascent
+			
+		VISUAL BOX:
+			x0: The minimum X of any pixels
+			x1: The maximum X of any pixels
+			y0: The minimum Y of any pixels
+			y1: The maximum Y of any pixels
+			
+			
+		Usage:
+		
+			For a single piece of static text, it might look better to use the visual box for aligning it somewhere.
+			I might be stupid and that might be useless tho.
+			
+			Most of the time, you are probably going to want to use the functional box.
+			
+			For example, to center:
+			
+				Gfx_Text_Metrics m = measure_text(...);
+				
+				// This is the point where the center of the text box will be
+				Vector2 draw_pos = v2(...);
+				
+				// First justify for the bottom-left to be at the draw point
+				Vector2 justified = v2_sub(draw_pos, m.functional_pos_min);
+				
+				// Then move text backwards by functional_size/2 to align its center to the draw point
+				justified = v2_sub(justified, v2_divf(m.functional_size, 2));
+	
+	*/
 	Vector2 functional_pos_min;
 	Vector2 functional_pos_max;
 	Vector2 functional_size;
@@ -157,12 +186,12 @@ void font_variation_init(Gfx_Font_Variation *variation, Gfx_Font *font, u32 font
 			variation->metrics.latin_descent = c_descent;
 		}
 	}
+	
 	for (u32 c = 'A'; c <= 'Z'; c++) {
 		// This one is bottom-top as opposed to normally in stbtt where it's top-bottom
 		int x0, y0, x1, y1;
 		stbtt_GetCodepointBitmapBox(&font->stbtt_handle, (int)c, variation->scale, variation->scale, &x0, &y0, &x1, &y1);
-		float c_ascent = (float)(y1-y0); // #Bugprone #Cleanup I am not at all sure about this!
-		
+		float c_ascent = (float)abs(y0);
 		if (c_ascent > variation->metrics.latin_ascent) 
 			variation->metrics.latin_ascent = c_ascent;
 	}
@@ -325,7 +354,8 @@ Gfx_Font_Metrics get_font_metrics_scaled(Gfx_Font *font, u32 raster_height, Vect
 
 typedef struct {
 	Gfx_Text_Metrics m;
-	
+	Gfx_Font *font;
+	u32 raster_height;
 	Vector2 scale;
 } Measure_Text_Walk_Glyphs_Context;
 
@@ -333,10 +363,12 @@ bool measure_text_glyph_callback(Gfx_Glyph glyph, Gfx_Font_Atlas *atlas, float g
 
 	Measure_Text_Walk_Glyphs_Context *c = (Measure_Text_Walk_Glyphs_Context*)ud;
 	
+	Gfx_Font_Metrics m = get_font_metrics_scaled(c->font, c->raster_height, c->scale);
+	
 	float functional_left = glyph_x-glyph.xoffset*c->scale.x;
-	float functional_bottom = glyph_y-glyph.yoffset*c->scale.y;
-	float functional_right = functional_left + glyph.width*c->scale.x;
-	float functional_top = functional_bottom + glyph.height*c->scale.y;
+	float functional_bottom = glyph_y-glyph.yoffset*c->scale.y; // baseline
+	float functional_right = functional_left + (glyph.width+glyph.xoffset)*c->scale.x;
+	float functional_top = functional_bottom + (m.latin_ascent+glyph.yoffset)*c->scale.y;
 	
 	c->m.functional_pos_min.x = min(c->m.functional_pos_min.x, functional_left);
 	c->m.functional_pos_min.y = min(c->m.functional_pos_min.y, functional_bottom);
@@ -359,6 +391,8 @@ Gfx_Text_Metrics measure_text(Gfx_Font *font, string text, u32 raster_height, Ve
 	Measure_Text_Walk_Glyphs_Context c = ZERO(Measure_Text_Walk_Glyphs_Context);
 	
 	c.scale = scale;
+	c.font = font;
+	c.raster_height = raster_height;
 	
 	walk_glyphs((Walk_Glyphs_Spec){font, text, raster_height, scale, true, &c}, measure_text_glyph_callback);
 	

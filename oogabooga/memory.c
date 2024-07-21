@@ -71,6 +71,10 @@ typedef struct Heap_Block {
 	void* start;
 	Heap_Block *next;
 	// 32 bytes !!
+#if CONFIGURATION == DEBUG
+	u64 total_allocated;
+	u64 padding;
+#endif
 } Heap_Block;
 
 #define HEAP_META_SIGNATURE 6969694206942069ull
@@ -117,6 +121,7 @@ void sanity_check_block(Heap_Block *block) {
 	assert(is_pointer_in_program_memory(block->start), "Heap_Block pointer is corrupt");
 	if(block->next) { assert(is_pointer_in_program_memory(block->next), "Heap_Block next pointer is corrupt"); }
 	assert(block->size < GB(256), "A heap block is corrupt.");
+	assert(block->size >= INITIAL_PROGRAM_MEMORY_SIZE, "A heap block is corrupt.");
 	assert((u64)block->start == (u64)block + sizeof(Heap_Block), "A heap block is corrupt.");
 	
 
@@ -139,6 +144,8 @@ void sanity_check_block(Heap_Block *block) {
 		node = node->next;
 	}
 	
+	u64 expected_size = get_heap_block_size_excluding_metadata(block);
+	assert(block->total_allocated+total_free == expected_size, "Heap is corrupt.")
 }
 inline void check_meta(Heap_Allocation_Metadata *meta) {
 #if CONFIGURATION == DEBUG
@@ -215,10 +222,10 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 	} else {
 		block = (Heap_Block*)program_memory;
 	}
+	block->total_allocated = 0;
 	
 	
 	
-	// #Speed #Cleanup
 	if (((u8*)block)+size >= ((u8*)program_memory)+program_memory_size) {
 		u64 minimum_size = ((u8*)block+size) - (u8*)program_memory + 1;
 		u64 new_program_size = get_next_power_of_two(minimum_size);
@@ -270,6 +277,18 @@ void *heap_alloc(u64 size) {
 	
 	assert(size < MAX_HEAP_BLOCK_SIZE, "Past Charlie has been lazy and did not handle large allocations like this. I apologize on behalf of past Charlie. A quick fix could be to increase the heap block size for now. #Incomplete #Limitation");
 	
+	
+#if VERY_DEBUG
+	{
+		Heap_Block *block = heap_head;
+		
+		while (block != 0) {
+			sanity_check_block(block);
+			block = block->next;
+		}
+	}
+#endif
+	
 	Heap_Block *block = heap_head;
 	Heap_Block *last_block = 0;
 	Heap_Free_Node *best_fit = 0;
@@ -279,10 +298,6 @@ void *heap_alloc(u64 size) {
 	// #Speed
 	// Maybe instead of going through EVERY free node to find best fit we do a good-enough fit
 	while (block != 0) {
-	
-#if VERY_DEBUG
-		sanity_check_block(block);
-#endif
 
 		if (get_heap_block_size_excluding_metadata(block) < size) {
 			last_block = block;
@@ -355,6 +370,7 @@ void *heap_alloc(u64 size) {
 	meta->block = best_fit_block;
 #if CONFIGURATION == DEBUG
 	meta->signature = HEAP_META_SIGNATURE;
+	meta->block->total_allocated += size;
 #endif
 
 	check_meta(meta);
@@ -449,6 +465,10 @@ void heap_dealloc(void *p) {
 		}
 	}
 	
+
+#if CONFIGURATION == DEBUG
+	block->total_allocated -= size;
+#endif
 
 #if VERY_DEBUG
 	sanity_check_block(block);

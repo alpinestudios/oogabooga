@@ -127,22 +127,81 @@ inline Vector4 v4_divf(LMATH_ALIGN Vector4 a, float32 s) {
 	return v4_div(a, v4(s, s, s, s));
 }
 
-
+// #Simd
+inline float32 v2_length(LMATH_ALIGN Vector2 a) {
+	return sqrt(a.x*a.x + a.y*a.y);
+}
 inline Vector2 v2_normalize(LMATH_ALIGN Vector2 a) {
-    float32 length = sqrt(a.x * a.x + a.y * a.y);
+    float32 length = v2_length(a);
     if (length == 0) {
         return (Vector2){0, 0};
     }
     return v2_divf(a, length);
 }
-
-inline float v2_dot_product(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+inline float32 v2_average(LMATH_ALIGN Vector2 a) {
+	return (a.x+a.y)/2.0;
+}
+inline Vector2 v2_abs(LMATH_ALIGN Vector2 a) {
+	return v2(fabsf(a.x), fabsf(a.y));
+}
+inline float32 v2_cross(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+    return (a.x * b.y) - (a.y * b.x);
+}
+inline float v2_dot(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	return simd_dot_product_float32_64((float*)&a, (float*)&b);
 }
-inline float v3_dot_product(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+
+inline float32 v3_length(LMATH_ALIGN Vector3 a) {
+    return sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+
+inline Vector3 v3_normalize(LMATH_ALIGN Vector3 a) {
+    float32 length = v3_length(a);
+    if (length == 0) {
+        return (Vector3){0, 0, 0};
+    }
+    return v3_divf(a, length);
+}
+
+inline float32 v3_average(LMATH_ALIGN Vector3 a) {
+    return (a.x + a.y + a.z) / 3.0;
+}
+
+inline Vector3 v3_abs(LMATH_ALIGN Vector3 a) {
+    return v3(fabsf(a.x), fabsf(a.y), fabsf(a.z));
+}
+
+
+inline Vector3 v3_cross(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+    return (Vector3){
+        (a.y * b.z) - (a.z * b.y),
+        (a.z * b.x) - (a.x * b.z),
+        (a.x * b.y) - (a.y * b.x)
+    };
+}
+inline float v3_dot(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
 	return simd_dot_product_float32_96((float*)&a, (float*)&b);
 }
-inline float v4_dot_product(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
+inline float32 v4_length(LMATH_ALIGN Vector4 a) {
+    return sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
+}
+
+inline Vector4 v4_normalize(LMATH_ALIGN Vector4 a) {
+    float32 length = v4_length(a);
+    if (length == 0) {
+        return (Vector4){0, 0, 0, 0};
+    }
+    return v4_divf(a, length);
+}
+
+inline float32 v4_average(LMATH_ALIGN Vector4 a) {
+    return (a.x + a.y + a.z + a.w) / 4.0;
+}
+
+inline Vector4 v4_abs(LMATH_ALIGN Vector4 a) {
+    return v4(fabsf(a.x), fabsf(a.y), fabsf(a.z), fabsf(a.w));
+}
+inline float v4_dot(LMATH_ALIGN Vector4 a, LMATH_ALIGN Vector4 b) {
 	return simd_dot_product_float32_128_aligned((float*)&a, (float*)&b);
 }
 
