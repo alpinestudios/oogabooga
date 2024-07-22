@@ -10,6 +10,7 @@ cbuffer some_cbuffer : register(b0) {
 
 #define DETAIL_TYPE_ROUNDED_CORNERS 1
 #define DETAIL_TYPE_OUTLINED 2
+#define DETAIL_TYPE_OUTLINED_CIRCLE 3
 
 float4 get_light_contribution(PS_INPUT input) {
 
@@ -30,6 +31,9 @@ float4 get_light_contribution(PS_INPUT input) {
 float4 pixel_shader_extension(PS_INPUT input, float4 color) {
     
     float detail_type = input.userdata[0].x;
+
+    // Assumes rect with 90deg corners    
+    float2 rect_size_pixels = input.userdata[0].zw;
     
 	if (detail_type == DETAIL_TYPE_ROUNDED_CORNERS) {
 		float corner_radius = input.userdata[0].y;
@@ -44,23 +48,45 @@ float4 pixel_shader_extension(PS_INPUT input, float4 color) {
 	
 		color *= mask;
     } else if (detail_type == DETAIL_TYPE_OUTLINED) {
-    	float line_width = input.userdata[0].y;
+    	float line_width_pixels = input.userdata[0].y;
     	
-    	float2 pixel_pos = round(input.self_uv*window_size);
+    	float2 pixel_pos = round(input.self_uv*rect_size_pixels);
         
-        float xcenter = window_size.x/2;
-        float ycenter = window_size.y/2;
+        float xcenter = rect_size_pixels.x/2;
+        float ycenter = rect_size_pixels.y/2;
         
-        float xedge = pixel_pos.x < xcenter ? 0.0 : window_size.x;
-        float yedge = pixel_pos.y < ycenter ? 0.0 : window_size.y;
+        float xedge = pixel_pos.x < xcenter ? 0.0 : rect_size_pixels.x;
+        float yedge = pixel_pos.y < ycenter ? 0.0 : rect_size_pixels.y;
         
         float xdist = abs(xedge-pixel_pos.x);
         float ydist = abs(yedge-pixel_pos.y);
         
-        if (xdist >= line_width && ydist >= line_width) {
+        if (xdist > line_width_pixels && ydist > line_width_pixels) {
             discard;
         }
-    }
+    } else if (detail_type == DETAIL_TYPE_OUTLINED_CIRCLE) {
+        float line_width_pixels = input.userdata[0].y;
+        float2 rect_size_pixels = input.userdata[0].zw;
+        float line_width_uv = line_width_pixels / min(rect_size_pixels.x, rect_size_pixels.y);
+        
+        // For some simple anti-aliasing, we add a little bit of padding around the outline
+        // and fade that padding outwards with a smooth curve towards 0. 
+        // Very arbitrary smooth equation that I got from just testing different sizes of the circle.
+        // It's kinda meh.
+        float smooth = ((4.0/line_width_pixels)*6.0)/window_size.x;
+    
+        float2 center = float2(0.5, 0.5);
+        float dist = length(input.self_uv - center);
+        
+        float mask;
+        if (dist > 0.5-smooth) {
+            mask = 1.0-lerp(0, 1.0, max(dist-0.5+smooth, 0.0)/smooth);
+        } else if (dist < 0.5-line_width_uv+smooth) {
+            mask = smoothstep(0, 1.0, max(dist-0.5+line_width_uv+smooth, 0.0)/smooth);
+        }
+        if (mask <= 0) discard;
+        color *= mask;
+	}
     
 	float4 light = get_light_contribution(input);
 	

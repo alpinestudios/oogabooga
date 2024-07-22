@@ -132,12 +132,13 @@ void d3d11_update_swapchain() {
 		DXGI_SWAP_CHAIN_DESC1 scd = ZERO(DXGI_SWAP_CHAIN_DESC1);
 		scd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		
 		//scd.BufferDesc.RefreshRate.Numerator = 0;
 		//scd.BufferDesc.RefreshRate.Denominator = 1;
 		
 		scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		scd.SampleDesc.Count = 1; 
-		scd.SampleDesc.Quality = 0;
+		scd.SampleDesc.Quality = 0; // #Portability
 		if (d3d11_feature_level < D3D_FEATURE_LEVEL_11_0) {
 			scd.Scaling = DXGI_SCALING_STRETCH; // for compatability with 7
 		}
