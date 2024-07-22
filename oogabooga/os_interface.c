@@ -8,6 +8,9 @@
 	typedef HANDLE File;
 	
 #elif defined(__linux__)
+    #ifndef OOGABOOGA_HEADLESS
+    #define "Linux is only supported for headless builds"
+    #endif
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
 	typedef SOMETHING Dynamic_Library_Handle;
@@ -282,6 +285,8 @@ void dump_stack_trace() {
 	}
 }
 
+#ifndef OOGABOOGA_HEADLESS
+
 ///
 ///
 // Window management
@@ -307,5 +312,7 @@ typedef struct Os_Window {
 	
 } Os_Window;
 Os_Window window;
+
+#endif
 
 void os_update();

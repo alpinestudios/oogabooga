@@ -1151,6 +1151,7 @@ void test_mutex() {
     mutex_destroy(&data.mutex);
 }
 
+#ifndef OOGABOOGA_HEADLESS
 int compare_draw_quads(const void *a, const void *b) {
     return ((Draw_Quad*)a)->z-((Draw_Quad*)b)->z;
 }
@@ -1220,6 +1221,8 @@ void test_sort() {
     
     print("Merge sort took on average %llu cycles and %.2f ms\n", cycles / num_samples, (seconds * 1000.0) / (float64)num_samples);
 }
+#endif /* OOGABOOGA_HEADLESS */
+
 void oogabooga_run_tests() {
 	
 	
@@ -1258,10 +1261,12 @@ void oogabooga_run_tests() {
 	print("Testing mutex... ");
 	test_mutex();
 	print("OK!\n");
-	
+
+#ifndef OOGABOOGA_HEADLESS
 	print("Testing radix sort... ");
 	test_sort();
 	print("OK!\n");
+#endif
 	
 	print("All tests ok!\n");
 }

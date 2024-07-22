@@ -19,7 +19,6 @@
 			case INPUT_EVENT_KEY:    ...; break;
 			case INPUT_EVENT_SCROLL: ...; break;
 			case INPUT_EVENT_TEXT:   ...; break;
-			case INPUT_EVENT_CLOSE:  ...; break;
 		}
 	}
 */

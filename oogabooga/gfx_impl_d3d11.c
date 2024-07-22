@@ -123,35 +123,6 @@ void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAG
 	}
 }
 
-#define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
-void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
-    if (hr != S_OK) {
-    
-    	LPVOID errorMsg;
-        DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-                        FORMAT_MESSAGE_FROM_SYSTEM | 
-                        FORMAT_MESSAGE_IGNORE_INSERTS;
-
-        DWORD messageLength = FormatMessageW(
-            dwFlags,
-            NULL,
-            hr,
-            MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-            (LPWSTR) &errorMsg,
-            0,
-            NULL );
-
-        if (messageLength > 0) {
-            MessageBoxW(NULL, (LPWSTR)errorMsg, L"Error", MB_OK | MB_ICONERROR);
-        } else {
-            MessageBoxW(NULL, L"Failed to retrieve error message.", L"Error", MB_OK | MB_ICONERROR);
-        }
-    
-
-        panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
-    }
-}
-
 void d3d11_update_swapchain() {
 
 	HRESULT hr;
