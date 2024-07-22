@@ -111,7 +111,7 @@ typedef struct Cpu_Capabilities {
 	#define alignat(x) __attribute__((aligned(x)))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
     
-    inline void 
+    inline void __attribute__((noreturn))
     crash() {
 		__builtin_trap();
 		volatile int *a = 0;
