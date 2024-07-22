@@ -1,6 +1,16 @@
+
+
+// #Global
+ogb_instance String_Builder _profile_output;
+ogb_instance bool profiler_initted;
+ogb_instance Spinlock _profiler_lock;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 String_Builder _profile_output = {0};
 bool profiler_initted = false;
 Spinlock _profiler_lock;
+#endif
+
 void dump_profile_result() {
 	File file = os_file_open("google_trace.json", O_CREATE | O_WRITE);
 	

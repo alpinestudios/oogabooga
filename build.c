@@ -3,9 +3,6 @@
 ///
 // Build config stuff
 
-#define OOGABOOGA_ENABLE_COMPLICATED_BUILD_MODE 1
-#define OOGABOOGA_NO_IMPLEMENTATION 1
-
 #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
 
 // You might want to increase this if you get a log warning saying the temporary storage was overflown.
@@ -30,9 +27,6 @@ typedef struct Context_Extra {
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
 
-// #Volatile tutorial below
-// #Volatile tutorial below
-// #Volatile tutorial below
 
 //
 // Comment & Uncomment these to swap projects (only include one at a time)

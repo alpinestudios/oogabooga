@@ -454,7 +454,7 @@ void test_strings() {
 
 void test_file_io() {
 
-#if TARGET_OS == WINDOWS
+#if TARGET_OS == WINDOWS && !OOGABOOGA_LINK_EXTERNAL_INSTANCE
     // Test win32_fixed_utf8_to_null_terminated_wide
     string utf8_str = STR("Test");
     u16 *wide_str = win32_fixed_utf8_to_null_terminated_wide(utf8_str, get_heap_allocator());

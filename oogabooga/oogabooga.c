@@ -244,19 +244,11 @@ typedef u8 bool;
 	#error "Current OS not supported!";
 #endif
 
-
-#if OOGABOOGA_ENABLE_COMPLICATED_BUILD_MODE
-
-    #if OOGABOOGA_NO_IMPLEMENTATION
-        #define ogb_proc SHARED_IMPORT    
-    #else
-        #define ogb_proc SHARED_EXPORT
-    #endif
-
+#if OOGABOOGA_LINK_EXTERNAL_INSTANCE
+    #define ogb_instance SHARED_IMPORT extern
 #else
-    #define ogb_proc
+    #define ogb_instance SHARED_EXPORT
 #endif
-
 
 // This needs to be included before dependencies
 #include "base.c"
@@ -323,28 +315,32 @@ typedef u8 bool;
     #include "audio.c"
 #endif
 
-#if TARGET_OS == WINDOWS
-	#include "os_impl_windows.c"
-#elif TARGET_OS == LINUX
-    #include "os_impl_linux.c"
-#elif TARGET_OS == MACOS
-	#error "Macos is not supported yet"
-#else
-	#error "Current OS is not supported"
-#endif
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
-#ifndef OOGABOOGA_HEADLESS
-    // #Portability
-    #if GFX_RENDERER == GFX_RENDERER_D3D11
-        #include "gfx_impl_d3d11.c"
-    #elif GFX_RENDERER == GFX_RENDERER_VULKAN
-        #error "We only have a D3D11 renderer at the moment"
-    #elif GFX_RENDERER == GFX_RENDERER_METAL
-        #error "We only have a D3D11 renderer at the moment"
+    #if TARGET_OS == WINDOWS
+    	#include "os_impl_windows.c"
+    #elif TARGET_OS == LINUX
+        #include "os_impl_linux.c"
+    #elif TARGET_OS == MACOS
+    	#error "Macos is not supported yet"
     #else
-        #error "Unknown renderer GFX_RENDERER defined"
+    	#error "Current OS is not supported"
     #endif
-#endif
+
+    #ifndef OOGABOOGA_HEADLESS
+        // #Portability
+        #if GFX_RENDERER == GFX_RENDERER_D3D11
+            #include "gfx_impl_d3d11.c"
+        #elif GFX_RENDERER == GFX_RENDERER_VULKAN
+            #error "We only have a D3D11 renderer at the moment"
+        #elif GFX_RENDERER == GFX_RENDERER_METAL
+            #error "We only have a D3D11 renderer at the moment"
+        #else
+            #error "Unknown renderer GFX_RENDERER defined"
+        #endif
+    #endif
+    
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 #include "tests.c"
 

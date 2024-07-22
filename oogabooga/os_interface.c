@@ -48,7 +48,38 @@ typedef struct Os_Info {
     void *static_memory_start, *static_memory_end;
     
 } Os_Info;
+
+typedef struct Os_Window {
+
+	// Keep in mind that setting these in runtime is potentially slow!
+	string title;
+	union { s32 width;  s32 pixel_width;  };
+	union { s32 height; s32 pixel_height; };
+	s32 scaled_width; // DPI scaled!
+	s32 scaled_height; // DPI scaled!
+	s32 x;
+	s32 y;
+	Vector4 clear_color;
+	bool enable_vsync;
+	
+	bool should_close;
+	
+	// readonly
+	bool _initialized;
+	Window_Handle _os_handle;
+	
+} Os_Window;
+
+// #Global
+ogb_instance Os_Window window;
+ogb_instance Os_Info os;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
 Os_Info os;
+Os_Window window;
+
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
 
@@ -56,7 +87,7 @@ inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
 	return os.crt_vsnprintf(buffer, n, fmt, args);
 }
 
-Mutex_Handle program_memory_mutex = 0;
+
 
 bool os_grow_program_memory(size_t new_size);
 
@@ -79,31 +110,52 @@ typedef struct Thread {
 } Thread;
 
 ///
-// Thread primitive
+// Thread primitive #Cleanup
 DEPRECATED(Thread* os_make_thread(Thread_Proc proc, Allocator allocator), "Use os_thread_init instead");
 DEPRECATED(void os_destroy_thread(Thread *t), "Use os_thread_destroy instead");
 DEPRECATED(void os_start_thread(Thread* t), "Use os_thread_start instead");
 DEPRECATED(void os_join_thread(Thread* t), "Use os_thread_join instead");
 
-void os_thread_init(Thread *t, Thread_Proc proc);
-void os_thread_destroy(Thread *t);
-void os_thread_start(Thread *t);
-void os_thread_join(Thread *t);
+void ogb_instance
+os_thread_init(Thread *t, Thread_Proc proc);
+
+void ogb_instance
+os_thread_destroy(Thread *t);
+
+void ogb_instance
+os_thread_start(Thread *t);
+
+void ogb_instance
+os_thread_join(Thread *t);
+
 
 
 ///
 // Low-level Mutex primitive. Mutex in concurrency.c is probably a better alternative.
-Mutex_Handle os_make_mutex();
-void os_destroy_mutex(Mutex_Handle m);
-void os_lock_mutex(Mutex_Handle m);
-void os_unlock_mutex(Mutex_Handle m);
+Mutex_Handle ogb_instance
+os_make_mutex();
+
+void ogb_instance
+os_destroy_mutex(Mutex_Handle m);
+
+void ogb_instance
+os_lock_mutex(Mutex_Handle m);
+
+void ogb_instance
+os_unlock_mutex(Mutex_Handle m);
 
 ///
 // Threading utilities
 
-void os_sleep(u32 ms);
-void os_yield_thread();
-void os_high_precision_sleep(f64 ms);
+void ogb_instance
+os_sleep(u32 ms);
+
+void ogb_instance
+os_yield_thread();
+
+void ogb_instance
+os_high_precision_sleep(f64 ms);
+
 
 ///
 ///
@@ -111,28 +163,33 @@ void os_high_precision_sleep(f64 ms);
 ///
 
 DEPRECATED(u64 os_get_current_cycle_count(), "use rdtsc() instead");
-float64 os_get_current_time_in_seconds();
 
+float64 ogb_instance
+os_get_current_time_in_seconds();
 
 ///
 ///
 // Dynamic Libraries
 ///
 
-Dynamic_Library_Handle os_load_dynamic_library(string path);
-void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier);
-void os_unload_dynamic_library(Dynamic_Library_Handle l);
+Dynamic_Library_Handle ogb_instance
+os_load_dynamic_library(string path);
 
+ogb_instance void*
+os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier);
 
+void ogb_instance
+os_unload_dynamic_library(Dynamic_Library_Handle l);
 
 ///
 ///
 // IO
 ///
 
-forward_global const File OS_INVALID_FILE;
+ogb_instance const File OS_INVALID_FILE;
 
-void os_write_string_to_stdout(string s);
+void ogb_instance
+os_write_string_to_stdout(string s);
 
 typedef enum Os_Io_Open_Flags {
 	O_READ   = 0,
@@ -142,38 +199,82 @@ typedef enum Os_Io_Open_Flags {
 	// To append, pass WRITE flag without CREATE flag
 } Os_Io_Open_Flags;
 
-File os_file_open_s(string path, Os_Io_Open_Flags flags);
-void os_file_close(File f);
-bool os_file_delete_s(string path);
+File ogb_instance
+os_file_open_s(string path, Os_Io_Open_Flags flags);
 
-bool os_make_directory_s(string path, bool recursive);
-bool os_delete_directory_s(string path, bool recursive);
+void ogb_instance
+os_file_close(File f);
 
-bool os_file_write_string(File f, string s);
-bool os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
+bool ogb_instance
+os_file_delete_s(string path);
 
-bool os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes);
 
-bool os_file_set_pos(File f, s64 pos_in_bytes);
-s64  os_file_get_pos(File f);
+bool ogb_instance
+os_make_directory_s(string path, bool recursive);
 
-s64 os_file_get_size(File f);
-s64 os_file_get_size_from_path(string path);
+bool ogb_instance
+os_delete_directory_s(string path, bool recursive);
 
-bool os_write_entire_file_handle(File f, string data);
-bool os_write_entire_file_s(string path, string data);
-bool os_read_entire_file_handle(File f, string *result, Allocator allocator);
-bool os_read_entire_file_s(string path, string *result, Allocator allocator);
 
-bool os_is_file_s(string path);
-bool os_is_directory_s(string path);
+bool ogb_instance
+os_file_write_string(File f, string s);
 
-bool os_is_path_absolute(string path);
+bool ogb_instance
+os_file_write_bytes(File f, void *buffer, u64 size_in_bytes);
 
-bool os_get_absolute_path(string path, string *result, Allocator allocator);
-bool os_get_relative_path(string from, string to, string *result, Allocator allocator);
 
-bool os_do_paths_match(string a, string b);
+bool ogb_instance
+os_file_read(File f, void* buffer, u64 bytes_to_read, u64 *actual_read_bytes);
+
+
+bool ogb_instance
+os_file_set_pos(File f, s64 pos_in_bytes);
+
+s64 ogb_instance
+os_file_get_pos(File f);
+
+
+s64 ogb_instance
+os_file_get_size(File f);
+
+s64 ogb_instance
+os_file_get_size_from_path(string path);
+
+
+bool ogb_instance
+os_write_entire_file_handle(File f, string data);
+
+bool ogb_instance
+os_write_entire_file_s(string path, string data);
+
+bool ogb_instance
+os_read_entire_file_handle(File f, string *result, Allocator allocator);
+
+bool ogb_instance
+os_read_entire_file_s(string path, string *result, Allocator allocator);
+
+
+bool ogb_instance
+os_is_file_s(string path);
+
+bool ogb_instance
+os_is_directory_s(string path);
+
+
+bool ogb_instance
+os_is_path_absolute(string path);
+
+
+bool ogb_instance
+os_get_absolute_path(string path, string *result, Allocator allocator);
+
+bool ogb_instance
+os_get_relative_path(string from, string to, string *result, Allocator allocator);
+
+
+bool ogb_instance
+os_do_paths_match(string a, string b);
+
 
 // It's a little unfortunate that we need to do this but I can't think of a better solution
 
@@ -226,12 +327,17 @@ inline bool os_is_directory_f(const char *path) {return os_is_directory_s(STR(pa
                           
                           
 
-void fprints(File f, string fmt, ...);
-void fprintf(File f, const char* fmt, ...);
+void ogb_instance
+fprints(File f, string fmt, ...);
+
+void ogb_instance
+fprintf(File f, const char* fmt, ...);
+
 #define fprint(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
                            string:  fprints, \
                            default: fprintf \
                           )(__VA_ARGS__)
+
 
 void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 
@@ -262,9 +368,9 @@ void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 ///
 // Memory
 ///
-void* 
+ogb_instance void*
 os_get_stack_base();
-void* 
+ogb_instance void*
 os_get_stack_limit();
 
 
@@ -272,7 +378,7 @@ os_get_stack_limit();
 ///
 // Debug
 ///
-string *
+ogb_instance string*
 os_get_stack_trace(u64 *trace_count, Allocator allocator);
 
 void dump_stack_trace() {
@@ -285,34 +391,9 @@ void dump_stack_trace() {
 	}
 }
 
-#ifndef OOGABOOGA_HEADLESS
+void ogb_instance
+os_init(u64 program_memory_size);
 
-///
-///
-// Window management
-///
-typedef struct Os_Window {
+void ogb_instance
+os_update();
 
-	// Keep in mind that setting these in runtime is potentially slow!
-	string title;
-	union { s32 width;  s32 pixel_width;  };
-	union { s32 height; s32 pixel_height; };
-	s32 scaled_width; // DPI scaled!
-	s32 scaled_height; // DPI scaled!
-	s32 x;
-	s32 y;
-	Vector4 clear_color;
-	bool enable_vsync;
-	
-	bool should_close;
-	
-	// readonly
-	bool _initialized;
-	Window_Handle _os_handle;
-	
-} Os_Window;
-Os_Window window;
-
-#endif
-
-void os_update();

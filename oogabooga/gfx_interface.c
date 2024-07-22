@@ -20,7 +20,7 @@
 	#define VERTEX_2D_USER_DATA_COUNT 1
 #endif
 
-forward_global const Gfx_Handle GFX_INVALID_HANDLE;
+ogb_instance const Gfx_Handle GFX_INVALID_HANDLE;
 // #Volatile reflected in 2D batch shader
 #define QUAD_TYPE_REGULAR 0
 #define QUAD_TYPE_TEXT 1
@@ -37,26 +37,31 @@ typedef struct Gfx_Image {
 	Allocator allocator;
 } Gfx_Image;
 
-Gfx_Image *
+ogb_instance Gfx_Image *
 make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator);
-Gfx_Image *
+ogb_instance Gfx_Image *
 load_image_from_disk(string path, Allocator allocator);
-void 
+ogb_instance void 
 delete_image(Gfx_Image *image);
 
 // Implemented per renderer
-void 
+ogb_instance void 
 gfx_init_image(Gfx_Image *image, void *data);
-void 
+ogb_instance void 
 gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
-void 
+ogb_instance void 
 gfx_deinit_image(Gfx_Image *image);
 
-bool
+ogb_instance void 
+gfx_init();
+ogb_instance void 
+gfx_update();
+
+ogb_instance bool
 shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
 // initial_data can be null to leave image data uninitialized
-Gfx_Image *
+ogb_instance Gfx_Image *
 make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
 	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image) + width*height*channels);
 	
@@ -73,7 +78,7 @@ make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator al
     return image;
 }
 
-Gfx_Image *
+ogb_instance Gfx_Image *
 load_image_from_disk(string path, Allocator allocator) {
     string png;
     bool ok = os_read_entire_file(path, &png, allocator);
@@ -110,7 +115,7 @@ load_image_from_disk(string path, Allocator allocator) {
     return image;
 }
 
-void 
+ogb_instance void 
 delete_image(Gfx_Image *image) {
       // Free the image data allocated by stb_image
     image->width = 0;

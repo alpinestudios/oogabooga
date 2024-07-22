@@ -1,4 +1,6 @@
 
+// #Cleanup
+
 // usage example: hex_to_rgba(0x2a2d3aff);
 Vector4 hex_to_rgba(s64 hex) {
 	u8 r = (hex>>24) & 0x000000FF;

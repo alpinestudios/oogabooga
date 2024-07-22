@@ -5,8 +5,16 @@
 #define GB(x) ((MB(x))*1024ull)
 
 
-void* program_memory = 0;
+// #Global
+ogb_instance void *program_memory;
+ogb_instance u64 program_memory_size;
+ogb_instance Mutex_Handle program_memory_mutex;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+void *program_memory = 0;
 u64 program_memory_size = 0;
+Mutex_Handle program_memory_mutex = 0;
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 #ifndef INIT_MEMORY_SIZE
 	#define INIT_MEMORY_SIZE KB(50)
@@ -87,9 +95,16 @@ typedef alignat(16) struct Heap_Allocation_Metadata {
 #endif
 } Heap_Allocation_Metadata;
 
+// #Global
+ogb_instance Heap_Block *heap_head;
+ogb_instance bool heap_initted;
+ogb_instance Spinlock heap_lock;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Heap_Block *heap_head;
 bool heap_initted = false;
-Spinlock heap_lock; // This is terrible but I don't care for now
+Spinlock heap_lock;
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 	
 
 u64 get_heap_block_size_excluding_metadata(Heap_Block *block) {
@@ -524,11 +539,20 @@ Allocator get_heap_allocator() {
 void* talloc(u64);
 void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void*);
 
+// #Global
+thread_local ogb_instance void * temporary_storage;
+thread_local ogb_instance bool   temporary_storage_initted;
+thread_local ogb_instance void * temporary_storage_pointer;
+thread_local ogb_instance bool   has_warned_temporary_storage_overflow;
+thread_local ogb_instance Allocator temp;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 thread_local void * temporary_storage = 0;
 thread_local bool   temporary_storage_initted = false;
 thread_local void * temporary_storage_pointer = 0;
 thread_local bool   has_warned_temporary_storage_overflow = false;
 thread_local Allocator temp;
+#endif
 
 Allocator get_temporary_allocator() {
 	return temp;
