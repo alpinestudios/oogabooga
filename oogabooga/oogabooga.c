@@ -84,7 +84,7 @@
 			
 			Example:
 			
-				#define RUN_TESTS 0
+				#define RUN_TESTS 1
 				
 		- ENABLE_PROFILING
 			Enable time profiling which will be dumped to google_trace.json.
@@ -101,13 +101,24 @@
 					tm_scope
 					tm_scope_var
 					tm_scope_accum
+					
+		- OOGABOOGA_HEADLESS
+            Run oogabooga in headless mode, i.e. no window, no graphics, no audio.
+            Useful if you only need the oogabooga standard library for something like a game server.
+            
+            0: Disable
+            1: Enable
+            
+            Example:
+            
+                #define OOGABOOGA_HEADLESS 1
 		
 
 */
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 1
-#define OGB_VERSION_PATCH 1
+#define OGB_VERSION_PATCH 2
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -214,9 +225,9 @@ typedef u8 bool;
 #ifdef _WIN32
 	#define COBJMACROS
 	#include <Windows.h>
-#if CONFIGURATION == DEBUG
-	#include <dbghelp.h>
-#endif
+    #if CONFIGURATION == DEBUG
+    	#include <dbghelp.h>
+    #endif
 	#define TARGET_OS WINDOWS
 	#define OS_PATHS_HAVE_BACKSLASH 1
 #elif defined(__linux__)
@@ -231,6 +242,19 @@ typedef u8 bool;
 	#define OS_PATHS_HAVE_BACKSLASH 1
 #else
 	#error "Current OS not supported!";
+#endif
+
+
+#if OOGABOOGA_ENABLE_COMPLICATED_BUILD_MODE
+
+    #if OOGABOOGA_NO_IMPLEMENTATION
+        #define ogb_proc SHARED_IMPORT    
+    #else
+        #define ogb_proc SHARED_EXPORT
+    #endif
+
+#else
+    #define ogb_proc
 #endif
 
 
@@ -273,8 +297,8 @@ typedef u8 bool;
 ///
 // Dependencies
 ///
-// The reason dependencies are compiled here is because we modify stb_vorbis to use our
-// file API instead of the stdio.h (cmoooon Sean)
+// The reason dependencies are compiled here is because we need to modify third party code
+// to use the oogabooga standard where they use the C standard.
 
 #include "third_party.c"
 
@@ -360,14 +384,14 @@ void oogabooga_init(u64 program_memory_size) {
 #else
     log_info("Headless mode on");
 #endif
-	log_verbose("CPU has sse1: %cs", features.sse1 ? "true" : "false");
-	log_verbose("CPU has sse2: %cs", features.sse2 ? "true" : "false");
-	log_verbose("CPU has sse3: %cs", features.sse3 ? "true" : "false");
-	log_verbose("CPU has ssse3: %cs", features.ssse3 ? "true" : "false");
-	log_verbose("CPU has sse41: %cs", features.sse41 ? "true" : "false");
-	log_verbose("CPU has sse42: %cs", features.sse42 ? "true" : "false");
-	log_verbose("CPU has avx: %cs", features.avx ? "true" : "false");
-	log_verbose("CPU has avx2: %cs", features.avx2 ? "true" : "false");
+	log_verbose("CPU has sse1:   %cs", features.sse1 ? "true" : "false");
+	log_verbose("CPU has sse2:   %cs", features.sse2 ? "true" : "false");
+	log_verbose("CPU has sse3:   %cs", features.sse3 ? "true" : "false");
+	log_verbose("CPU has ssse3:  %cs", features.ssse3 ? "true" : "false");
+	log_verbose("CPU has sse41:  %cs", features.sse41 ? "true" : "false");
+	log_verbose("CPU has sse42:  %cs", features.sse42 ? "true" : "false");
+	log_verbose("CPU has avx:    %cs", features.avx ? "true" : "false");
+	log_verbose("CPU has avx2:   %cs", features.avx2 ? "true" : "false");
 	log_verbose("CPU has avx512: %cs", features.avx512 ? "true" : "false");
 }
 

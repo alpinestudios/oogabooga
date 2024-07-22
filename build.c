@@ -3,6 +3,9 @@
 ///
 // Build config stuff
 
+#define OOGABOOGA_ENABLE_COMPLICATED_BUILD_MODE 1
+#define OOGABOOGA_NO_IMPLEMENTATION 1
+
 #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
 
 // You might want to increase this if you get a log warning saying the temporary storage was overflown.
@@ -36,11 +39,11 @@ typedef struct Context_Extra {
 //
 
 // This is a minimal starting point for new projects. Copy & rename to get started
-#include "oogabooga/examples/minimal_game_loop.c"
+// #include "oogabooga/examples/minimal_game_loop.c"
 
 // #include "oogabooga/examples/text_rendering.c"
 // #include "oogabooga/examples/custom_logger.c"
-// #include "oogabooga/examples/renderer_stress_test.c"
+#include "oogabooga/examples/renderer_stress_test.c"
 // #include "oogabooga/examples/tile_game.c"
 // #include "oogabooga/examples/audio_test.c"
 // #include "oogabooga/examples/custom_shader.c"

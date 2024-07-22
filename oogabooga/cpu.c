@@ -106,6 +106,9 @@ typedef struct Cpu_Capabilities {
 	
 	#define MEMORY_BARRIER _ReadWriteBarrier()
 	
+	#define SHARED_EXPORT __declspec(dllexport)
+    #define SHARED_IMPORT __declspec(dllimport)
+	
 #elif COMPILER_GCC || COMPILER_CLANG
 	#define inline __attribute__((always_inline)) inline
 	#define alignat(x) __attribute__((aligned(x)))
@@ -220,6 +223,9 @@ typedef struct Cpu_Capabilities {
 	
 	#define MEMORY_BARRIER __asm__ __volatile__("" ::: "memory")
 	
+	#define SHARED_EXPORT __attribute__((visibility("default")))
+    #define SHARED_IMPORT 
+	
 #else
 	#define inline inline
     #define COMPILER_HAS_MEMCPY_INTRINSICS 0
@@ -238,6 +244,8 @@ typedef struct Cpu_Capabilities {
     
     #warning "Compiler is not explicitly supported, some things will probably not work as expected"
 #endif
+
+
 
 Cpu_Capabilities 
 query_cpu_capabilities() {

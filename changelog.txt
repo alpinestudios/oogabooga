@@ -37,7 +37,7 @@
 			vx_cross()
 		- added os_get_file_size_from_Path()
 		- Some simple restructuring of existing code
-	- Made heap corruption detection more robust
+	   - Made heap corruption detection more robust
 
 ## v0.01.000 - AUDIO!
 	- Added audio sources
