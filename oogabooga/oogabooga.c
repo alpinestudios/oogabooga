@@ -367,7 +367,6 @@ void oogabooga_init(u64 program_memory_size)
 }
 
 int ENTRY_PROC(int argc, char **argv);
-#define INITIAL_PROGRAM_MEMORY_SIZE (MB(5))
 int main(int argc, char **argv)
 {
 

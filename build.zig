@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const oogabooga = @import("./oogabooga/build.zig");
+
 inline fn thisDir() []const u8 {
     return comptime std.fs.path.dirname(@src().file) orelse ".";
 }
@@ -12,12 +14,14 @@ pub fn build(b: *std.Build) void {
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
     // for restricting supported target set are available.
-    const target = b.standardTargetOptions(.{});
+    const target = b.resolveTargetQuery(.{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .msvc });
 
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
+
+    // const oogabooga_pkg = oogabooga.package(b, .{});
 
     const lib = b.addStaticLibrary(.{
         .name = "oogabooga-zig",
@@ -40,15 +44,34 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    exe.linkLibC();
-    const c_flags = [_][]const u8{ "-std=c11", "-D_CRT_SECURE_NO_WARNINGS", "-Wextra", "-Wno-incompatible-library-redeclaration", "-Wno-sign-compare", "-Wno-unused-parameter", "-Wno-builtin-requires-header", "-lkernel32", "-lgdi32", "-luser32", "-lruntimeobject", "-lwinmm", "-ld3d11", "-ldxguid", "-ld3dcompiler", "-lshlwapi", "-lole32", "-lavrt", "-lksuser", "-ldbghelp", "-femit-all-decls" };
-    // exe.addCSourceFile(.{ .file = .{ .cwd_relative = thisDir() ++ "/src/test.c" }, .flags = &c_flags });
-    exe.addCSourceFile(.{ .flags = &c_flags, .file = .{ .src_path = .{ .owner = b, .sub_path = "oogabooga/oogabooga.c" } } });
+    const pkg = oogabooga.package(b, .{});
+    exe.root_module.addImport("oogabooga", pkg.module);
+
+    // exe.linkLibC();
+    // exe.linkSystemLibrary("c");
+    // exe.linkSystemLibrary("Kernel32");
+    // exe.linkSystemLibrary("User32");
+    // exe.linkSystemLibrary("Gdi32");
+    // exe.linkSystemLibrary("shell32");
+    // exe.linkSystemLibrary("Avrt");
+    // exe.linkSystemLibrary("Winmm");
+    // exe.linkSystemLibrary("Dbghelp");
+    // exe.linkSystemLibrary("D3d11");
+    // exe.linkSystemLibrary("Dxguid");
+    // exe.linkSystemLibrary("Shlwapi");
+    // exe.linkSystemLibrary("Ole32");
+    // exe.linkSystemLibrary("Ksuser");
+
+    // const c_flags = [_][]const u8{ "-std=c11", "-fno-sanitize=undefined", "-D_CRT_SECURE_NO_WARNINGS", "-Wextra", "-Wno-incompatible-library-redeclaration", "-Wno-sign-compare", "-Wno-unused-parameter", "-Wno-builtin-requires-header", "-lkernel32", "-lgdi32", "-luser32", "-lruntimeobject", "-lwinmm", "-ld3d11", "-ldxguid", "-ld3dcompiler", "-lshlwapi", "-lole32", "-lavrt", "-lksuser", "-ldbghelp", "-femit-all-decls" };
+    // exe.addCSourceFile(.{ .flags = &c_flags, .file = .{ .src_path = .{ .owner = b, .sub_path = "oogabooga/oogabooga.c" } } });
+    // exe.addIncludePath(.{ .cwd_relative = thisDir() ++ "/oogabooga/" });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
     b.installArtifact(exe);
+
+    oogabooga.link(exe);
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
