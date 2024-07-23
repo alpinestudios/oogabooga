@@ -14,31 +14,71 @@ inline bool compare_and_swap_bool(bool *a, bool b, bool old);
 // Spinlock "primitive"
 // Like a mutex but it eats up the entire core while waiting.
 // Beneficial if contention is low or sync speed is important
-void spinlock_init(Spinlock *l);
-void spinlock_acquire_or_wait(Spinlock* l);
+typedef struct Spinlock {
+	bool locked;
+} Spinlock;
+
+void ogb_instance
+spinlock_init(Spinlock *l);
+
+void ogb_instance
+spinlock_acquire_or_wait(Spinlock* l);
+
 // This returns true if successfully acquired or false if timeout reached.
-bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds);
-void spinlock_release(Spinlock* l);
+bool ogb_instance
+spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds);
+
+void ogb_instance
+spinlock_release(Spinlock* l);
+
 
 ///
 // High-level mutex primitive (short spinlock then OS mutex lock)
 // Just spins for a few (configurable) microseconds with a spinlock,
 // and if acquiring fails it falls back to a OS mutex.
-void mutex_init(Mutex *m);
-void mutex_destroy(Mutex *m);
-void mutex_acquire_or_wait(Mutex *m);
-void mutex_release(Mutex *m);
+#define MUTEX_DEFAULT_SPIN_TIME_MICROSECONDS 100
+typedef struct Mutex {
+	Spinlock spinlock;
+	f64 spin_time_microseconds;
+	Mutex_Handle os_handle;
+	volatile bool spinlock_acquired;
+	volatile u64 acquiring_thread;
+} Mutex;
+
+void ogb_instance
+mutex_init(Mutex *m);
+
+void ogb_instance
+mutex_destroy(Mutex *m);
+
+void ogb_instance
+mutex_acquire_or_wait(Mutex *m);
+
+void ogb_instance
+mutex_release(Mutex *m);
+
 
 ///
 // Binary semaphore
-void binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
-void binary_semaphore_destroy(Binary_Semaphore *sem);
-void binary_semaphore_wait(Binary_Semaphore *sem);
-void binary_semaphore_signal(Binary_Semaphore *sem);
+typedef struct Binary_Semaphore {
+    bool signaled;
+    Mutex mutex;
+} Binary_Semaphore;
 
-typedef struct Spinlock {
-	bool locked;
-} Spinlock;
+void ogb_instance
+binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+
+void ogb_instance
+binary_semaphore_destroy(Binary_Semaphore *sem);
+
+void ogb_instance
+binary_semaphore_wait(Binary_Semaphore *sem);
+
+void ogb_instance
+binary_semaphore_signal(Binary_Semaphore *sem);
+
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void spinlock_init(Spinlock *l) {
 	memset(l, 0, sizeof(*l));
@@ -87,14 +127,7 @@ void spinlock_release(Spinlock* l) {
 
 ///
 // High-level mutex primitive (short spinlock then OS mutex lock)
-#define MUTEX_DEFAULT_SPIN_TIME_MICROSECONDS 100
-typedef struct Mutex {
-	Spinlock spinlock;
-	f64 spin_time_microseconds;
-	Mutex_Handle os_handle;
-	volatile bool spinlock_acquired;
-	volatile u64 acquiring_thread;
-} Mutex;
+
 void mutex_init(Mutex *m) {
 	spinlock_init(&m->spinlock);
 	m->spin_time_microseconds = MUTEX_DEFAULT_SPIN_TIME_MICROSECONDS;
@@ -134,10 +167,7 @@ void mutex_release(Mutex *m) {
 	MEMORY_BARRIER;
 }
 
-typedef struct Binary_Semaphore {
-    bool signaled;
-    Mutex mutex;
-} Binary_Semaphore;
+
 
 void binary_semaphore_init(Binary_Semaphore *sem, bool initial_state) {
     sem->signaled = initial_state;
@@ -164,3 +194,5 @@ void binary_semaphore_signal(Binary_Semaphore *sem) {
     sem->signaled = true;
     mutex_release(&sem->mutex);
 }
+
+#endif

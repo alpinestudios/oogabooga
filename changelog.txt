@@ -1,3 +1,6 @@
+
+## v0.01.002 - 
+
 ## v0.01.001 - Spacial audio, custom shading, scissor boxing
 	- Audio
 		- Implemented spacial audio playback

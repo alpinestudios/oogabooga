@@ -106,6 +106,8 @@ typedef struct Cpu_Capabilities {
 	
 	#define MEMORY_BARRIER _ReadWriteBarrier()
 	
+	#define thread_local __declspec(thread)
+	
 	#define SHARED_EXPORT __declspec(dllexport)
     #define SHARED_IMPORT __declspec(dllimport)
 	
@@ -223,8 +225,15 @@ typedef struct Cpu_Capabilities {
 	
 	#define MEMORY_BARRIER __asm__ __volatile__("" ::: "memory")
 	
+	#define thread_local __thread
+	
+#if TARGET_OS == WINDOWS
+	#define SHARED_EXPORT __attribute__((visibility("default"))) __declspec(dllexport)
+    #define SHARED_IMPORT __declspec(dllimport)
+#else
 	#define SHARED_EXPORT __attribute__((visibility("default")))
     #define SHARED_IMPORT 
+#endif
 	
 #else
 	#define inline inline

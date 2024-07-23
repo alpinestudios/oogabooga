@@ -536,28 +536,41 @@ Allocator get_heap_allocator() {
 	#define TEMPORARY_STORAGE_SIZE (1024ULL*1024ULL*2ULL) // 2mb
 #endif
 
-void* talloc(u64);
-void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void*);
+ogb_instance void* talloc(u64);
+ogb_instance void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void*);
 
 // #Global
-thread_local ogb_instance void * temporary_storage;
-thread_local ogb_instance bool   temporary_storage_initted;
-thread_local ogb_instance void * temporary_storage_pointer;
-thread_local ogb_instance bool   has_warned_temporary_storage_overflow;
-thread_local ogb_instance Allocator temp;
+ogb_instance Allocator 
+get_temporary_allocator();
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 thread_local void * temporary_storage = 0;
 thread_local bool   temporary_storage_initted = false;
 thread_local void * temporary_storage_pointer = 0;
 thread_local bool   has_warned_temporary_storage_overflow = false;
-thread_local Allocator temp;
+thread_local Allocator temp_allocator;
+
+ogb_instance Allocator 
+get_temporary_allocator() {
+    if (!temporary_storage_initted) return get_initialization_allocator();
+	return temp_allocator;
+}
 #endif
 
-Allocator get_temporary_allocator() {
-	return temp;
-}
+ogb_instance void* 
+temp_allocator_proc(u64 size, void *p, Allocator_Message message, void* data);
 
+ogb_instance void 
+temporary_storage_init();
+
+ogb_instance void* 
+talloc(u64 size);
+
+ogb_instance void 
+reset_temporary_storage();
+
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
 	switch (message) {
 		case ALLOCATOR_ALLOCATE: {
@@ -581,12 +594,12 @@ void temporary_storage_init() {
 	assert(temporary_storage, "Failed allocating temporary storage");
 	temporary_storage_pointer = temporary_storage;
 
-	temp.proc = temp_allocator_proc;
-	temp.data = 0;
+	temp_allocator.proc = temp_allocator_proc;
+	temp_allocator.data = 0;
 	
 	temporary_storage_initted = true;
 	
-	temp.proc = temp_allocator_proc;
+	temp_allocator.proc = temp_allocator_proc;
 }
 
 void* talloc(u64 size) {
@@ -617,3 +630,4 @@ void reset_temporary_storage() {
 	has_warned_temporary_storage_overflow = true;
 }
 
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE

@@ -34,7 +34,7 @@ void _profiler_report_time_cycles(string name, u64 count, u64 start) {
 	spinlock_acquire_or_wait(&_profiler_lock);
 	
 	string fmt = STR("{\"cat\":\"function\",\"dur\":%.3f,\"name\":\"%s\",\"ph\":\"X\",\"pid\":0,\"tid\":%zu,\"ts\":%lld},");
-	string_builder_print(&_profile_output, fmt, (float64)count*1000, name, context.thread_id, start*1000);
+	string_builder_print(&_profile_output, fmt, (float64)count*1000, name, get_context().thread_id, start*1000);
 	
 	spinlock_release(&_profiler_lock);
 }

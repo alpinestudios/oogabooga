@@ -197,6 +197,10 @@ typedef u8 bool;
 	#define ENABLE_SIMD 1
 #endif
 
+#ifndef INITIAL_PROGRAM_MEMORY_SIZE
+    #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
+#endif
+
 #if ENABLE_SIMD && !defined(SIMD_ENABLE_SSE2)
 	#if COMPILER_CAN_DO_SSE2
 		#define SIMD_ENABLE_SSE2 1
@@ -246,9 +250,12 @@ typedef u8 bool;
 
 #if OOGABOOGA_LINK_EXTERNAL_INSTANCE
     #define ogb_instance SHARED_IMPORT extern
-#else
+#elif OOGABOOGA_BUILD_SHARED_LIBRARY
     #define ogb_instance SHARED_EXPORT
+#else
+    #define ogb_instance
 #endif
+
 
 // This needs to be included before dependencies
 #include "base.c"
@@ -367,9 +374,12 @@ void default_logger(Log_Level level, string s) {
 	mutex_release(&_default_logger_mutex);
 }
 
+ogb_instance void oogabooga_init(u64 program_memory_size);
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 void oogabooga_init(u64 program_memory_size) {
 	context.logger = default_logger;
-	temp = get_initialization_allocator();
+	temp_allocator = get_initialization_allocator();
 	Cpu_Capabilities features = query_cpu_capabilities();
 	os_init(program_memory_size);
 	heap_init();
@@ -390,10 +400,17 @@ void oogabooga_init(u64 program_memory_size) {
 	log_verbose("CPU has avx2:   %cs", features.avx2 ? "true" : "false");
 	log_verbose("CPU has avx512: %cs", features.avx512 ? "true" : "false");
 }
+#endif
 
 int ENTRY_PROC(int argc, char **argv);
 
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
+#if OOGABOOGA_BUILD_SHARED_LIBRARY
+int SHARED_EXPORT main(int argc, char **argv) {
+#else
 int main(int argc, char **argv) {
+#endif
 
 
 	print("Ooga booga program started\n");
@@ -421,6 +438,8 @@ int main(int argc, char **argv) {
 	
 	return code;
 }
+#endif
+
 
 
 

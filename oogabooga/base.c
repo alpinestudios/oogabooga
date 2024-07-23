@@ -1,5 +1,5 @@
 
-#define thread_local _Thread_local
+
 
 #define local_persist static
 
@@ -9,10 +9,10 @@
 
 #define null 0
 	
-ogb_instance void 
+void 
 printf(const char* fmt, ...);
 
-ogb_instance void 
+void 
 dump_stack_trace();
 
 #define ASSERT_STR_HELPER(x) #x
@@ -81,7 +81,7 @@ typedef struct Allocator {
 	void *data;	
 } Allocator;
 
-ogb_instance Allocator
+Allocator
 get_heap_allocator();
 
 ogb_instance Allocator
@@ -95,15 +95,15 @@ typedef struct Context {
 	CONTEXT_EXTRA extra;
 } Context;
 
-forward_global thread_local Allocator temp;
-
 #define CONTEXT_STACK_MAX 512
 
 //
-//
-thread_local ogb_instance Context context;
-thread_local ogb_instance Context context_stack[CONTEXT_STACK_MAX];
-thread_local ogb_instance u64 num_contexts;
+// #Global
+//thread_local ogb_instance Context context;
+//thread_local ogb_instance Context context_stack[CONTEXT_STACK_MAX];
+//thread_local ogb_instance u64 num_contexts;
+ogb_instance 
+Context get_context();
 
 ogb_instance void* 
 alloc(Allocator allocator, u64 size);
@@ -166,7 +166,10 @@ pop_context() {
 	context = context_stack[num_contexts];
 }
 
-
+ogb_instance 
+Context get_context() {
+    return context;
+}
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 

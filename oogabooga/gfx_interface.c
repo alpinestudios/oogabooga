@@ -37,11 +37,11 @@ typedef struct Gfx_Image {
 	Allocator allocator;
 } Gfx_Image;
 
-ogb_instance Gfx_Image *
+Gfx_Image *
 make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator);
-ogb_instance Gfx_Image *
+Gfx_Image *
 load_image_from_disk(string path, Allocator allocator);
-ogb_instance void 
+void 
 delete_image(Gfx_Image *image);
 
 // Implemented per renderer
@@ -61,7 +61,7 @@ ogb_instance bool
 shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
 // initial_data can be null to leave image data uninitialized
-ogb_instance Gfx_Image *
+Gfx_Image *
 make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
 	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image) + width*height*channels);
 	
@@ -78,7 +78,7 @@ make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator al
     return image;
 }
 
-ogb_instance Gfx_Image *
+Gfx_Image *
 load_image_from_disk(string path, Allocator allocator) {
     string png;
     bool ok = os_read_entire_file(path, &png, allocator);
@@ -115,7 +115,7 @@ load_image_from_disk(string path, Allocator allocator) {
     return image;
 }
 
-ogb_instance void 
+void 
 delete_image(Gfx_Image *image) {
       // Free the image data allocated by stb_image
     image->width = 0;

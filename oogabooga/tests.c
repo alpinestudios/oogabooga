@@ -122,11 +122,11 @@ void test_allocator(bool do_log_heap) {
     reset_temporary_storage();
     
     
-    int* foo = (int*)alloc(temp, 72);
+    int* foo = (int*)alloc(get_temporary_allocator(), 72);
     *foo = 1337;
-    void* bar = alloc(temp, 69);
+    void* bar = alloc(get_temporary_allocator(), 69);
     (void)bar;
-    void* baz = alloc(temp, 420);
+    void* baz = alloc(get_temporary_allocator(), 420);
     (void)baz;
     
     assert(*foo == 1337, "Temp memory corruptada");
@@ -135,7 +135,7 @@ void test_allocator(bool do_log_heap) {
     
     reset_temporary_storage();
     
-    foo = (int*)alloc(temp, 72);
+    foo = (int*)alloc(get_temporary_allocator(), 72);
     
     assert(old_foo == foo, "Temp allocator goof");
     

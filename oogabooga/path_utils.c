@@ -52,3 +52,15 @@ string get_file_name_excluding_extension(string file_path) {
 	}
 	return file_name;
 }
+
+string get_directory_of(string path) {
+    if (path.count <= 0) return ZERO(string);
+    
+    for (u64 i = path.count; i >= 0; i--) {
+        if (path.data[i] == '/' || path.data[i] == '\\' || path.data[i] == ':') {
+            return string_view(path, 0, i);
+        }
+    }
+    
+    return ZERO(string);
+}

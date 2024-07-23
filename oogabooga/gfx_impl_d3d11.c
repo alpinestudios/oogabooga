@@ -231,8 +231,8 @@ void d3d11_update_swapchain() {
 bool
 d3d11_compile_shader(string source) {
 
-	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), temp);
-	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), temp);
+	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), get_temporary_allocator());
+	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), get_temporary_allocator());
 	
 	// #Leak on recompile
 	
@@ -921,7 +921,7 @@ bool
 shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
 	
 
-	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, temp);
+	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, get_temporary_allocator());
 	
 	
 	if (!d3d11_compile_shader(source)) return false;

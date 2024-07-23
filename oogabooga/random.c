@@ -10,7 +10,7 @@
 ogb_instance u64 seed_for_random;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
-    u64 seed_for_random = 1;
+u64 seed_for_random = 1;
 #endif
 
 u64 get_random() {

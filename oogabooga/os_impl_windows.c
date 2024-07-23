@@ -588,8 +588,10 @@ float64 os_get_current_time_in_seconds() {
 // Dynamic Libraries
 ///
 
+u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8);
+
 Dynamic_Library_Handle os_load_dynamic_library(string path) {
-	return LoadLibraryA(temp_convert_to_null_terminated_string(path));
+	return LoadLibraryW(temp_win32_fixed_utf8_to_null_terminated_wide(path));
 }
 void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier) {
 	return GetProcAddress(l, temp_convert_to_null_terminated_string(identifier));
@@ -635,7 +637,7 @@ u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) 
     return utf16_str;
 }
 u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
-	return win32_fixed_utf8_to_null_terminated_wide(utf8, temp);
+	return win32_fixed_utf8_to_null_terminated_wide(utf8, get_temporary_allocator());
 }
 string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
     u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
@@ -663,7 +665,7 @@ string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allo
 }
 
 string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
-    return win32_null_terminated_wide_to_fixed_utf8(utf16, temp);
+    return win32_null_terminated_wide_to_fixed_utf8(utf16, get_temporary_allocator());
 }
 
 
@@ -692,6 +694,12 @@ void os_file_close(File f) {
 bool os_file_delete_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	return (bool)DeleteFileW(path_wide);
+}
+
+bool os_file_copy_s(string from, string to, bool replace_if_exists) {
+    u16 *from_wide = temp_win32_fixed_utf8_to_null_terminated_wide(from);
+    u16 *to_wide   = temp_win32_fixed_utf8_to_null_terminated_wide(to);
+	return (bool)CopyFileW(from_wide, to_wide, !replace_if_exists);
 }
 
 bool os_make_directory_s(string path, bool recursive) {
@@ -946,11 +954,11 @@ bool os_get_absolute_path(string path, string *result, Allocator allocator) {
 bool os_get_relative_path(string from, string to, string *result, Allocator allocator) {
     
 	if (!os_is_path_absolute(from)) {
-		bool abs_ok = os_get_absolute_path(from, &from, temp);
+		bool abs_ok = os_get_absolute_path(from, &from, get_temporary_allocator());
 		if (!abs_ok) return false;
 	}
 	if (!os_is_path_absolute(to)) {
-		bool abs_ok = os_get_absolute_path(to, &to, temp);
+		bool abs_ok = os_get_absolute_path(to, &to, get_temporary_allocator());
 		if (!abs_ok) return false;
 	}
 	

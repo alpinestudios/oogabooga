@@ -89,7 +89,8 @@ inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
 
 
 
-bool os_grow_program_memory(size_t new_size);
+bool ogb_instance
+os_grow_program_memory(size_t new_size);
 
 ///
 ///
@@ -172,6 +173,8 @@ os_get_current_time_in_seconds();
 // Dynamic Libraries
 ///
 
+// #Cleanup this naming is bleh
+
 Dynamic_Library_Handle ogb_instance
 os_load_dynamic_library(string path);
 
@@ -207,6 +210,9 @@ os_file_close(File f);
 
 bool ogb_instance
 os_file_delete_s(string path);
+
+bool ogb_instance
+os_file_copy_s(string from, string to, bool replace_if_exists);
 
 
 bool ogb_instance
@@ -288,6 +294,12 @@ inline bool os_file_delete_f(const char *path) {return os_file_delete_s(STR(path
 #define os_file_delete(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
                            string:  os_file_delete_s, \
                            default: os_file_delete_f \
+                          )(__VA_ARGS__)
+                          
+inline bool os_file_copy_f(const char *from, const char *to, bool replace_if_exists) {return os_file_copy_s(STR(from), STR(to), replace_if_exists);}
+#define os_file_copy(...) _Generic((FIRST_ARG(__VA_ARGS__)), \
+                           string:  os_file_copy_s, \
+                           default: os_file_copy_f \
                           )(__VA_ARGS__)
                           
 inline bool os_make_directory_f(const char *path, bool recursive) { return os_make_directory_s(STR(path), recursive); }
