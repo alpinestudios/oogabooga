@@ -131,7 +131,7 @@ bool is_pointer_valid(void *p) {
 
 // Meant for debug
 void sanity_check_block(Heap_Block *block) {
-
+#if CONFIGURATION == DEBUG
 	assert(is_pointer_in_program_memory(block), "Heap_Block pointer is corrupt");
 	assert(is_pointer_in_program_memory(block->start), "Heap_Block pointer is corrupt");
 	if(block->next) { assert(is_pointer_in_program_memory(block->next), "Heap_Block next pointer is corrupt"); }
@@ -161,6 +161,7 @@ void sanity_check_block(Heap_Block *block) {
 	
 	u64 expected_size = get_heap_block_size_excluding_metadata(block);
 	assert(block->total_allocated+total_free == expected_size, "Heap is corrupt.")
+#endif
 }
 inline void check_meta(Heap_Allocation_Metadata *meta) {
 #if CONFIGURATION == DEBUG
@@ -237,8 +238,9 @@ Heap_Block *make_heap_block(Heap_Block *parent, u64 size) {
 	} else {
 		block = (Heap_Block*)program_memory;
 	}
+#if CONFIGURATION == DEBUG
 	block->total_allocated = 0;
-	
+#endif
 	
 	
 	if (((u8*)block)+size >= ((u8*)program_memory)+program_memory_size) {
