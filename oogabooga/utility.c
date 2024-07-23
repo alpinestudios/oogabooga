@@ -98,3 +98,4 @@ void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
     }
 }
 
+inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
