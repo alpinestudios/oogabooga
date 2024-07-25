@@ -11,6 +11,7 @@ ooga booga
 - [Examples & Documentation](#examples--documentation)
 - [Known bugs](#known-bugs)
 - [Licensing](#licensing)
+- [Contributions)(#contributions)
 
 ## What is ooga booga?
 
@@ -106,3 +107,9 @@ By default, the repository has an educational license that makes the engine free
 You can obtain the full commercial license by being an active member of the community and making your first game.
 
 [Learn more here](https://www.skool.com/game-dev)
+
+## Contributions
+I'm not sure what the most optimal way to do this but here are some house rules I'll continually update which I'd like us to follow for contributions:
+
+- Open PR's with `dev` as the base branch
+- Keep it simple

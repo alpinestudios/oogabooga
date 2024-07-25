@@ -120,6 +120,7 @@ int entry(int argc, char **argv) {
 		hammer_xform         = m4_translate(hammer_xform, v3(-.25f, -.25f, 0));
 		push_z_layer(1000001);
 		draw_image_xform(hammer_image, hammer_xform, v2(.5f, .5f), COLOR_RED);
+		draw_image_xform(hammer_image, hammer_xform, v2(.25f, .25f), COLOR_GREEN);
 		pop_z_layer();
 		
 		Vector2 hover_position = v2_rotate_point_around_pivot(v2(-.5, -.5), v2(0, 0), (f32)now);

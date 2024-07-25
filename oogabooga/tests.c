@@ -122,11 +122,11 @@ void test_allocator(bool do_log_heap) {
     reset_temporary_storage();
     
     
-    int* foo = (int*)alloc(temp, 72);
+    int* foo = (int*)alloc(get_temporary_allocator(), 72);
     *foo = 1337;
-    void* bar = alloc(temp, 69);
+    void* bar = alloc(get_temporary_allocator(), 69);
     (void)bar;
-    void* baz = alloc(temp, 420);
+    void* baz = alloc(get_temporary_allocator(), 420);
     (void)baz;
     
     assert(*foo == 1337, "Temp memory corruptada");
@@ -135,7 +135,7 @@ void test_allocator(bool do_log_heap) {
     
     reset_temporary_storage();
     
-    foo = (int*)alloc(temp, 72);
+    foo = (int*)alloc(get_temporary_allocator(), 72);
     
     assert(old_foo == foo, "Temp allocator goof");
     
@@ -454,7 +454,7 @@ void test_strings() {
 
 void test_file_io() {
 
-#if TARGET_OS == WINDOWS
+#if TARGET_OS == WINDOWS && !OOGABOOGA_LINK_EXTERNAL_INSTANCE
     // Test win32_fixed_utf8_to_null_terminated_wide
     string utf8_str = STR("Test");
     u16 *wide_str = win32_fixed_utf8_to_null_terminated_wide(utf8_str, get_heap_allocator());
@@ -1151,6 +1151,7 @@ void test_mutex() {
     mutex_destroy(&data.mutex);
 }
 
+#ifndef OOGABOOGA_HEADLESS
 int compare_draw_quads(const void *a, const void *b) {
     return ((Draw_Quad*)a)->z-((Draw_Quad*)b)->z;
 }
@@ -1220,9 +1221,80 @@ void test_sort() {
     
     print("Merge sort took on average %llu cycles and %.2f ms\n", cycles / num_samples, (seconds * 1000.0) / (float64)num_samples);
 }
+#endif /* OOGABOOGA_HEADLESS */
+
+typedef struct Test_Thing {
+    int foo;
+    float bar;
+} Test_Thing;
+void test_growing_array() {
+    Test_Thing *things = 0;
+    
+    growing_array_init((void**)&things, sizeof(Test_Thing), get_heap_allocator());
+    
+    Test_Thing new_thing;
+    new_thing.foo = 5;
+    new_thing.bar = 420.69;
+    growing_array_add((void**)&things, &new_thing);
+    
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    new_thing.foo = 1;
+    new_thing.bar = 123.45;
+    growing_array_add((void**)&things, &new_thing);
+    
+    assert(growing_array_get_valid_count(things) == 2, "Failed: growing_array_get_valid_count");
+    
+    assert(things[0].foo == 5 && floats_roughly_match(things[0].bar, 420.69), "Failed: growing_array_add");
+    assert(things[1].foo == 1 && floats_roughly_match(things[1].bar, 123.45), "Failed: growing_array_add");
+    
+    growing_array_ordered_remove_by_index((void**)&things, 0);
+    assert(things[0].foo == 1 && floats_roughly_match(things[0].bar, 123.45), "Failed: growing_array_ordered_remove_by_index");
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    new_thing.foo = 5;
+    new_thing.bar = 420.69;
+    growing_array_add((void**)&things, &new_thing);
+    assert(things[1].foo == 5 && floats_roughly_match(things[1].bar, 420.69), "Failed: growing_array_add");
+    
+    assert(growing_array_get_valid_count(things) == 2, "Failed: growing_array_get_valid_count");
+    
+    growing_array_unordered_remove_by_index((void**)&things, 0);
+    assert(things[0].foo == 5 && floats_roughly_match(things[0].bar, 420.69), "Failed: growing_array_unordered_remove_by_index");
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    
+    for (u32 i = 0; i < 100; i += 1) {
+        new_thing.foo = i;
+        new_thing.bar = i * 4.0;
+        growing_array_add((void**)&things, &new_thing);
+    }
+    
+    assert(growing_array_get_valid_count(things) == 101, "Failed: growing_array_get_valid_count");
+    
+    // Unordered remove by pointer
+    Test_Thing *thing = &things[50];
+    Test_Thing copy = *thing;
+    bool found = growing_array_unordered_remove_by_pointer((void**)&things, thing);
+    assert(found, "Failed: growing_array_unordered_remove_by_pointer");
+    assert(!bytes_match(&copy, thing, sizeof(Test_Thing)), "Failed: growing_array_unordered_remove_by_pointer");
+    
+    // Ordered remove by pointer
+    thing = &things[50];
+    copy = *thing;
+    found = growing_array_ordered_remove_by_pointer((void**)&things, thing);
+    assert(found, "Failed: growing_array_unordered_remove_by_pointer");
+    assert(!bytes_match(&copy, thing, sizeof(Test_Thing)), "Failed: growing_array_unordered_remove_by_pointer");
+    
+    assert(growing_array_get_valid_count(things) == 99, "Failed: growing_array_get_valid_count");
+}
+
 void oogabooga_run_tests() {
 	
-	
+	print("Testing growing array... ");
+	test_growing_array();
+	print("OK!\n");
+    
 	print("Testing allocator... ");
 	test_allocator(true);
 	print("OK!\n");
@@ -1258,10 +1330,14 @@ void oogabooga_run_tests() {
 	print("Testing mutex... ");
 	test_mutex();
 	print("OK!\n");
-	
+
+#ifndef OOGABOOGA_HEADLESS
 	print("Testing radix sort... ");
 	test_sort();
 	print("OK!\n");
+#endif
+
+	
 	
 	print("All tests ok!\n");
 }

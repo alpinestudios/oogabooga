@@ -52,9 +52,15 @@ typedef struct Audio_Format {
 	int sample_rate;
 } Audio_Format;
 
+// #Global
 // Implemented per OS
-forward_global Audio_Format audio_output_format; 
-forward_global Mutex audio_init_mutex;
+ogb_instance Audio_Format audio_output_format; 
+ogb_instance Mutex audio_init_mutex;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+Audio_Format audio_output_format; 
+Mutex audio_init_mutex;
+#endif
 
 // I don't see a big reason for you to use anything else than WAV and OGG.
 // If you use mp3 that's just not very smart.
@@ -1172,7 +1178,12 @@ typedef struct Audio_Player_Block {
 	struct Audio_Player_Block *next;
 } Audio_Player_Block;
 
+// #Global
+ogb_instance Audio_Player_Block audio_player_block;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Audio_Player_Block audio_player_block = {0};
+#endif
 
 Audio_Player *
 audio_player_get_one() {
@@ -1329,8 +1340,14 @@ audio_player_set_looping(Audio_Player *p, bool looping) {
 	spinlock_release(&p->sample_lock);
 }
 
+// #Global
+ogb_instance Hash_Table just_audio_clips;
+ogb_instance bool just_audio_clips_initted;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Hash_Table just_audio_clips;
 bool just_audio_clips_initted = false;
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void
 play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos) {

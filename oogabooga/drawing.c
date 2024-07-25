@@ -47,8 +47,7 @@ typedef struct Draw_Quad {
 } Draw_Quad;
 
 
-Draw_Quad *quad_buffer;
-u64 allocated_quads;
+
 typedef struct Draw_Frame {
 	u64 num_quads;
 	
@@ -65,9 +64,20 @@ typedef struct Draw_Frame {
 	void *cbuffer;
 	
 } Draw_Frame;
+
+// #Cleanup this should be in Draw_Frame
+// #Global
+ogb_instance Draw_Quad *quad_buffer;
+ogb_instance u64 allocated_quads;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
+ogb_instance Draw_Frame draw_frame;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+Draw_Quad *quad_buffer;
+u64 allocated_quads;
 Draw_Frame draw_frame = ZERO(Draw_Frame);
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void reset_draw_frame(Draw_Frame *frame) {
 	*frame = (Draw_Frame){0};
