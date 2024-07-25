@@ -38,7 +38,7 @@ typedef struct Context_Extra
 
 // This is where you swap in your own project!
 #include "globals.c"
+#include "utils.c"
 #include "entity.c"
 #include "ui.c"
-#include "utils.c"
 #include "game.c"

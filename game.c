@@ -1,4 +1,17 @@
 #define PARTY_MEMBER_LIMIT 6
+#define TILES_X 18
+#define TILES_Y 10
+
+enum TILES
+{
+    tile_nil = 0,
+    tile_wall = 1,
+    tile_path = 2,
+    tile_entry = 3,
+    tile_heart = 4,
+};
+
+enum TILES tiles[TILES_X * TILES_Y];
 
 typedef struct Monster
 {
@@ -12,6 +25,8 @@ typedef struct Monster
 
 typedef struct BattleData
 {
+    Vector2 health_placement;
+    s32 player_health;
     s32 current_mana;
     s32 selected_monster_index_tower_for_placement;
 } BattleData;
@@ -25,6 +40,35 @@ typedef struct RunData
 int entry(int argc, char **argv)
 {
 
+    enum TILES Tiles[TILES_X * TILES_Y];
+
+    {
+        // WHO SAID C WAS HARD?? >=[
+        Allocator heap = get_heap_allocator();
+
+        string read_data;
+        bool ok = os_read_entire_file("assets/level.txt", &read_data, heap);
+
+        assert(ok, "Failed: os_file_write_bytes");
+        log("length: %llu", read_data.count);
+
+        const u8 *ptr = read_data.data;
+        const u8 *end = ptr + read_data.count;
+        int i = 0;
+        while (ptr < end)
+        {
+            if (is_char_a_digit(*ptr))
+            {
+                Tiles[i] = *ptr - '0';
+                log("numbaaaa??? %d, index: %d", *ptr - '0', i);
+                i += 1;
+            }
+            ptr += 1;
+        }
+
+        log("%d", TILES_X * TILES_Y);
+    }
+
     Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
     assert(font, "Failed loading arial.ttf");
     window.title = STR("Tower defense game");
@@ -33,10 +77,13 @@ int entry(int argc, char **argv)
     window.x = 200;
     window.y = 200;
     window.clear_color = hex_to_rgba(0x11191cff);
-    int target_render_width = 320;
+    int target_render_width = 480;
 
     Gfx_Image *sprites = load_image_from_disk(STR("assets/spritesheet.png"), get_heap_allocator());
     assert(sprites, "didnt load image");
+
+    Gfx_Image *heart_sprite = load_image_from_disk(STR("assets/heart.png"), get_heap_allocator());
+    assert(heart_sprite, "didnt load image");
 
     float64 last_time = os_get_current_time_in_seconds();
 
@@ -49,18 +96,22 @@ int entry(int argc, char **argv)
     run_data.max_mana = 15;
     seed_for_random = os_get_current_cycle_count();
     run_data.current_party_members[0].mon_type = get_random_int_in_range(0, MONSTER_MAX - 1);
-
+    run_data.current_party_members[0].mana_cost = get_monster_mana_cost(run_data.current_party_members[0].mon_type);
     run_data.current_party_members[0]
+        .active = true;
+
+    run_data.current_party_members[1].mon_type = get_random_int_in_range(0, MONSTER_MAX - 1);
+    run_data.current_party_members[1].mana_cost = get_monster_mana_cost(run_data.current_party_members[1].mon_type);
+    run_data.current_party_members[1]
         .active = true;
     BattleData battle_data = {0};
     battle_data.selected_monster_index_tower_for_placement = -1;
     battle_data.current_mana = run_data.max_mana;
+    battle_data.player_health = 15;
+    battle_data.health_placement = v2(4, 4);
 
-    const float64 fps_limit = 69000;
+    const float64 fps_limit = 144;
     const float64 min_frametime = 1.0 / fps_limit;
-
-    int tilesX = (window.width / zoom) / SPRITE_PIXEL_SIZE;
-    int tilesY = (window.height / zoom) / SPRITE_PIXEL_SIZE;
 
     while (!window.should_close)
     {
@@ -72,7 +123,7 @@ int entry(int argc, char **argv)
 
         if (delta_t < min_frametime)
         {
-            // os_high_precision_sleep((min_frametime - delta_t) * 1000.0);
+            os_high_precision_sleep((min_frametime - delta_t) * 1000.0);
             now = os_get_current_time_in_seconds();
             delta_t = now - last_time;
         }
@@ -95,75 +146,140 @@ int entry(int argc, char **argv)
         world_frame.world_mouse_pos = screen_to_world();
         Vector2 tile_pos = round_v2_to_tile(world_frame.world_mouse_pos);
 
-        if (is_key_just_pressed(MOUSE_BUTTON_LEFT) && battle_data.selected_monster_index_tower_for_placement > -1)
-        {
-            Entity *tower = create_tower();
-            tower->monster_type = run_data.current_party_members[0].mon_type;
-            tower->position = tile_pos;
-
-            int mana_cost = get_monster_mana_cost(tower->monster_type);
-            battle_data.current_mana -= mana_cost;
-            battle_data.selected_monster_index_tower_for_placement = -1;
-        }
-
-        Vector4 color = ((Vector4){0.0, 0.0, 0.5, 1.0});
         float half_sprite_size = SPRITE_PIXEL_SIZE / 2.0;
 
-        int grid_x_half_size = window.width / zoom * 0.5;
-        int grid_y_half_size = window.height / zoom * 0.5;
+        int window_relative_width = window.width / zoom;
+        int window_relative_height = window.height / zoom;
+        int window_width_half_size_relative = window_relative_width * 0.5;
+        int window_height_half_size_relative = window_relative_height * 0.5;
 
-        float start_x = -grid_x_half_size;
-        for (int x = 0; x < tilesX; x++)
+        float grid_horizontal_length = SPRITE_PIXEL_SIZE * TILES_X;
+        float grid_vertical_length = SPRITE_PIXEL_SIZE * TILES_Y;
+
+        float horizontal_grid_offset = (window_relative_width - grid_horizontal_length) * 0.5f;
+        float vertical_grid_offset = (window_relative_height - grid_vertical_length) * 0.5f;
+
+        int y_grid_padding = 30;
+
+        Vector2 offset = v2(SPRITE_PIXEL_SIZE * TILES_X * 0.5, SPRITE_PIXEL_SIZE * TILES_Y * 0.5);
+
+        Matrix4 tile_xform = m4_scalar(1.0);
+        tile_xform = m4_translate(tile_xform, v3(-offset.x, -offset.y, 0.0));
+
+        // ref: https://www.reddit.com/r/rust/comments/nfoi4j/how_can_i_create_a_2d_array/
+        for (int tile_index = 0; tile_index < TILES_X * TILES_Y; tile_index++)
         {
+            int y = (int)floorf((float)tile_index / (float)TILES_X);
+            int x = tile_index - TILES_X * y;
+            Vector4 color = v4(0.2, 0.5, 0.2, 1.0);
 
-            draw_line(
-                v2(start_x + (x * SPRITE_PIXEL_SIZE), -grid_y_half_size),
-                v2(start_x + (x * SPRITE_PIXEL_SIZE), grid_y_half_size),
-                0.5,
-                color);
-        }
+            enum TILES tile = Tiles[tile_index];
 
-        float start_y = -grid_y_half_size;
+            if (tile == tile_wall)
+            {
+                color = v4(0.6, 0.6, 0.6, 1.0);
+            }
 
-        draw_rect(v2(-grid_x_half_size, start_y), v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), COLOR_GREEN);
+            if (tile == tile_path || tile == tile_entry)
+            {
+                color = v4(0.6, 0.1, 0.2, 1.0);
+            }
 
-        for (int y = 0; y < tilesY; y++)
-        {
-            draw_line(
-                v2(-grid_x_half_size, start_y + (y * SPRITE_PIXEL_SIZE)),
-                v2(grid_x_half_size, start_y + (y * SPRITE_PIXEL_SIZE)),
-                0.5,
-                color);
+            Matrix4 xform = tile_xform;
+            xform = m4_translate(xform, v3(x * SPRITE_PIXEL_SIZE, y * SPRITE_PIXEL_SIZE, 0.0));
+            draw_rect_xform(xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), color);
         }
 
         if (battle_data.selected_monster_index_tower_for_placement > -1)
         {
+            Vector4 color = ((Vector4){0.0, 0.0, 0.3, 1.0});
+            for (int x = 0; x < TILES_X; x++)
+            {
 
-            draw_rect(tile_pos, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), COLOR_RED);
+                draw_line(
+                    v2(-window_width_half_size_relative + (x * SPRITE_PIXEL_SIZE) + horizontal_grid_offset, -window_height_half_size_relative + vertical_grid_offset),
+                    v2(-window_width_half_size_relative + (x * SPRITE_PIXEL_SIZE) + horizontal_grid_offset, -window_height_half_size_relative + grid_vertical_length + vertical_grid_offset),
+                    1,
+                    color);
+            }
+
+            for (int y = 0; y < TILES_Y; y++)
+            {
+
+                draw_line(
+                    v2(-window_width_half_size_relative + horizontal_grid_offset, -window_height_half_size_relative + (y * SPRITE_PIXEL_SIZE) + vertical_grid_offset),
+                    v2(-window_width_half_size_relative + grid_horizontal_length + horizontal_grid_offset, -window_height_half_size_relative + (y * SPRITE_PIXEL_SIZE) + vertical_grid_offset),
+                    1,
+                    color);
+            }
+
+            draw_line(
+                v2(-window_width_half_size_relative + (TILES_X * SPRITE_PIXEL_SIZE) + horizontal_grid_offset, -window_height_half_size_relative + vertical_grid_offset),
+                v2(-window_width_half_size_relative + (TILES_X * SPRITE_PIXEL_SIZE) + horizontal_grid_offset, -window_height_half_size_relative + grid_vertical_length + vertical_grid_offset),
+                1,
+                color);
+
+            draw_line(
+                v2(-window_width_half_size_relative + horizontal_grid_offset, -window_height_half_size_relative + (TILES_Y * SPRITE_PIXEL_SIZE) + vertical_grid_offset),
+                v2(-window_width_half_size_relative + grid_horizontal_length + horizontal_grid_offset, -window_height_half_size_relative + (TILES_Y * SPRITE_PIXEL_SIZE) + vertical_grid_offset),
+                1,
+                color);
+        }
+        {
+            Matrix4 xform = m4_translate(tile_xform, v3(battle_data.health_placement.x * SPRITE_PIXEL_SIZE, battle_data.health_placement.y * SPRITE_PIXEL_SIZE, 0.0));
+            xform = m4_translate(xform, v3(SPRITE_PIXEL_SIZE * 0.5, SPRITE_PIXEL_SIZE * 0.5, 0.0));
+            draw_image_xform(heart_sprite, xform, get_image_size(heart_sprite), COLOR_WHITE);
+        }
+
+        bool can_place_tower = false;
+
+        if (battle_data.selected_monster_index_tower_for_placement > -1)
+        {
+            Vector4 rect_color = COLOR_RED;
+            rect_color.a = 0.25f;
+
             Monster mon = run_data.current_party_members[battle_data.selected_monster_index_tower_for_placement];
             // SpriteCell cell = sprite_cells[tower.monster_type];
             Matrix4 xform = m4_scalar(1.0);
-            xform = m4_translate(xform, v3(tile_pos.x, tile_pos.y, 0));
-            // xform = m4_translate(xform, v3(SPRITE_PIXEL_SIZE * -0.5, SPRITE_PIXEL_SIZE * -0.5, 0));
-            Draw_Quad *quad = draw_image_xform(sprites, xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), COLOR_WHITE);
+            int half_tile_x = TILES_X * 0.5f;
+            int half_tile_y = TILES_Y * 0.5f;
 
+            int tile_index_x = world_pos_to_tile_pos(tile_pos.x);
+            int tile_index_y = world_pos_to_tile_pos(tile_pos.y);
+
+            Vector4 sprite_color = COLOR_WHITE;
+
+            log("half_tile_x: %d, tile_pos: %d %d", half_tile_x, tile_index_x, tile_index_y);
+            if (tile_index_x >= -half_tile_x && tile_index_x < half_tile_x && tile_index_y >= -half_tile_y && tile_index_y < half_tile_y)
+            {
+                xform = m4_translate(xform, v3(tile_pos.x, tile_pos.y, 0));
+                can_place_tower = true;
+                sprite_color.a = 0.9;
+                rect_color = COLOR_GREEN;
+                rect_color.a = 0.25f;
+            }
+            else
+            {
+                xform = m4_translate(xform, v3(world_frame.world_mouse_pos.x, world_frame.world_mouse_pos.y, 0.0));
+                xform = m4_translate(xform, v3(SPRITE_PIXEL_SIZE * -0.5, SPRITE_PIXEL_SIZE * -0.5, 0.0));
+                sprite_color.a = 0.5;
+            }
+
+            draw_rect_xform(xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), rect_color);
+
+            Draw_Quad *quad = draw_image_xform(sprites, xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), sprite_color);
             quad->uv = getUvCoords(sprite_size, v2(mon.mon_type, 0), SPRITE_PIXEL_SIZE, 6, 1);
         }
 
         // Do stuff with towers
         for (u8 i = 0; i < MAX_PLAYER_TOWERS; i++)
         {
-            if (player_towers[i].active)
-            {
-                Entity tower = player_towers[i];
-                // SpriteCell cell = sprite_cells[tower.monster_type];
-                Matrix4 xform = m4_scalar(1.0);
-                xform = m4_translate(xform, v3(tower.position.x, tower.position.y, 0));
-                // xform = m4_translate(xform, v3(SPRITE_PIXEL_SIZE * -0.5, SPRITE_PIXEL_SIZE * -0.5, 0));
-                Draw_Quad *quad = draw_image_xform(sprites, xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), COLOR_WHITE);
+            render_entity(&player_towers[i], sprites, sprite_size);
+        }
 
-                quad->uv = getUvCoords(sprite_size, v2(tower.monster_type, 0), SPRITE_PIXEL_SIZE, 6, 1);
-            }
+        for (u8 i = 0; i < MAX_ENEMIES; i++)
+        {
+            render_entity(&enemies[i], sprites, sprite_size);
         }
 
         //: DRAW UI
@@ -206,20 +322,41 @@ int entry(int argc, char **argv)
             draw_text(font, mana_str_formatted, font_height, justified_mana_text_pos, v2(1, 1), COLOR_WHITE);
         }
 
+        Matrix4 xform = m4_scalar(1.0);
+        xform = m4_translate(xform, v3(window.pixel_width * 0.5f - 120.0, -window.pixel_height * 0.5 + 20.0, 0.0));
+        if (draw_btn(xform, font, STR("PLAY")))
+        {
+            log("FIRES");
+            for (int i = 0; i < 3; i++)
+            {
+                Entity *ent = create_enemy();
+                ent->monster_type = get_random_int_in_range(0, MONSTER_MAX - 1);
+                ent->health = 3;
+                ent->max_health = 3;
+                ent->speed = 5;
+                ent->position = v2(tile_pos_to_world_pos(9), tile_pos_to_world_pos(get_random_int_in_range(-TILES_Y * 0.5, TILES_Y * 0.5 - 1)));
+            }
+        }
+
         // Draw Tower Selection Bar
         {
+
             Vector2 ui_mouse_pos_world = screen_to_world();
             float offset_x = 400;
-            Vector2 bar_start_pos = v2(window.pixel_width * -0.5 + offset_x, window.pixel_height * -0.5 + 40);
-            draw_rect(bar_start_pos, v2(window.pixel_width - offset_x * 2, 80), COLOR_WHITE);
+            Vector2 bar_start_pos = v2(window.pixel_width * -0.5 + offset_x, window.pixel_height * -0.5 + 10);
+            draw_rect(bar_start_pos, v2(window.pixel_width - offset_x * 2, 50), COLOR_WHITE);
             Vector2 tower_btn_start = v2_add(bar_start_pos, v2(25, 25));
             float btn_offset_amount = 10;
             for (int i = 0; i < PARTY_MEMBER_LIMIT; i++)
             {
+
+                Matrix4 btn_xform = m4_scalar(1.0);
+
                 Vector2 offset = v2(i * (TOWER_BTN_WIDTH + btn_offset_amount), 0);
                 Vector2 btn_pos = v2_add(tower_btn_start, offset);
+                btn_xform = m4_translate(btn_xform, v3(btn_pos.x, btn_pos.y, 0));
                 Monster monster = run_data.current_party_members[i];
-                if (draw_tower_button(btn_pos))
+                if (draw_tower_button(btn_xform))
                 {
                     if (monster.active)
                     {
@@ -237,8 +374,38 @@ int entry(int argc, char **argv)
                     Draw_Quad *quad = draw_image_xform(sprites, xform, v2(SPRITE_PIXEL_SIZE, SPRITE_PIXEL_SIZE), COLOR_WHITE);
 
                     quad->uv = getUvCoords(sprite_size, v2(monster.mon_type, 0), SPRITE_PIXEL_SIZE, 6, 1);
+                    string mana_str = STR("%d");
+                    string mana_str_formatted = sprint(temp, mana_str, monster.mana_cost);
+                    btn_xform = m4_translate(btn_xform, v3(5., 5., 0.));
+                    draw_text_xform(font, mana_str_formatted, 30, btn_xform, v2(1.0, 1.0), COLOR_WHITE);
                 }
             }
+        }
+
+        // LOGIC for tower placement, needs to be after the buttons so it doesn't conflict with input capturing
+        // E.g if you press the button, don't place a tower
+        // @TODO: the buttons shouldn't overlap the grid, so this should be back above the draw logic?
+        if (is_key_just_pressed(KEY_ESCAPE))
+        {
+            consume_key_just_pressed(KEY_ESCAPE);
+            battle_data.selected_monster_index_tower_for_placement = -1;
+        }
+
+        if (is_key_just_released(MOUSE_BUTTON_LEFT))
+        {
+            consume_key_just_released(MOUSE_BUTTON_LEFT);
+
+            if (can_place_tower)
+            {
+                Entity *tower = create_tower();
+                tower->monster_type = run_data.current_party_members[battle_data.selected_monster_index_tower_for_placement].mon_type;
+                tower->position = tile_pos;
+
+                int mana_cost = get_monster_mana_cost(tower->monster_type);
+                battle_data.current_mana -= mana_cost;
+            }
+
+            battle_data.selected_monster_index_tower_for_placement = -1;
         }
 
         gfx_update();
