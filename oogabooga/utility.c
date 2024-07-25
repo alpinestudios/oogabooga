@@ -11,7 +11,6 @@
 // At 21 bits I'm able to sort a completely randomized collection of 100k integers at around
 // 8m cycles (or 2.5-2.6ms on my shitty laptop i5-11300H)
 void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_size, u64 sort_value_offset_in_item, u64 number_of_bits) {
-
     local_persist const int RADIX = 256;
     local_persist const int BITS_PER_PASS = 8;
     local_persist const int MASK = (RADIX - 1);
@@ -20,6 +19,7 @@ void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
     const u64 SIGN_SHIFT = 1ULL << (number_of_bits - 1);
 
     u64* count = (u64*)alloc(get_temporary_allocator(), RADIX * sizeof(u64));
+    u64* prefix_sum = (u64*)alloc(get_temporary_allocator(), RADIX * sizeof(u64));
     u8* items = (u8*)collection;
     u8* buffer = (u8*)help_buffer;
 
@@ -32,30 +32,26 @@ void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
 
         for (u64 i = 0; i < item_count; ++i) {
             u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            sort_value += SIGN_SHIFT;  // Transform the value to handle negative numbers
+            sort_value += SIGN_SHIFT; 
             u32 digit = (sort_value >> shift) & MASK;
             ++count[digit];
         }
 
-        u64 sum = 0;
-        for (u32 i = 0; i < RADIX; ++i) {
-            u64 temp = count[i];
-            count[i] = sum;
-            sum += temp;
+        prefix_sum[0] = 0;
+        for (u32 i = 1; i < RADIX; ++i) {
+            prefix_sum[i] = prefix_sum[i - 1] + count[i - 1];
         }
 
         for (u64 i = 0; i < item_count; ++i) {
             u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            u64 transformed_value = sort_value + SIGN_SHIFT;  // Transform the value to handle negative numbers
+            u64 transformed_value = sort_value + SIGN_SHIFT;
             u32 digit = (transformed_value >> shift) & MASK;
-            memcpy(buffer + count[digit] * item_size, items + i * item_size, item_size);
-            ++count[digit];
+            memcpy(buffer + prefix_sum[digit] * item_size, items + i * item_size, item_size);
+            ++prefix_sum[digit];
         }
 
         memcpy(items, buffer, item_count * item_size);
     }
-
-    dealloc(get_temporary_allocator(), count);
 }
 
 void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_size, int (*compare)(const void *, const void *)) {
@@ -102,3 +98,4 @@ void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
     }
 }
 
+inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }

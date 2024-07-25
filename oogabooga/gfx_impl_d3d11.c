@@ -123,35 +123,6 @@ void CALLBACK d3d11_debug_callback(D3D11_MESSAGE_CATEGORY category, D3D11_MESSAG
 	}
 }
 
-#define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
-void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
-    if (hr != S_OK) {
-    
-    	LPVOID errorMsg;
-        DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-                        FORMAT_MESSAGE_FROM_SYSTEM | 
-                        FORMAT_MESSAGE_IGNORE_INSERTS;
-
-        DWORD messageLength = FormatMessageW(
-            dwFlags,
-            NULL,
-            hr,
-            MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-            (LPWSTR) &errorMsg,
-            0,
-            NULL );
-
-        if (messageLength > 0) {
-            MessageBoxW(NULL, (LPWSTR)errorMsg, L"Error", MB_OK | MB_ICONERROR);
-        } else {
-            MessageBoxW(NULL, L"Failed to retrieve error message.", L"Error", MB_OK | MB_ICONERROR);
-        }
-    
-
-        panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
-    }
-}
-
 void d3d11_update_swapchain() {
 
 	HRESULT hr;
@@ -161,12 +132,13 @@ void d3d11_update_swapchain() {
 		DXGI_SWAP_CHAIN_DESC1 scd = ZERO(DXGI_SWAP_CHAIN_DESC1);
 		scd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		
 		//scd.BufferDesc.RefreshRate.Numerator = 0;
 		//scd.BufferDesc.RefreshRate.Denominator = 1;
 		
 		scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		scd.SampleDesc.Count = 1; 
-		scd.SampleDesc.Quality = 0;
+		scd.SampleDesc.Quality = 0; // #Portability
 		if (d3d11_feature_level < D3D_FEATURE_LEVEL_11_0) {
 			scd.Scaling = DXGI_SCALING_STRETCH; // for compatability with 7
 		}
@@ -259,8 +231,8 @@ void d3d11_update_swapchain() {
 bool
 d3d11_compile_shader(string source) {
 
-	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), temp);
-	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), temp);
+	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), get_temporary_allocator());
+	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), get_temporary_allocator());
 	
 	// #Leak on recompile
 	
@@ -949,7 +921,7 @@ bool
 shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
 	
 
-	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, temp);
+	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, get_temporary_allocator());
 	
 	
 	if (!d3d11_compile_shader(source)) return false;

@@ -1,3 +1,19 @@
+
+## v0.01.002 - Flexible build options, Hotloading, growing array
+    - Build system
+        - We can now compile with:
+            OOGABOOGA_HEADLESS: No window, graphics or audio
+            OOGABOOGA_BUILD_SHARED_LIBRARY: Build oogabooga as a shared library (dll)
+            OOGABOOGA_LINK_EXTERNAL_INSTANCE: Link to an external oogabooga global state instance
+        - See oogabooga/examples/hotload for an example on how we can set up a project with hotloaded code
+    
+    - Misc
+        - Better examples in custom_shader.c, & outlined circle
+        - Z-Sorting in the renderer is now stable
+        - Growing array
+            - oogabooga/examples/growing_array_example.c
+        
+
 ## v0.01.001 - Spacial audio, custom shading, scissor boxing
 	- Audio
 		- Implemented spacial audio playback
@@ -37,7 +53,7 @@
 			vx_cross()
 		- added os_get_file_size_from_Path()
 		- Some simple restructuring of existing code
-	- Made heap corruption detection more robust
+	   - Made heap corruption detection more robust
 
 ## v0.01.000 - AUDIO!
 	- Added audio sources

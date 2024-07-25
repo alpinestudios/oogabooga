@@ -1,5 +1,5 @@
 
-void os_write_string_to_stdout(string s);
+ogb_instance void os_write_string_to_stdout(string s);
 inline int crt_sprintf(char *str, const char *format, ...);
 int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args);
 bool is_pointer_valid(void *p);
@@ -135,7 +135,7 @@ string sprints(Allocator allocator, const string fmt, ...) {
 string tprints(const string fmt, ...) {
 	va_list args = 0;
 	va_start(args, fmt);
-	string s = sprint_va_list(temp, fmt, args);
+	string s = sprint_va_list(get_temporary_allocator(), fmt, args);
 	va_end(args);
 	return s;
 }
@@ -161,7 +161,7 @@ string tprintf(const char *fmt, ...) {
 	
 	va_list args;
 	va_start(args, fmt);
-	string s = sprint_va_list(temp, sfmt, args);
+	string s = sprint_va_list(get_temporary_allocator(), sfmt, args);
 	va_end(args);
 	
 	return s;
@@ -220,7 +220,7 @@ void printf(const char* fmt, ...) {
 
 
 typedef void(*Logger_Proc)(Log_Level level, string s);
-#define LOG_BASE(level, ...) if (context.logger) ((Logger_Proc)context.logger)(level, tprint(__VA_ARGS__))
+#define LOG_BASE(level, ...) if (get_context().logger) ((Logger_Proc)get_context().logger)(level, tprint(__VA_ARGS__))
 
 
 #define log_verbose(...) LOG_BASE(LOG_VERBOSE, __VA_ARGS__)

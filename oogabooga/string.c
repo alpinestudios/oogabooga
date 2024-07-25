@@ -5,7 +5,7 @@
 	
 */
 
-void* talloc(u64);
+ogb_instance void* talloc(u64);
 
 typedef struct string {
 	u64 count;
@@ -41,7 +41,7 @@ dealloc_string(Allocator allocator, string s) {
 }
 string 
 talloc_string(u64 count) {
-	string s = alloc_string(temp, count);
+	string s = alloc_string(get_temporary_allocator(), count);
 	return s;
 }
 
@@ -69,7 +69,7 @@ convert_to_null_terminated_string(const string s, Allocator allocator) {
 
 char *
 temp_convert_to_null_terminated_string(const string s) {
-	char *c = convert_to_null_terminated_string(s, temp);
+	char *c = convert_to_null_terminated_string(s, get_temporary_allocator());
 	return c;
 }
 bool 

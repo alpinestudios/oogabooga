@@ -35,8 +35,12 @@
 	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)
 	
 - OS
-	Window::bool is_minimized
-	don't set window.width & window.height to 0
+	- Window::bool is_minimized
+	- don't set window.width & window.height to 0
+	- Sockets recv, send
+	
+	
+- Arenas
 	
 - Needs testing:
 	- Audio format channel conversions

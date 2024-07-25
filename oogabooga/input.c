@@ -19,7 +19,6 @@
 			case INPUT_EVENT_KEY:    ...; break;
 			case INPUT_EVENT_SCROLL: ...; break;
 			case INPUT_EVENT_TEXT:   ...; break;
-			case INPUT_EVENT_CLOSE:  ...; break;
 		}
 	}
 */
@@ -131,7 +130,13 @@ typedef struct Input_Frame {
 	Input_State_Flags key_states[INPUT_KEY_CODE_COUNT];
 	
 } Input_Frame;
+
+// #Global
+ogb_instance Input_Frame input_frame;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Input_Frame input_frame = ZERO(Input_Frame);
+#endif
 
 bool has_key_state(Input_Key_Code code, Input_State_Flags flags) {
 	assert(code > 0 && code < INPUT_KEY_CODE_COUNT, "Invalid key code %d!", code);

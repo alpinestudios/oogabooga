@@ -1,5 +1,5 @@
 
-#define thread_local _Thread_local
+
 
 #define local_persist static
 
@@ -9,8 +9,12 @@
 
 #define null 0
 	
-void printf(const char* fmt, ...);
-void dump_stack_trace();
+void 
+printf(const char* fmt, ...);
+
+void 
+dump_stack_trace();
+
 #define ASSERT_STR_HELPER(x) #x
 #define ASSERT_STR(x) ASSERT_STR_HELPER(x)
 #define assert_line(line, cond, ...) {if(!(cond)) { printf("Assertion failed in file " __FILE__ " on line " ASSERT_STR(line) "\nFailed Condition: " #cond ". Message: " __VA_ARGS__); dump_stack_trace(); crash(); }}
@@ -77,8 +81,11 @@ typedef struct Allocator {
 	void *data;	
 } Allocator;
 
-Allocator get_heap_allocator();
-Allocator get_temporary_allocator();
+Allocator
+get_heap_allocator();
+
+ogb_instance Allocator
+get_temporary_allocator();
 
 typedef struct Context {
 	void *logger; // void(*Logger_Proc)(Log_Level level, string fmt, ...)
@@ -88,16 +95,42 @@ typedef struct Context {
 	CONTEXT_EXTRA extra;
 } Context;
 
-
 #define CONTEXT_STACK_MAX 512
+
+//
+// #Global
+//thread_local ogb_instance Context context;
+//thread_local ogb_instance Context context_stack[CONTEXT_STACK_MAX];
+//thread_local ogb_instance u64 num_contexts;
+ogb_instance 
+Context get_context();
+
+ogb_instance void* 
+alloc(Allocator allocator, u64 size);
+
+ogb_instance void* 
+alloc_uninitialized(Allocator allocator, u64 size);
+
+ogb_instance void 
+dealloc(Allocator allocator, void *p);
+
+ogb_instance void 
+push_context(Context c);
+
+ogb_instance void 
+pop_context();
+//
+//
+
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
 thread_local Context context;
 thread_local Context context_stack[CONTEXT_STACK_MAX];
 thread_local u64 num_contexts = 0;
 
-forward_global thread_local Allocator temp;
-
-void* memset(void* dest, int value, size_t amount);
-void* alloc(Allocator allocator, u64 size) {
+void* 
+alloc(Allocator allocator, u64 size) {
 	assert(size > 0, "You requested an allocation of zero bytes. I'm not sure what you want with that.");
 	void *p = allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);
 #if DO_ZERO_INITIALIZATION
@@ -105,31 +138,43 @@ void* alloc(Allocator allocator, u64 size) {
 #endif
 	return p;
 }
-void* alloc_uninitialized(Allocator allocator, u64 size) {
+
+void* 
+alloc_uninitialized(Allocator allocator, u64 size) {
 	assert(size > 0, "You requested an allocation of zero bytes. I'm not sure what you want with that.");
 	return allocator.proc(size, 0, ALLOCATOR_ALLOCATE, allocator.data);	
 }
-void dealloc(Allocator allocator, void *p) {
+
+void 
+dealloc(Allocator allocator, void *p) {
 	assert(p != 0, "You tried to deallocate a pointer at adress 0. That doesn't make sense!");
 	allocator.proc(0, p, ALLOCATOR_DEALLOCATE, allocator.data);
 }
 
-void push_context(Context c) {
+void 
+push_context(Context c) {
 	assert(num_contexts < CONTEXT_STACK_MAX, "Context stack overflow");
 	
 	context_stack[num_contexts] = context;
 	context = c;
 	num_contexts += 1;
 }
-void pop_context() {
+void 
+pop_context() {
 	assert(num_contexts > 0, "No contexts to pop!");
 	num_contexts -= 1;
 	context = context_stack[num_contexts];
 }
 
+ogb_instance 
+Context get_context() {
+    return context;
+}
 
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
-u64 get_next_power_of_two(u64 x) {
+u64 
+get_next_power_of_two(u64 x) {
     if (x == 0) {
         return 1;
     }
