@@ -18,7 +18,6 @@ typedef struct Context_Extra
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
 
-
 //
 // Comment & Uncomment these to swap projects (only include one at a time)
 //
@@ -32,7 +31,7 @@ typedef struct Context_Extra
 // #include "oogabooga/examples/tile_game.c"
 // #include "oogabooga/examples/audio_test.c"
 // #include "oogabooga/examples/custom_shader.c"
-#include "oogabooga/examples/growing_array_example.c"
+// #include "oogabooga/examples/growing_array_example.c"
 
 // This is where you swap in your own project!
 #include "globals.c"
