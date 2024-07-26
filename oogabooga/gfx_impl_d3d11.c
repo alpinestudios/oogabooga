@@ -674,8 +674,21 @@ void d3d11_process_draw_frame() {
 				}
 				
 				if (q->type == QUAD_TYPE_TEXT) {
+				
+				    // This is meant to fix the annoying artifacts that shows up when sampling text from an atlas
+				    // presumably for floating point precision issues or something.
+				
+				    // #Incomplete
+				    // If we want to animate text with small movements then it will look wonky.
+				    // This should be optional probably.
+				    // Also, we might want to do this on non-text if rendering with linear filtering
+				    // from a large texture atlas.
+				
 					float pixel_width = 2.0/(float)window.width;
 					float pixel_height = 2.0/(float)window.height;
+
+                    bool xeven = window.width % 2 == 0;
+                    bool yeven = window.height % 2 == 0;
 					
 					q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
 				    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
@@ -703,10 +716,50 @@ void d3d11_process_draw_frame() {
 					TR->position = v4(q->top_right.x,    q->top_right.y,    0, 1);
 					BR->position = v4(q->bottom_right.x, q->bottom_right.y, 0, 1);
 					
-					BL->uv = v2(q->uv.x1, q->uv.y1);
-					TL->uv = v2(q->uv.x1, q->uv.y2);
-					TR->uv = v2(q->uv.x2, q->uv.y2);
-					BR->uv = v2(q->uv.x2, q->uv.y1);
+					
+					if (q->image) {
+
+						BL->uv = v2(q->uv.x1, q->uv.y1);
+						TL->uv = v2(q->uv.x1, q->uv.y2);
+						TR->uv = v2(q->uv.x2, q->uv.y2);
+						BR->uv = v2(q->uv.x2, q->uv.y1);
+						// #Hack #Bug #Cleanup
+						// When a window dimension is uneven it slightly under/oversamples on an axis by a
+						// seemingly arbitrary amount. The 0.25 is a magic value I got from trial and error.
+						// (It undersamples by a fourth of the atlas texture?)
+						// Anything > 0.25 < will slightly over/undersample on my machine.
+						// I have no idea about #Portability here.
+						// - Charlie M 26th July 2024
+						if (window.width % 2 != 0) {
+							BL->uv.x += (2.0/(float)q->image->width)*0.25;
+							TL->uv.x += (2.0/(float)q->image->width)*0.25;
+							TR->uv.x += (2.0/(float)q->image->width)*0.25;
+							BR->uv.x += (2.0/(float)q->image->width)*0.25;
+						}
+						if (window.height % 2 != 0) {
+							BL->uv.y -= (2.0/(float)q->image->height)*0.25;
+							TL->uv.y -= (2.0/(float)q->image->height)*0.25;
+							TR->uv.y -= (2.0/(float)q->image->height)*0.25;
+							BR->uv.y -= (2.0/(float)q->image->height)*0.25;
+						}
+
+						u8 sampler = -1;
+						if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
+									&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
+								sampler = 0;
+						if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
+									&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
+								sampler = 1;
+						if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
+									&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
+								sampler = 2;
+						if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
+									&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
+								sampler = 3;
+						BL->sampler=TL->sampler=TR->sampler=BR->sampler = (u8)sampler;
+								
+					}
+					BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
 					
 					BL->self_uv = v2(0, 0);
 					TL->self_uv = v2(0, 1);
@@ -721,7 +774,6 @@ void d3d11_process_draw_frame() {
 					
 					BL->color = TL->color = TR->color = BR->color = q->color;
 					
-					BL->texture_index=TL->texture_index=TR->texture_index=BR->texture_index = texture_index;
 					BL->type=TL->type=TR->type=BR->type = (u8)q->type;
 					
 					float t = q->scissor.y1;
@@ -733,23 +785,6 @@ void d3d11_process_draw_frame() {
 					
 					BL->has_scissor=TL->has_scissor=TR->has_scissor=BR->has_scissor = q->has_scissor;
 					BL->scissor=TL->scissor=TR->scissor=BR->scissor = q->scissor;
-					
-					u8 sampler = -1;
-					if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
-						 		&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
-						 	sampler = 0;
-					if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
-						 		&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
-						 	sampler = 1;
-					if (q->image_min_filter == GFX_FILTER_MODE_LINEAR
-						 		&& q->image_mag_filter == GFX_FILTER_MODE_NEAREST)
-						 	sampler = 2;
-					if (q->image_min_filter == GFX_FILTER_MODE_NEAREST
-						 		&& q->image_mag_filter == GFX_FILTER_MODE_LINEAR)
-						 	sampler = 3;
-						 	
-					BL->type=TL->type=TR->type=BR->type = (u8)q->type;
-					BL->sampler=TL->sampler=TR->sampler=BR->sampler = (u8)sampler;
 					
 					*BL2 = *BL;
 					*TR2 = *TR;
