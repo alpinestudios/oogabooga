@@ -32,9 +32,8 @@ int entry(int argc, char **argv) {
 		float now = (float)os_get_current_time_in_seconds();
 		float animated_x = sin(now*0.1)*(window.width*0.5);
 		
-		// UTF-8 !
-		draw_text(font, STR("Привет"), font_height, v2(animated_x-2, 2), v2(1, 1), COLOR_BLACK);
-		draw_text(font, STR("Привет"), font_height, v2(animated_x, 0),  v2(1, 1), COLOR_WHITE);
+		draw_text(font, STR("I am text"), font_height, v2(animated_x-2, 2), v2(1, 1), COLOR_BLACK);
+		draw_text(font, STR("I am text"), font_height, v2(animated_x, 0),  v2(1, 1), COLOR_WHITE);
 		
 		// New lines are handled when drawing text
 		string hello_str = STR("Hello,\nTTTT New line\nAnother line");

@@ -1,5 +1,5 @@
 
-## v0.01.003 - Nothing, really
+## v0.01.003 - 
 	- Os layer
 		- Implemented setting of mouse pointers, either to system standard pointers or a custom image
 		- Ignore SETCURSOR events unless window resize
@@ -10,9 +10,7 @@
 		- Fix bad uv sampling bug when uneven window dimensions
 	
 	- Misc
-		- Deprecate Rangef stuff
-		- peek_random()
-		- Update #Contributions
+		- 
 
 
 ## v0.01.002 - Flexible build options, Hotloading, growing array

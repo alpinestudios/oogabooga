@@ -170,7 +170,7 @@ typedef struct Cpu_Capabilities {
 		#define COMPILER_CAN_DO_AVX512 0
 	#endif
 	
-	#define DEPRECATED(proc, msg) __attribute__((deprecated(msg))) proc 
+	#define DEPRECATED(proc, msg) proc __attribute__((deprecated(msg)))
 	
 	inline bool 
 	compare_and_swap_8(uint8_t *a, uint8_t b, uint8_t old) {
