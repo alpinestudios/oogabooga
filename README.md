@@ -11,7 +11,7 @@ ooga booga
 - [Examples & Documentation](#examples--documentation)
 - [Known bugs](#known-bugs)
 - [Licensing](#licensing)
-- [Contributions)(#contributions)
+- [Contributions](#contributions)
 
 ## What is ooga booga?
 
@@ -109,7 +109,17 @@ You can obtain the full commercial license by being an active member of the comm
 [Learn more here](https://www.skool.com/game-dev)
 
 ## Contributions
-I'm not sure what the most optimal way to do this but here are some house rules I'll continually update which I'd like us to follow for contributions:
-
 - Open PR's with `dev` as the base branch
-- Keep it simple
+- Keep it simple, no multi-layer abstractions
+- Keep the implementation code readable, comment confusing code
+- If you're introducing a new file/module, document the API and how to use it at the top of the file
+- Add tests in tests.c if it makes sense to test
+- Run tests (#define RUN_TESTS 1) before submitting PR
+- Don't submit PR's for:
+	- the sake of submitting PR's
+	- Small polishing/tweaks that doesn't really affect the people making games
+- When you submit a PR, please answer these prompts (if you're submitting a bugfix then you can skip this):
+	- What feature/bugfix does this PR implement?
+	- Why do we need this?
+	- Describe at least one specific and practical problem this solves for people developing a game
+	- Does this add complexity/friction for people making games? If so, how do you justify that?
