@@ -68,7 +68,6 @@ int entry(int argc, char **argv) {
 		
 		if (is_key_just_pressed('R')) {
             load_game_dll(argv);
-            play_one_audio_clip(STR("oogabooga/examples/bruh.wav"));
 		}
 		
 		os_update(); 
