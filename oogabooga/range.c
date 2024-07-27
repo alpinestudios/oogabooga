@@ -12,6 +12,9 @@
 // This feels like introducing unnecessary complexity and vocabulary when it's really just
 // another way to say Vector2 and Vector4.
 
+typedef DEPRECATED(struct Range1f Range1f, "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+typedef DEPRECATED(struct Range2f Range2f, "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+
 typedef struct Range1f {
   float min;
   float max;
@@ -22,6 +25,13 @@ typedef struct Range2f {
   Vector2 min;
   Vector2 max;
 } Range2f;
+
+DEPRECATED(Range2f range2f_make(Vector2 min, Vector2 max), "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+DEPRECATED(Range2f range2f_shift(Range2f r, Vector2 shift), "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+DEPRECATED(Range2f range2f_make_bottom_center(Vector2 size), "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+DEPRECATED(Vector2 range2f_size(Range2f range), "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+DEPRECATED(bool range2f_contains(Range2f range, Vector2 v), "Range2f & Range1f will be removed. If you are using this, you should yoink it into your game code (from oogabooga/range.c).");
+
 
 inline Range2f range2f_make(Vector2 min, Vector2 max) { return (Range2f) { min, max }; }
 

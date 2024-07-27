@@ -13,8 +13,13 @@ ogb_instance u64 seed_for_random;
 u64 seed_for_random = 1;
 #endif
 
+// Like get_random but it doesn't advance the seed
+u64 peek_random() {
+    return seed_for_random * MULTIPLIER + INCREMENT;
+}
+
 u64 get_random() {
-    seed_for_random = seed_for_random * MULTIPLIER + INCREMENT;
+    seed_for_random = peek_random();
     return seed_for_random;
 }
 
