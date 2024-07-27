@@ -286,6 +286,7 @@ typedef u8 bool;
 #include "hash.c"
 #include "path_utils.c"
 #include "linmath.c"
+#include "intmath.c"
 #include "range.c"
 #include "utility.c"
 
