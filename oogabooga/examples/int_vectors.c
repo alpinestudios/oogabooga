@@ -1,5 +1,5 @@
 #define CAMERA_SCALE 100.0
-#define MAP_WIDTH 200
+#define MAP_WIDTH 300
 #define MAP_HEIGHT 200
 #define MAX_LIST_SIZE 1024
 #define MIN_ROOM_COUNT (5 + 10)
