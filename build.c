@@ -12,6 +12,7 @@
 // enough temporary storage for your game.
 #define TEMPORARY_STORAGE_SIZE MB(2) 
 
+
 // Enable VERY_DEBUG if you are having memory bugs to detect things like heap corruption earlier.
 // #define VERY_DEBUG 1
 
@@ -41,7 +42,8 @@ typedef struct Context_Extra {
 // #include "oogabooga/examples/tile_game.c"
 // #include "oogabooga/examples/audio_test.c"
 // #include "oogabooga/examples/custom_shader.c"
-#include "oogabooga/examples/growing_array_example.c"
+// #include "oogabooga/examples/growing_array_example.c"
+#include "oogabooga/examples/int_vectors.c"
 
 // This is where you swap in your own project!
 // #include "entry_yourepicgamename.c"

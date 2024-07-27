@@ -838,7 +838,81 @@ void test_simd() {
     end = rdtsc();
     cycles = end-start;
     print("NO SIMD float32 mul took %llu cycles\n", cycles);
+} 
+void test_intmath() {
+    // Test vector creation and access
+    Vector2i v2i_test = v2i(1, 2);
+    assert(v2i_test.x == 1 && v2i_test.y == 2, "v2i creation incorrect");
+
+    Vector3i v3i_test = v3i(1, 2, 3);
+    assert(v3i_test.x == 1 && v3i_test.y == 2 && v3i_test.z == 3, "v3i creation incorrect");
+
+    Vector4i v4i_test = v4i(1, 2, 3, 4);
+    assert(v4i_test.x == 1 && v4i_test.y == 2 && v4i_test.z == 3 && v4i_test.w == 4, "v4i creation incorrect");
+
+    // Test vector2 operations
+    Vector2i v2i_a = v2i(3, 4);
+    Vector2i v2i_b = v2i(1, 2);
+    Vector2i v2i_result = v2i_add(v2i_a, v2i_b);
+    assert(v2i_result.x == 4 && v2i_result.y == 6, "v2i_add incorrect");
+
+    v2i_result = v2i_sub(v2i_a, v2i_b);
+    assert(v2i_result.x == 2 && v2i_result.y == 2, "v2i_sub incorrect");
+
+    v2i_result = v2i_mul(v2i_a, v2i_b);
+    assert(v2i_result.x == 3 && v2i_result.y == 8, "v2i_mul incorrect");
+
+    v2i_result = v2i_div(v2i_a, v2i_b);
+    assert(v2i_result.x == 3 && v2i_result.y == 2, "v2i_div incorrect");
+
+    v2i_result = v2i_muli(v2i_a, 2);
+    assert(v2i_result.x == 6 && v2i_result.y == 8, "v2i_muli incorrect");
+
+    v2i_result = v2i_divi(v2i_a, 2);
+    assert(v2i_result.x == 1 && v2i_result.y == 2, "v2i_divi incorrect");
+
+    // Test vector2 operations
+    Vector3i v3i_a = v3i(3, 4, 6);
+    Vector3i v3i_b = v3i(1, 2, 3);
+    Vector3i v3i_result = v3i_add(v3i_a, v3i_b);
+    assert(v3i_result.x == 4 && v3i_result.y == 6 && v3i_result.z == 9, "v3i_add incorrect.");
+
+    v3i_result = v3i_sub(v3i_a, v3i_b);
+    assert(v3i_result.x == 2 && v3i_result.y == 2 && v3i_result.z == 3, "v3i_sub incorrect");
+
+    v3i_result = v3i_mul(v3i_a, v3i_b);
+    assert(v3i_result.x == 3 && v3i_result.y == 8 && v3i_result.z == 18, "v3i_mul incorrect");
+
+    v3i_result = v3i_div(v3i_a, v3i_b);
+    assert(v3i_result.x == 3 && v3i_result.y == 2 && v3i_result.z == 2, "v3i_div incorrect");
+
+    v3i_result = v3i_muli(v3i_a, 2);
+    assert(v3i_result.x == 6 && v3i_result.y == 8 && v3i_result.z == 12, "v3i_muli incorrect");
+
+    v3i_result = v3i_divi(v3i_a, 2);
+    assert(v3i_result.x == 1 && v3i_result.y == 2 && v3i_result.z == 3, "v3i_divi incorrect");
+
+    Vector4i v4i_a = v4i(3, 4, 6, 8);
+    Vector4i v4i_b = v4i(1, 2, 3, 4);
+    Vector4i v4i_result = v4i_add(v4i_a, v4i_b);
+    assert(v4i_result.x == 4 && v4i_result.y == 6 && v4i_result.z == 9 && v4i_result.w == 12, "v4i_add incorrect.");
+
+    v4i_result = v4i_sub(v4i_a, v4i_b);
+    assert(v4i_result.x == 2 && v4i_result.y == 2 && v4i_result.z == 3 && v4i_result.w == 4, "v4i_sub incorrect");
+
+    v4i_result = v4i_mul(v4i_a, v4i_b);
+    assert(v4i_result.x == 3 && v4i_result.y == 8 && v4i_result.z == 18 && v4i_result.w == 32, "v4i_mul incorrect");
+
+    v4i_result = v4i_div(v4i_a, v4i_b);
+    assert(v4i_result.x == 3 && v4i_result.y == 2 && v4i_result.z == 2 && v4i_result.w == 2, "v4i_div incorrect");
+
+    v4i_result = v4i_muli(v4i_a, 2);
+    assert(v4i_result.x == 6 && v4i_result.y == 8 && v4i_result.z == 12 && v4i_result.w == 16, "v4i_muli incorrect");
+
+    v4i_result = v4i_divi(v4i_a, 2);
+    assert(v4i_result.x == 1 && v4i_result.y == 2 && v4i_result.z == 3 && v4i_result.w == 4, "v4i_divi incorrect");
 }
+
 // Indirect testing of some simd stuff
 void test_linmath() {
 
@@ -1313,6 +1387,10 @@ void oogabooga_run_tests() {
 	
 	print("Testing linmath... ");
 	test_linmath();
+	print("OK!\n");
+
+	print("Testing intmath... ");
+	test_intmath();
 	print("OK!\n");
 	
 	print("Testing simd... ");
