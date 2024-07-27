@@ -22,6 +22,7 @@
 	void    audio_player_set_state(Audio_Player *p, Audio_Player_State state);
 	void    audio_player_set_time_stamp(Audio_Player *p, float64 time_in_seconds);
 	void    audio_player_set_progression_factor(Audio_Player *p, float64 factor);
+    bool    audio_player_at_source_end(Audio_Player *p);
 	float64 audio_player_get_time_stamp(Audio_Player *p);
 	float64 audio_player_get_current_progression_factor(Audio_Player *p);
 	void    audio_player_set_source(Audio_Player *p, Audio_Source src, bool retain_progression_factor);
@@ -1264,6 +1265,19 @@ audio_player_set_time_stamp(Audio_Player *p, float64 time_in_seconds) {
 	
 	spinlock_release(&p->sample_lock);
 }
+
+bool 
+audio_player_at_source_end(Audio_Player *p) {
+	spinlock_acquire_or_wait(&p->sample_lock);
+	assert(p->frame_index <= p->source.number_of_frames);
+	
+    bool finished = p->frame_index == p->source.number_of_frames;
+	
+	spinlock_release(&p->sample_lock);
+
+    return finished;
+}
+
 void // 0 - 1
 audio_player_set_progression_factor(Audio_Player *p, float64 factor) {
 	spinlock_acquire_or_wait(&p->sample_lock);

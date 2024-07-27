@@ -28,9 +28,10 @@ typedef struct Cpu_Capabilities {
 #if COMPILER_MVSC
 	#define inline __forceinline
 	#define alignat(x) __declspec(align(x))
+	#define noreturn __declspec(noreturn)
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
     inline void 
-    crash() {
+    crash() noreturn {
 		__debugbreak();
 		volatile int *a = 0;
 		*a = 5;
@@ -113,10 +114,11 @@ typedef struct Cpu_Capabilities {
 	
 #elif COMPILER_GCC || COMPILER_CLANG
 	#define inline __attribute__((always_inline)) inline
-	#define alignat(x) __attribute__((aligned(x)))
+	#define alignat(x) __attribute__((aligned(x)))	
+    #define noreturn __attribute__((noreturn))
     #define COMPILER_HAS_MEMCPY_INTRINSICS 1
     
-    inline void __attribute__((noreturn))
+    inline void noreturn
     crash() {
 		__builtin_trap();
 		volatile int *a = 0;

@@ -1,4 +1,18 @@
 
+## v0.01.003 - 
+	- Os layer
+		- Implemented setting of mouse pointers, either to system standard pointers or a custom image
+		- Ignore SETCURSOR events unless window resize
+		- Store SYSTEM_INFO in init
+		- os_get_number_of_logical_processors()
+	
+	- Renderer
+		- Fix bad uv sampling bug when uneven window dimensions
+	
+	- Misc
+		- 
+
+
 ## v0.01.002 - Flexible build options, Hotloading, growing array
     - Build system
         - We can now compile with:

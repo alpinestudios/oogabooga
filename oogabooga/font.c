@@ -244,8 +244,8 @@ void font_atlas_init(Gfx_Font_Atlas *atlas, Gfx_Font_Variation *variation, u32 f
 		glyph->advance = (float)advance*variation->scale;
 		//glyph->xoffset += (float)left_side_bearing*variation->scale;
 		
-		glyph->uv.x1 = (float)cursor_x/(float)FONT_ATLAS_WIDTH;
-		glyph->uv.y1 = (float)cursor_y/(float)FONT_ATLAS_HEIGHT;
+		glyph->uv.x1 = ((float)cursor_x)/(float)FONT_ATLAS_WIDTH;
+		glyph->uv.y1 = ((float)cursor_y)/(float)FONT_ATLAS_HEIGHT;
 		glyph->uv.x2 = ((float)cursor_x+glyph->width)/(float)FONT_ATLAS_WIDTH;
 		glyph->uv.y2 = ((float)cursor_y+glyph->height)/(float)FONT_ATLAS_HEIGHT;
 		

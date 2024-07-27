@@ -12,15 +12,13 @@
 	- Optimize
 		- Spam simd
 		- Concurrent jobs for players?
-		- Mega buffer for contiguous intermediate buffers
-			We definitely also want a limit to how much memory we want allocated to intermediate buffers.
+        - Pool of intermediate buffers (2^)
 	- Bugs:
 		- Small fadeout on pause is slightly noisy
 		- Setting time stamp/progression causes noise (need fade transition like on pause/play)
 		- End of clip also causes noise if audio clip does not end smoothly
 		- Setting audio source to a format which differs from audio output format in both channels and bit_width at the same time will produce pure loud noise.
 		- 24-Bit audio conversion doesn't really work
-		- Converting 24-bit audio files doesn't really work
 			
 - General bugs & issues
 	- Release freeze in run_tests
@@ -30,6 +28,10 @@
 	
 - Renderer
 	- API to pass constant values to shader (codegen #define's)
+	- Draw_Frame instances
+		- Or draw to a custom Quad_Buffer, then draw quad buffers ?
+			- draw_deferred ?
+	- Draw_Frame Render_Image
 		
 - Fonts
 	- Atlases are way too big, render atlases with size depending on font_height (say, 128 codepoints per atlas)
@@ -38,9 +40,16 @@
 	- Window::bool is_minimized
 	- don't set window.width & window.height to 0
 	- Sockets recv, send
+	- Mouse pointer
+	   - Hide mouse pointer
 	
 	
 - Arenas
+
+- Examples/Guides:
+    - Scaling text for pixel perfect rendering
+    - Z sorting
+    - Scissor boxing
 	
 - Needs testing:
 	- Audio format channel conversions

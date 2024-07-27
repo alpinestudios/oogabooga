@@ -15,6 +15,11 @@ int entry(int argc, char **argv) {
 	Gfx_Image *hammer_image = load_image_from_disk(STR("oogabooga/examples/hammer.png"), get_heap_allocator());
 	assert(hammer_image, "Failed loading hammer.png");
 	
+	Custom_Mouse_Pointer hammer_pointer 
+	   = os_make_custom_mouse_pointer_from_file(STR("oogabooga/examples/hammer.png"), 16, 16, get_heap_allocator());
+	assert(hammer_pointer != 0, "Could not load hammer pointer");
+	
+	
 	void *my_data = alloc(get_heap_allocator(), 32*32*4);
 	memset(my_data, 0xffffffff, 32*32*4);
 	Gfx_Image *my_image = make_image(32, 32, 4, my_data, get_heap_allocator());
@@ -54,7 +59,7 @@ int entry(int argc, char **argv) {
 		if (is_key_just_released(KEY_ESCAPE)) {
 			window.should_close = true;
 		}
-		
+		os_set_mouse_pointer_custom(hammer_pointer);
 		if (is_key_just_pressed(KEY_ARROW_LEFT)) {
 			window.x -= 10;
 		}

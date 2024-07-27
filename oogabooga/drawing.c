@@ -14,7 +14,6 @@
 	Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip);
 	Draw_Quad *draw_quad(Draw_Quad quad);
 	Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform);
-	bool draw_text_callback(Gfx_Glyph glyph, Gfx_Font_Atlas *atlas, float glyph_x, float glyph_y, void *ud);
 	void draw_text_xform(Gfx_Font *font, string text, u32 raster_height, Matrix4 xform, Vector2 scale, Vector4 color);
 	void draw_text(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color);
 	Gfx_Text_Metrics draw_text_and_measure(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color);

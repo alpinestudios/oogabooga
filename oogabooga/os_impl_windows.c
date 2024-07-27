@@ -41,6 +41,12 @@ void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
     }
 }
 
+// #Global
+bool win32_want_override_mouse_pointer = false;
+HCURSOR win32_shadowed_mouse_pointer = 0;
+bool win32_did_override_user_mouse_pointer = false;
+SYSTEM_INFO win32_system_info;
+
 #ifndef OOGABOOGA_HEADLESS
 
 // Persistent
@@ -86,6 +92,8 @@ void win32_handle_key_repeat(Input_Key_Code code) {
 	
 	win32_send_key_event(code, win32_key_states[code]);
 }
+
+
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
 	if (window._initialized) {
@@ -160,6 +168,32 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 			input_frame.number_of_events += 1;
 	        
 	        goto DEFAULT_HANDLE;
+	    }
+	    case WM_SETCURSOR: {
+	    
+            WORD hit_test = LOWORD(lparam);
+            WORD mouse_message = HIWORD(lparam);
+            
+            if (hit_test == HTLEFT || hit_test == HTRIGHT || hit_test == HTTOP ||
+                hit_test == HTBOTTOM || hit_test == HTTOPLEFT || hit_test == HTTOPRIGHT ||
+                hit_test == HTBOTTOMLEFT || hit_test == HTBOTTOMRIGHT) {
+                
+                // We are hovering the borders, let windows decide the pointer
+                win32_want_override_mouse_pointer = true;
+                
+                goto DEFAULT_HANDLE;
+            } else {
+                if (win32_want_override_mouse_pointer) {
+                    win32_want_override_mouse_pointer = false;
+                    if (win32_did_override_user_mouse_pointer) {
+                        win32_did_override_user_mouse_pointer = false;
+                        SetCursor(win32_shadowed_mouse_pointer);
+                    } else {
+                        goto DEFAULT_HANDLE;
+                    }
+                }
+            }
+	       break;
 	    }
         default:
         
@@ -255,10 +289,11 @@ void os_init(u64 program_memory_size) {
 
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	
-	SYSTEM_INFO si;
-    GetSystemInfo(&si);
-	os.granularity = cast(u64)si.dwAllocationGranularity;
-	os.page_size = cast(u64)si.dwPageSize;
+	os_set_mouse_pointer_standard(MOUSE_POINTER_DEFAULT);
+	
+    GetSystemInfo(&win32_system_info);
+	os.granularity = cast(u64)win32_system_info.dwAllocationGranularity;
+	os.page_size = cast(u64)win32_system_info.dwPageSize;
 	
 	os.static_memory_start = 0;
 	os.static_memory_end = 0;
@@ -1031,16 +1066,23 @@ void fprintf(File f, const char* fmt, ...) {
 
 ///
 ///
-// Memory
+// Queries
 ///
 
-void* os_get_stack_base() {
+void* 
+os_get_stack_base() {
 	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
     return tib->StackBase;
 }
-void* os_get_stack_limit() {
+void* 
+os_get_stack_limit() {
 	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
     return tib->StackLimit;
+}
+
+u64
+os_get_number_of_logical_processors() {
+	return (u64)win32_system_info.dwNumberOfProcessors;
 }
 
 ///
@@ -1144,8 +1186,140 @@ os_get_stack_trace(u64 *trace_count, Allocator allocator) {
 #endif // NOT DEBUG
 }
 
+///
+///
+// Mouse pointer
 
-#ifndef OOGABOOGA_HEADLESS
+LPCSTR
+win32_mouse_pointer_kind_to_win32(Mouse_Pointer_Kind k) {
+    switch (k) {
+        case MOUSE_POINTER_DEFAULT:           return IDC_ARROW;
+        case MOUSE_POINTER_TEXT_SELECT:       return IDC_IBEAM;
+        case MOUSE_POINTER_BUSY:              return IDC_WAIT;
+        case MOUSE_POINTER_BUSY_BACKGROUND:   return IDC_APPSTARTING;
+        case MOUSE_POINTER_CROSS:             return IDC_CROSS;
+        case MOUSE_POINTER_ARROW_N:           return IDC_UPARROW;
+        case MOUSE_POINTER_ARROWS_NW_SE:      return IDC_SIZENWSE;
+        case MOUSE_POINTER_ARROWS_NE_SW:      return IDC_SIZENESW;
+        case MOUSE_POINTER_ARROWS_HORIZONTAL: return IDC_SIZEWE;
+        case MOUSE_POINTER_ARROWS_VERTICAL:   return IDC_SIZENS;
+        case MOUSE_POINTER_ARROWS_ALL:        return IDC_SIZEALL;
+        case MOUSE_POINTER_NO:                return IDC_NO;
+        case MOUSE_POINTER_POINT:             return IDC_HAND;
+        default: break;
+    }
+    panic("Unhandled Mouse_Pointer_Kind");
+}
+
+void ogb_instance
+os_set_mouse_pointer_standard(Mouse_Pointer_Kind kind) {
+    thread_local local_persist HCURSOR loaded_pointers[MOUSE_POINTER_MAX] = {0};
+    
+    if (loaded_pointers[kind] == 0) {
+        loaded_pointers[kind] = LoadCursor(0, win32_mouse_pointer_kind_to_win32(kind));
+    }
+    
+    if (win32_want_override_mouse_pointer) {
+        win32_shadowed_mouse_pointer = loaded_pointers[kind];
+        win32_did_override_user_mouse_pointer = true;
+    } else {
+        SetCursor(loaded_pointers[kind]);
+    }
+}
+void ogb_instance
+os_set_mouse_pointer_custom(Custom_Mouse_Pointer p) {
+    if (win32_want_override_mouse_pointer) {
+        win32_shadowed_mouse_pointer = (HCURSOR)p;
+        win32_did_override_user_mouse_pointer = true;
+    } else {
+        SetCursor((HCURSOR)p);
+    }
+}
+
+// Expects 32-bit rgba
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer(void *image, int width, int height, int hotspot_x, int hotspot_y) {
+    HICON icon = NULL;
+    HBITMAP bitmap = NULL;
+    ICONINFO icon_info = { 0 };
+    
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    
+    BYTE* bits = NULL;
+    HDC hdc = GetDC(NULL);
+    bitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, (void**)&bits, NULL, 0);
+    ReleaseDC(NULL, hdc);
+    if (!bitmap) {
+        assert(false, "Failed to create DIB section");
+        return NULL;
+    }
+
+    memcpy(bits, image, width * height * 4);
+
+    icon_info.fIcon = FALSE; // Cursor, not icon
+    icon_info.xHotspot = hotspot_x;
+    icon_info.yHotspot = height-hotspot_y;
+    icon_info.hbmMask = bitmap;
+    icon_info.hbmColor = bitmap;
+
+    icon = CreateIconIndirect(&icon_info);
+    if (!icon) {
+        assert(false, "Failed to create icon from bitmap");
+        DeleteObject(bitmap);
+        return NULL;
+    }
+
+    DeleteObject(bitmap);
+    
+    return icon;
+}
+
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer_from_file(string path, int hotspot_x, int hotspot_y, Allocator allocator) {
+    int width, height, channels;
+    stbi_set_flip_vertically_on_load(1);
+    third_party_allocator = allocator;
+    
+    string png;
+    bool ok = os_read_entire_file(path, &png, allocator);
+    
+    if (!ok) return 0;
+    
+    unsigned char* stb_data = stbi_load_from_memory(
+        png.data, 
+        png.count,
+        &width, 
+        &height, 
+        &channels, 
+        STBI_rgb_alpha
+    );
+    
+    if (!stb_data) {
+        dealloc_string(allocator, png);
+        return 0;
+    }
+    
+    Custom_Mouse_Pointer p = os_make_custom_mouse_pointer(stb_data, width, height, hotspot_x, hotspot_y);
+    
+    dealloc_string(allocator, png);
+    stbi_image_free(stb_data);
+    third_party_allocator = ZERO(Allocator);
+    
+    return p;
+    
+}
+
+
+
+
+
+#ifndef OOGABOOGA_HEADLESS // No audio in headless
 
 // Actually fuck you bill gates
 const GUID CLSID_MMDeviceEnumerator = {0xbcde0395, 0xe52f, 0x467c, {0x8e,0x3d, 0xc4,0x57,0x92,0x91,0x69,0x2e}};

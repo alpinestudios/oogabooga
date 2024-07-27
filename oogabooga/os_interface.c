@@ -200,6 +200,7 @@ typedef enum Os_Io_Open_Flags {
 	// To append, pass WRITE flag without CREATE flag
 } Os_Io_Open_Flags;
 
+// Returns OS_INVALID_FILE on fail
 File ogb_instance
 os_file_open_s(string path, Os_Io_Open_Flags flags);
 
@@ -376,12 +377,15 @@ void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 
 ///
 ///
-// Memory
+// Queries
 ///
 ogb_instance void*
 os_get_stack_base();
 ogb_instance void*
 os_get_stack_limit();
+
+ogb_instance u64
+os_get_number_of_logical_processors();
 
 
 ///
@@ -401,6 +405,47 @@ void dump_stack_trace() {
 	}
 }
 
+///
+///
+// Mouse pointer
+
+typedef enum Mouse_Pointer_Kind {
+    MOUSE_POINTER_DEFAULT           = 0,   // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_arrow.png
+    MOUSE_POINTER_TEXT_SELECT       = 10,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_ibeam.png
+    MOUSE_POINTER_BUSY              = 20,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_wait.png
+    MOUSE_POINTER_BUSY_BACKGROUND   = 30,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_appstarting.png
+    MOUSE_POINTER_CROSS             = 40,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_cross.png
+    MOUSE_POINTER_ARROW_N           = 50,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_uparrow.png
+    MOUSE_POINTER_ARROWS_NW_SE      = 60,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_sizenwse.png
+    MOUSE_POINTER_ARROWS_NE_SW      = 70,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_sizenesw.png
+    MOUSE_POINTER_ARROWS_HORIZONTAL = 80,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_sizewe.png
+    MOUSE_POINTER_ARROWS_VERTICAL   = 90,  // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_sizens.png
+    MOUSE_POINTER_ARROWS_ALL        = 100, // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_sizeall.png
+    MOUSE_POINTER_NO                = 110, // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_no.png
+    MOUSE_POINTER_POINT             = 120, // https://learn.microsoft.com/en-us/windows/win32/menurc/images/idc_hand.png
+    
+    MOUSE_POINTER_MAX,
+} Mouse_Pointer_Kind;
+
+typedef void* Custom_Mouse_Pointer;
+
+void ogb_instance
+os_set_mouse_pointer_standard(Mouse_Pointer_Kind kind);
+void ogb_instance
+os_set_mouse_pointer_custom(Custom_Mouse_Pointer p);
+
+// Expects 32-bit rgba
+// Returns 0 on fail
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer(void *image, int width, int height, int hotspot_x, int hotspot_y);
+
+// Returns 0 on fail
+// Will free everything that's allocated, passing temp allocator should be fine as long as the image is small
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer_from_file(string path, int hotspot_x, int hotspot_y, Allocator allocator);
+
+
+///////////////////////////////////////////////
 void ogb_instance
 os_init(u64 program_memory_size);
 
