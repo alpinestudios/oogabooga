@@ -189,3 +189,6 @@ get_next_power_of_two(u64 x) {
 
     return x + 1;
 }
+
+#define align_next(x, a)     ((u64)((x)+(a)-1ULL) & (u64)~((a)-1ULL))
+#define align_previous(x, a) ((u64)(x) & (u64)~((a) - 1ULL))

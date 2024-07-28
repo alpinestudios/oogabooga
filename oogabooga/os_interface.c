@@ -439,6 +439,8 @@ os_reserve_next_memory_pages(u64 size);
 
 void ogb_instance
 os_unlock_program_memory_pages(void *start, u64 size);
+void ogb_instance
+os_lock_program_memory_pages(void *start, u64 size);
 
 ///
 ///

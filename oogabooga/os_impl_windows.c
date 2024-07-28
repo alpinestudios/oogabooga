@@ -1167,8 +1167,8 @@ bool os_grow_program_memory(u64 new_size) {
 		// since we allocate each region with the base address at the tail of the
 		// previous region, then that tail needs to be aligned to granularity, which
 		// will be true if the size is also always aligned to granularity.
-		u64 aligned_size = (new_size+os.granularity) & ~(os.granularity);
-		void* aligned_base = (void*)(((u64)VIRTUAL_MEMORY_BASE+os.granularity) & ~(os.granularity-1));
+		u64 aligned_size = align_next(new_size, os.granularity);
+		void *aligned_base = (void*)align_next(VIRTUAL_MEMORY_BASE, os.granularity);
 
 		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 		if (program_memory == 0) { 
@@ -1188,8 +1188,7 @@ bool os_grow_program_memory(u64 new_size) {
 		assert((u64)program_memory_capacity % os.granularity == 0, "program_memory_capacity is not aligned to granularity!");
 		assert((u64)tail % os.granularity == 0, "Tail is not aligned to granularity!");
 		
-		u64 amount_to_allocate = new_size-program_memory_capacity;
-		amount_to_allocate = ((amount_to_allocate+os.granularity)&~(os.granularity-1));
+		u64 amount_to_allocate = align_next(new_size-program_memory_capacity, os.granularity);
 		
 		// Just keep allocating at the tail of the current chunk
 		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -1256,6 +1255,22 @@ os_unlock_program_memory_pages(void *start, u64 size) {
 	for (u8 *p = (u8*)start; p < (u8*)start+size; p += os.page_size) {
 		DWORD old_protect = PAGE_NOACCESS;
 		BOOL ok = VirtualProtect(p, os.page_size, PAGE_READWRITE, &old_protect);
+		assert(ok, "VirtualProtect Failed with error %d", GetLastError());
+	}
+#endif
+}
+
+void
+os_lock_program_memory_pages(void *start, u64 size) {
+#if CONFIGURATION == DEBUG
+	assert((u64)start % os.page_size == 0, "When unlocking memory pages, the start address must be the start of a page");
+	assert(size       % os.page_size == 0, "When unlocking memory pages, the size must be aligned to page_size");
+	// This memory may be across multiple allocated regions so we need to do this one page at a time.
+	// Probably super slow but this shouldn't happen often at all + it's only in debug.
+	// - Charlie M 28th July 2024
+	for (u8 *p = (u8*)start; p < (u8*)start+size; p += os.page_size) {
+		DWORD old_protect = PAGE_READWRITE;
+		BOOL ok = VirtualProtect(p, os.page_size, PAGE_NOACCESS, &old_protect);
 		assert(ok, "VirtualProtect Failed with error %d", GetLastError());
 	}
 #endif

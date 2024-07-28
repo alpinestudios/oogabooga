@@ -350,10 +350,7 @@ inline Vector4i v4i_abs(LMATH_ALIGN Vector4i a) {
     return v4i(absi(a.x), absi(a.y), absi(a.z), absi(a.w));
 }
 
-
-
-
-typedef struct Matrix4 {
+typedef struct alignat(16) Matrix4 {
     union {float32 m[4][4]; float32 data[16]; };
 } Matrix4;
 
@@ -417,6 +414,8 @@ Matrix4 m4_mul(LMATH_ALIGN Matrix4 a, LMATH_ALIGN Matrix4 b) {
     Matrix4 result;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
+
+        	
             result.m[i][j] = a.m[i][0] * b.m[0][j] +
                              a.m[i][1] * b.m[1][j] +
                              a.m[i][2] * b.m[2][j] +

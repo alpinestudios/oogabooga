@@ -12,7 +12,8 @@
 	- Memory
 		- Made program_memory act more like an arena (see os_reserve_next_memory_pages() & os_unlock_program_memory_pages())
 		- In debug, default program memory to PAGE_NOACCESS which needs to be unlocked with os_unlock_program_memory_pages() (better crashes if we touch that memory)
-		- 
+		- os_lock_program_memory_pages
+		- Heap locks pages when completely free
 	
 	- Misc
 		- Deprecate Rangef stuff
