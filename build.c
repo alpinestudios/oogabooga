@@ -3,7 +3,7 @@
 ///
 // Build config stuff
 
-#define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
+#define INITIAL_PROGRAM_MEMORY_SIZE MB(8)
 
 // You might want to increase this if you get a log warning saying the temporary storage was overflown.
 // In many cases, overflowing the temporary storage should be fine since it just wraps back around and
@@ -37,11 +37,11 @@ typedef struct Context_Extra {
 
 // #include "oogabooga/examples/text_rendering.c"
 // #include "oogabooga/examples/custom_logger.c"
-// #include "oogabooga/examples/renderer_stress_test.c"
+#include "oogabooga/examples/renderer_stress_test.c"
 // #include "oogabooga/examples/tile_game.c"
 // #include "oogabooga/examples/audio_test.c"
 // #include "oogabooga/examples/custom_shader.c"
-#include "oogabooga/examples/growing_array_example.c"
+// #include "oogabooga/examples/growing_array_example.c"
 
 // This is where you swap in your own project!
 // #include "entry_yourepicgamename.c"

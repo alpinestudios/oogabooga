@@ -12,6 +12,59 @@
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
+u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
+
+	if (utf8.count == 0) {
+		u16 *utf16_str = (u16 *)alloc(allocator, (1) * sizeof(u16));
+		*utf16_str = 0;
+		return utf16_str;
+	}
+
+    u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
+
+    u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
+
+    int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
+    if (result == 0) {
+        dealloc(allocator, utf16_str);
+        return 0;
+    }
+
+    utf16_str[utf16_length] = 0;
+
+    return utf16_str;
+}
+u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
+	return win32_fixed_utf8_to_null_terminated_wide(utf8, get_temporary_allocator());
+}
+string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
+    u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
+
+	if (utf8_length == 0) {
+		string utf8;
+		utf8.count = 0;
+		utf8.data = 0;
+		return utf8;
+	}
+
+    u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
+
+    int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
+    if (result == 0) {
+        dealloc(allocator, utf8_str);
+        return (string){0, 0};
+    }
+
+    string utf8;
+    utf8.data = utf8_str;
+    utf8.count = utf8_length-1;
+
+    return utf8;
+}
+
+string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
+    return win32_null_terminated_wide_to_fixed_utf8(utf16, get_temporary_allocator());
+}
 #define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
 void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
     if (hr != S_OK) {
@@ -30,12 +83,21 @@ void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
             0,
             NULL );
 
+		u16 *wide_err = 0;
+
         if (messageLength > 0) {
-            MessageBoxW(NULL, (LPWSTR)errorMsg, L"Error", MB_OK | MB_ICONERROR);
+        	wide_err = (LPWSTR)errorMsg;
         } else {
-            MessageBoxW(NULL, L"Failed to retrieve error message.", L"Error", MB_OK | MB_ICONERROR);
+        	wide_err = (u16*)L"Failed to retrieve error message.";
         }
     
+    	string utf8_err = temp_win32_null_terminated_wide_to_fixed_utf8(wide_err);
+    	
+    	string final_message_utf8 = tprint("%s\nIn file %cs on line %d", utf8_err, file_name, line);
+    	
+    	u16 *final_message_wide = temp_win32_fixed_utf8_to_null_terminated_wide(final_message_utf8);
+    
+        MessageBoxW(NULL, final_message_wide, L"Error", MB_OK | MB_ICONERROR);
 
         panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
     }
@@ -266,11 +328,19 @@ win32_audio_thread(Thread *t);
 void 
 win32_audio_poll_default_device_thread(Thread *t);
 
-bool win32_has_audio_thread_started = false;
+volatile bool win32_has_audio_thread_started = false;
 #endif /* OOGABOOGA_HEADLESS */
 
-void os_init(u64 program_memory_size) {
+void os_init(u64 program_memory_capacity) {
 	
+    // #Volatile
+    // Any printing uses vsnprintf, and printing may happen in init,
+    // especially on errors, so this needs to happen first.
+    os.crt = os_load_dynamic_library(STR("msvcrt.dll"));
+	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
+	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
+	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+
 #if CONFIGURATION == DEBUG
 	HANDLE process = GetCurrentProcess();
 	SymInitialize(process, NULL, TRUE);
@@ -284,7 +354,10 @@ void os_init(u64 program_memory_size) {
 
 
 #if CONFIGURATION == RELEASE
+	// #Configurable #Copypaste
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	timeBeginPeriod(1);
 #endif
 
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -314,14 +387,11 @@ void os_init(u64 program_memory_size) {
 
 
 	program_memory_mutex = os_make_mutex();
-	os_grow_program_memory(program_memory_size);
+	os_grow_program_memory(program_memory_capacity);
 	
 	heap_init();
 	
-	os.crt = os_load_dynamic_library(STR("msvcrt.dll"));
-	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
-	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
-	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+	
 	
 #ifndef OOGABOOGA_HEADLESS
     win32_init_window();
@@ -380,71 +450,7 @@ void s64_to_null_terminated_string(s64 num, char* str, int base)
     s64_to_null_terminated_string_reverse(str, i);
 }
 
-bool os_grow_program_memory(u64 new_size) {
-	os_lock_mutex(program_memory_mutex); // #Sync
-	if (program_memory_size >= new_size) {
-		os_unlock_mutex(program_memory_mutex); // #Sync
-		return true;
-	}
 
-	
-	
-	bool is_first_time = program_memory == 0;
-	
-	if (is_first_time) {
-		u64 aligned_size = (new_size+os.granularity) & ~(os.granularity);
-		void* aligned_base = (void*)(((u64)VIRTUAL_MEMORY_BASE+os.granularity) & ~(os.granularity-1));
-
-		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-		if (program_memory == 0) { 
-			os_unlock_mutex(program_memory_mutex); // #Sync
-			return false;
-		}
-		program_memory_size = aligned_size;
-		
-		memset(program_memory, 0xBA, program_memory_size);
-	} else {
-		// #Cleanup this mess
-		// Allocation size doesn't actually need to be aligned to granularity, page size is enough.
-		// Doesn't matter that much tho, but this is just a bit unfortunate to look at.
-		void* tail = (u8*)program_memory + program_memory_size;
-		u64 m = ((u64)program_memory_size % os.granularity);
-		assert(m == 0, "program_memory_size is not aligned to granularity!");
-		m = ((u64)tail % os.granularity);
-		assert(m == 0, "Tail is not aligned to granularity!");
-		u64 amount_to_allocate = new_size-program_memory_size;
-		amount_to_allocate = ((amount_to_allocate+os.granularity)&~(os.granularity-1));
-		m = ((u64)amount_to_allocate % os.granularity);
-		assert(m == 0, "amount_to_allocate is not aligned to granularity!");
-		// Just keep allocating at the tail of the current chunk
-		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-		assert(result == tail);
-#if CONFIGURATION == DEBUG
-		volatile u8 a = *(u8*)tail = 69;
-#endif
-		memset(result, 0xBA, amount_to_allocate);
-		if (result == 0) { 
-			os_unlock_mutex(program_memory_mutex); // #Sync
-			return false;
-		}
-		assert(tail == result, "It seems tail is not aligned properly. o nein");
-		
-		program_memory_size += amount_to_allocate;
-
-		m = ((u64)program_memory_size % os.granularity);
-		assert(m == 0, "program_memory_size is not aligned to granularity!");
-	}
-
-	
-	char size_str[32];
-	s64_to_null_terminated_string(program_memory_size/1024, size_str, 10);
-	
-	os_write_string_to_stdout(STR("Program memory grew to "));
-	os_write_string_to_stdout(STR(size_str));
-	os_write_string_to_stdout(STR(" kb\n"));
-	os_unlock_mutex(program_memory_mutex); // #Sync
-	return true;
-}
 
 
 ///
@@ -458,15 +464,25 @@ bool os_grow_program_memory(u64 new_size) {
 
 DWORD WINAPI win32_thread_invoker(LPVOID param) {
 
-#if CONFIGURATION == RELEASE
-	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-#endif
 
 	Thread *t = (Thread*)param;
-	temporary_storage_init();
+	
+#if CONFIGURATION == RELEASE
+	// #Configurable #Copypaste
+	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+	SetThreadPriority(t->os_handle, THREAD_PRIORITY_TIME_CRITICAL);
+	timeBeginPeriod(1);
+#endif
+	
+	temporary_storage_init(t->temporary_storage_size);
+	
 	context = t->initial_context;
 	context.thread_id = GetCurrentThreadId();
+	
 	t->proc(t);
+	
+	heap_dealloc(temporary_storage);
+	
 	return 0;
 }
 
@@ -508,6 +524,7 @@ void os_thread_init(Thread *t, Thread_Proc proc) {
 	t->id = 0;
 	t->proc = proc;
 	t->initial_context = context;
+	t->temporary_storage_size = KB(10);
 }
 void os_thread_destroy(Thread *t) {
 	os_thread_join(t);
@@ -649,59 +666,7 @@ void os_write_string_to_stdout(string s) {
 	WriteFile(win32_stdout, s.data, s.count, 0, 0);
 }
 
-u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
 
-	if (utf8.count == 0) {
-		u16 *utf16_str = (u16 *)alloc(allocator, (1) * sizeof(u16));
-		*utf16_str = 0;
-		return utf16_str;
-	}
-
-    u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
-
-    u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
-
-    int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
-    if (result == 0) {
-        dealloc(allocator, utf16_str);
-        return 0;
-    }
-
-    utf16_str[utf16_length] = 0;
-
-    return utf16_str;
-}
-u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
-	return win32_fixed_utf8_to_null_terminated_wide(utf8, get_temporary_allocator());
-}
-string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
-    u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
-
-	if (utf8_length == 0) {
-		string utf8;
-		utf8.count = 0;
-		utf8.data = 0;
-		return utf8;
-	}
-
-    u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
-
-    int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
-    if (result == 0) {
-        dealloc(allocator, utf8_str);
-        return (string){0, 0};
-    }
-
-    string utf8;
-    utf8.data = utf8_str;
-    utf8.count = utf8_length-1;
-
-    return utf8;
-}
-
-string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
-    return win32_null_terminated_wide_to_fixed_utf8(utf16, get_temporary_allocator());
-}
 
 
 File os_file_open_s(string path, Os_Io_Open_Flags flags) {
@@ -1186,6 +1151,116 @@ os_get_stack_trace(u64 *trace_count, Allocator allocator) {
 #endif // NOT DEBUG
 }
 
+bool os_grow_program_memory(u64 new_size) {
+	os_lock_mutex(program_memory_mutex); // #Sync
+	if (program_memory_capacity >= new_size) {
+		os_unlock_mutex(program_memory_mutex); // #Sync
+		return true;
+	}
+
+	
+	
+	bool is_first_time = program_memory == 0;
+	
+	if (is_first_time) {
+		// It's fine to allocate a region with size only aligned to page size, BUT,
+		// since we allocate each region with the base address at the tail of the
+		// previous region, then that tail needs to be aligned to granularity, which
+		// will be true if the size is also always aligned to granularity.
+		u64 aligned_size = (new_size+os.granularity) & ~(os.granularity);
+		void* aligned_base = (void*)(((u64)VIRTUAL_MEMORY_BASE+os.granularity) & ~(os.granularity-1));
+
+		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		if (program_memory == 0) { 
+			os_unlock_mutex(program_memory_mutex); // #Sync
+			return false;
+		}
+		program_memory_next = program_memory;
+		program_memory_capacity = aligned_size;
+#if CONFIGURATION == DEBUG
+		memset(program_memory, 0xBA, program_memory_capacity);
+        DWORD _ = PAGE_READWRITE;
+		VirtualProtect(aligned_base, aligned_size, PAGE_NOACCESS, &_);
+#endif
+	} else {
+		void* tail = (u8*)program_memory + program_memory_capacity;
+		
+		assert((u64)program_memory_capacity % os.granularity == 0, "program_memory_capacity is not aligned to granularity!");
+		assert((u64)tail % os.granularity == 0, "Tail is not aligned to granularity!");
+		
+		u64 amount_to_allocate = new_size-program_memory_capacity;
+		amount_to_allocate = ((amount_to_allocate+os.granularity)&~(os.granularity-1));
+		
+		// Just keep allocating at the tail of the current chunk
+		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+#if CONFIGURATION == DEBUG
+		memset(result, 0xBA, amount_to_allocate);
+		DWORD _ = PAGE_READWRITE;
+		VirtualProtect(tail, amount_to_allocate, PAGE_NOACCESS, &_);
+#endif
+		if (result == 0) { 
+			os_unlock_mutex(program_memory_mutex); // #Sync
+			return false;
+		}
+		assert(tail == result, "It seems tail is not aligned properly. o nein");
+		assert((u64)program_memory_capacity % os.granularity == 0, "program_memory_capacity is not aligned to granularity!");
+		
+		program_memory_capacity += amount_to_allocate;
+	}
+
+	
+	char size_str[32];
+	s64_to_null_terminated_string(program_memory_capacity/1024, size_str, 10);
+	
+	os_write_string_to_stdout(STR("Program memory grew to "));
+	os_write_string_to_stdout(STR(size_str));
+	os_write_string_to_stdout(STR(" kb\n"));
+	os_unlock_mutex(program_memory_mutex); // #Sync
+	return true;
+}
+
+void*
+os_reserve_next_memory_pages(u64 size) {
+	assert(size % os.page_size == 0, "size was not aligned to page size in os_reserve_next_memory_pages");
+
+	void *p = program_memory_next;
+	
+	program_memory_next = (u8*)program_memory_next + size;
+	
+	void *program_tail = (u8*)program_memory + program_memory_capacity;
+	
+	if ((u64)program_memory_next > (u64)program_tail) {
+		u64 minimum_size = ((u64)program_memory_next) - (u64)program_memory + 1;
+		u64 new_program_size = get_next_power_of_two(minimum_size);
+		
+		const u64 ATTEMPTS = 1000;
+		for (u64 i = 0; i <= ATTEMPTS; i++) {
+			if (program_memory_capacity >= new_program_size) break; // Another thread might have resized already, causing it to fail here.
+			assert(i < ATTEMPTS, "OS is not letting us allocate more memory. Maybe we are out of memory? You sure must be using a lot of memory then.");
+			if (os_grow_program_memory(new_program_size))
+				break;
+		}
+	}
+	
+	return p;
+}
+
+void
+os_unlock_program_memory_pages(void *start, u64 size) {
+#if CONFIGURATION == DEBUG
+	assert((u64)start % os.page_size == 0, "When unlocking memory pages, the start address must be the start of a page");
+	assert(size       % os.page_size == 0, "When unlocking memory pages, the size must be aligned to page_size");
+	// This memory may be across multiple allocated regions so we need to do this one page at a time.
+	// Probably super slow but this shouldn't happen often at all + it's only in debug.
+	// - Charlie M 28th July 2024
+	for (u8 *p = (u8*)start; p < (u8*)start+size; p += os.page_size) {
+		DWORD old_protect = PAGE_NOACCESS;
+		BOOL ok = VirtualProtect(p, os.page_size, PAGE_READWRITE, &old_protect);
+		assert(ok, "VirtualProtect Failed with error %d", GetLastError());
+	}
+#endif
+}
+
 ///
 ///
 // Mouse pointer
@@ -1460,7 +1535,6 @@ win32_audio_init() {
 void
 win32_audio_poll_default_device_thread(Thread *t) {
 	while (!win32_has_audio_thread_started) {
-		MEMORY_BARRIER;
 		os_yield_thread();
 	}
 
@@ -1470,9 +1544,7 @@ win32_audio_poll_default_device_thread(Thread *t) {
 		}
 		
 		mutex_acquire_or_wait(&audio_init_mutex);
-		MEMORY_BARRIER;
 	    mutex_release(&audio_init_mutex);
-		MEMORY_BARRIER;
 	
 		IMMDevice *now_default = 0;
 		HRESULT hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(win32_device_enumerator, eRender, eConsole, &now_default);
@@ -1507,11 +1579,8 @@ win32_audio_thread(Thread *t) {
 	
     mutex_acquire_or_wait(&audio_init_mutex);
     win32_has_audio_thread_started = true;
-    MEMORY_BARRIER;
 	win32_audio_init();
     mutex_release(&audio_init_mutex);
-        
-    timeBeginPeriod(1);
 	
 	u32 buffer_frame_count;
     HRESULT hr = IAudioClient_GetBufferSize(win32_audio_client, &buffer_frame_count);

@@ -87,8 +87,7 @@ inline int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args) {
 
 
 
-bool ogb_instance
-os_grow_program_memory(size_t new_size);
+
 
 ///
 ///
@@ -103,8 +102,11 @@ typedef struct Thread {
 	u64 id; // This is valid after os_thread_start
 	Context initial_context;
 	void* data;
+	u64 temporary_storage_size; // Defaults to KB(10)
 	Thread_Proc proc;
 	Thread_Handle os_handle;
+	
+	
 	Allocator allocator;  // Deprecated !! #Cleanup
 } Thread;
 
@@ -395,7 +397,8 @@ os_get_number_of_logical_processors();
 ogb_instance string*
 os_get_stack_trace(u64 *trace_count, Allocator allocator);
 
-void dump_stack_trace() {
+inline void 
+dump_stack_trace() {
 	u64 count;
 	string *strings = os_get_stack_trace(&count, get_temporary_allocator());
 	
@@ -404,6 +407,38 @@ void dump_stack_trace() {
 		print("\n%s", s);
 	}
 }
+
+
+///
+///
+// Memory
+///
+
+// #Global
+ogb_instance void *program_memory;
+ogb_instance void *program_memory_next;
+ogb_instance u64 program_memory_capacity;
+ogb_instance Mutex_Handle program_memory_mutex;
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+void *program_memory = 0;
+void *program_memory_next = 0;
+u64 program_memory_capacity = 0;
+Mutex_Handle program_memory_mutex = 0;
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
+bool ogb_instance
+os_grow_program_memory(size_t new_size);
+
+// BEWARE:
+// - size must be aligned to os.page_size
+// - Pages will not always belong to the same region (although they will be contigious in virtual adress space)
+// - Pages will be locked (Win32 PAGE_NOACCESS) so you need to unlock with os_unlock_program_memory_pages() before use.
+ogb_instance void*
+os_reserve_next_memory_pages(u64 size);
+
+void ogb_instance
+os_unlock_program_memory_pages(void *start, u64 size);
 
 ///
 ///
@@ -451,4 +486,3 @@ os_init(u64 program_memory_size);
 
 void ogb_instance
 os_update();
-

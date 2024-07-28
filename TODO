@@ -21,7 +21,6 @@
 		- 24-Bit audio conversion doesn't really work
 			
 - General bugs & issues
-	- Release freeze in run_tests
 	- Window width&height is zero when minimized (and we make a 0x0 swap chain)
 	- Window positioning & sizing is fucky wucky
 	- Memory error messages are misleading when no VERY_DEBUG
@@ -43,13 +42,19 @@
 	- Mouse pointer
 	   - Hide mouse pointer
 	
-	
-- Arenas
+- Memory
+	- In heap allocator, mark pages that fit entirely into free nodes as NOACCESS
+	- Arenas
 
 - Examples/Guides:
     - Scaling text for pixel perfect rendering
     - Z sorting
     - Scissor boxing
+    - Concurrency
+	
+- Rework profiler
+	- Store records and convert to google trace format on exit
+	- Measure both time and cycles, output a google_trace_cycles.json & google_trace_time.json
 	
 - Needs testing:
 	- Audio format channel conversions

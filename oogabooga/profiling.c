@@ -40,17 +40,17 @@ void _profiler_report_time_cycles(string name, u64 count, u64 start) {
 }
 #if ENABLE_PROFILING
 #define tm_scope(name) \
-    for (u64 start_time = os_get_current_cycle_count(), end_time = start_time, elapsed_time = 0; \
+    for (u64 start_time = rdtsc(), end_time = start_time, elapsed_time = 0; \
          elapsed_time == 0; \
-         elapsed_time = (end_time = os_get_current_cycle_count()) - start_time, _profiler_report_time_cycles(STR(name), elapsed_time, start_time))
+         elapsed_time = (end_time = rdtsc()) - start_time, _profiler_report_time_cycles(STR(name), elapsed_time, start_time))
 #define tm_scope_var(name, var) \
-    for (u64 start_time = os_get_current_cycle_count(), end_time = start_time, elapsed_time = 0; \
+    for (u64 start_time = rdtsc(), end_time = start_time, elapsed_time = 0; \
          elapsed_time == 0; \
-         elapsed_time = (end_time = os_get_current_cycle_count()) - start_time, var=elapsed_time)
+         elapsed_time = (end_time = rdtsc()) - start_time, var=elapsed_time)
 #define tm_scope_accum(name, var) \
-    for (u64 start_time = os_get_current_cycle_count(), end_time = start_time, elapsed_time = 0; \
+    for (u64 start_time = rdtsc(), end_time = start_time, elapsed_time = 0; \
          elapsed_time == 0; \
-         elapsed_time = (end_time = os_get_current_cycle_count()) - start_time, var+=elapsed_time)
+         elapsed_time = (end_time = rdtsc()) - start_time, var+=elapsed_time)
 #else
 	#define tm_scope(...)
 	#define tm_scope_var(...)

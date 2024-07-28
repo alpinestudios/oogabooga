@@ -1,5 +1,5 @@
 
-## v0.01.003 - Nothing, really
+## v0.01.003 - Stuff
 	- Os layer
 		- Implemented setting of mouse pointers, either to system standard pointers or a custom image
 		- Ignore SETCURSOR events unless window resize
@@ -9,10 +9,19 @@
 	- Renderer
 		- Fix bad uv sampling bug when uneven window dimensions
 	
+	- Memory
+		- Made program_memory act more like an arena (see os_reserve_next_memory_pages() & os_unlock_program_memory_pages())
+		- In debug, default program memory to PAGE_NOACCESS which needs to be unlocked with os_unlock_program_memory_pages() (better crashes if we touch that memory)
+		- 
+	
 	- Misc
 		- Deprecate Rangef stuff
 		- peek_random()
 		- Update #Contributions
+		- Clean up memory barriers in concurrency.c and use volatile instead
+		- Output d3d11 debug messages before crash on hr fail
+		- Configurable temporary storage size for new threads
+		- Cleanup temporary storage after thread destroy
 
 
 ## v0.01.002 - Flexible build options, Hotloading, growing array

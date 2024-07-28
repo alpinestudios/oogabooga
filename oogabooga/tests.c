@@ -1208,7 +1208,7 @@ void test_mutex() {
 
     Allocator allocator = get_heap_allocator();
 
-	const int num_threads = 100;
+	const int num_threads = 1000;
 
 	Thread *threads = alloc(allocator, sizeof(Thread)*num_threads);
 	for (u64 i = 0; i < num_threads; i++) {
