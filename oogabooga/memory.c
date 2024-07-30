@@ -473,18 +473,18 @@ void heap_dealloc(void *p) {
 					u8* node_tail = (u8*)node + node->size;
 					if (cast(u8*)new_node == node_tail) {
 						
-						void *left_node_tail = (u8*)node+node->size;
-						
 						// We need to account for the cases where we coalesce free blocks with start/end in the middle
 						// of a page.
 						
-						// new_node->size will be locked but we need node->size += new_node->size;
 						u64 new_node_size = new_node->size;
 						
 						// #Copypaste
 						void *free_tail = (u8*)new_node + new_node->size;
-						void *next_page = (void*)align_previous(left_node_tail, os.page_size);
+						void *next_page = (void*)align_previous(node_tail, os.page_size);
 						void *last_page_end = (void*)align_previous(free_tail, os.page_size);
+
+						if ((u8*)next_page < (u8*)node) next_page = (u8*)next_page + os.page_size;
+						
 						if ((u8*)last_page_end > (u8*)next_page) {
 							os_lock_program_memory_pages(next_page, (u64)last_page_end-(u64)next_page);
 						}
