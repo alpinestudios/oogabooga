@@ -1,0 +1,40 @@
+{
+  // Language version of C3.
+  "langrev": "1",
+  // Warnings used for all targets.
+  "warnings": [ "no-unused" ],
+  // Directories where C3 library files may be found.
+  "dependency-search-paths": [],
+  "linked-libraries": ["oogabooga.lib", "user32.lib", "d3d11", "kernel32", "gdi32", "user32", "runtimeobject", "winmm", "dxguid", "d3dcompiler", "shlwapi", "ole32", "avrt", "ksuser", "dbghelp"],
+  "linker-search-paths": ["lib"],
+  // Libraries to use for all targets.
+  "dependencies": [],
+  // Authors, optionally with email.
+  "authors": [ "John Doe <john.doe@example.com>" ],
+  // Version using semantic versioning.
+  "version": "0.1.0",
+  // Sources compiled for all targets.
+  "sources": [ "src/**" ],
+  // C sources if the project also compiles C sources
+  // relative to the project file.
+  "c-sources": [],
+  // Output location, relative to project file.
+  "output": "build",
+  // Architecture and OS target.
+  // You can use 'c3c --list-targets' to list all valid targets.
+  "target": "windows-x64",
+  // Targets.
+  "targets": {
+    "hello_world": {
+      // Executable or library.
+      "type": "executable",
+      
+    }
+  },
+  // Global settings.
+  // CPU name, used for optimizations in the LLVM backend.
+  "cpu": "generic",
+  // Optimization: "O0", "O1", "O2", "O3", "O4", "O5", "Os", "Oz".
+  "opt": "O0",
+  // See resources/examples/project_all_settings.json and 'c3c --list-project-properties' to see more properties.
+}
