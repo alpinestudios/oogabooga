@@ -54,6 +54,9 @@ typedef struct Audio_Format {
 } Audio_Format;
 
 // #Global
+
+ogb_instance u64 next_audio_source_uid;
+
 // Implemented per OS
 ogb_instance Audio_Format audio_output_format; 
 ogb_instance Mutex audio_init_mutex;
@@ -61,6 +64,7 @@ ogb_instance Mutex audio_init_mutex;
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Audio_Format audio_output_format; 
 Mutex audio_init_mutex;
+u64 next_audio_source_uid = 0;
 #endif
 
 // I don't see a big reason for you to use anything else than WAV and OGG.
@@ -114,6 +118,7 @@ typedef struct Audio_Source {
 	Audio_Source_Kind kind;
 	Audio_Format format;
 	u64 number_of_frames;
+	u64 uid;
 	Allocator allocator;
 
 	// For file stream
@@ -542,6 +547,8 @@ bool
 audio_open_source_stream_format(Audio_Source *src, string path, Audio_Format format, 
 							    Allocator allocator) {
 	*src = ZERO(Audio_Source);
+	src->uid = next_audio_source_uid;
+	next_audio_source_uid += 1;
 	
 	mutex_init(&src->mutex_for_destroy);
 	
@@ -597,6 +604,9 @@ bool
 audio_open_source_load_format(Audio_Source *src, string path, Audio_Format format, 
 							  Allocator allocator) {
 	*src = ZERO(Audio_Source);
+	
+	src->uid = next_audio_source_uid;
+	next_audio_source_uid += 1;
 	
 	mutex_init(&src->mutex_for_destroy);
 	
@@ -1142,7 +1152,7 @@ convert_frames(void *dst, Audio_Format dst_format,
 
 
 
-#define AUDIO_STATE_FADE_TIME_MS 40
+#define AUDIO_SMOOTH_TRANSITION_TIME_MS 40
 
 typedef enum Audio_Player_State {
 	AUDIO_PLAYER_STATE_PAUSED,
@@ -1241,7 +1251,7 @@ audio_player_set_state(Audio_Player *p, Audio_Player_State state) {
 	float64 progression = (float64)p->frame_index / (float64)p->source.number_of_frames;
 	float64 remaining = (1.0-progression)*full_duration;
 	
-	float64 fade_seconds = min(AUDIO_STATE_FADE_TIME_MS/1000.0, remaining);
+	float64 fade_seconds = min(AUDIO_SMOOTH_TRANSITION_TIME_MS/1000.0, remaining);
 	
 	float64 fade_factor = fade_seconds/full_duration;
 	
@@ -1635,6 +1645,8 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 	
 	memset(mix_buffer, 0, mix_buffer_size);
 	
+	u64 *started_this_frame;
+	growing_array_init((void**)&started_this_frame, sizeof(u64), get_temporary_allocator());
 	
 	while (block) {
 		
@@ -1712,6 +1724,24 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 				}
 				target_buffer = convert_buffer;
 				
+			}
+	
+			// :PhaseCancellation
+			if (p->frame_index == 0) { // The players' source just started playing
+			
+				s64 existing_index = growing_array_find_index_from_left_by_value((void**)&started_this_frame, &src.uid);
+				
+				if (existing_index != -1) {
+					// If this source already started playing this round from another player, then we pretend that
+					// we're already done playing by skipping to the last frame.
+					// For non-looping players, this means we don't play this instance at all.
+					// For looping players, this means we have a slight offset between the players that start
+					// playing at the exact same time. I'm not sure how else to deal with phase cancellation
+					// in looping players.
+					p->frame_index = src.number_of_frames;
+					continue;
+				}
+				growing_array_add((void**)&started_this_frame, &src.uid);
 			}
 	
 			p->frame_index = audio_source_sample_next_frames(
