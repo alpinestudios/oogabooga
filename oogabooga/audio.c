@@ -195,18 +195,18 @@ wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_fram
 	const u64 NON_DATA_CHUNK_MAX_SIZE = 40;
     string chunk = talloc_string(NON_DATA_CHUNK_MAX_SIZE);
     
-	for (u64 byte_pos = 4; byte_pos < number_of_sub_chunk_bytes;) {
+	for (u64 sub_chunk_byte_pos = 4; sub_chunk_byte_pos < number_of_sub_chunk_bytes;) {
 		ok = os_file_read(wav->file, chunk_header.data, 8, &read);
 	    if (!ok || read != 8) {
 	        os_file_close(wav->file);
 	        return false;
 	    }
-	    byte_pos += 8;
+	    sub_chunk_byte_pos += 8;
 	    
 	    string chunk_id = string_view(chunk_header, 0, 4);
 	    u32 chunk_size = *(u32*)(chunk_header.data+4);
 	    
-	    byte_pos += chunk_size;
+	    sub_chunk_byte_pos += chunk_size;
 	    
 	    // Ignored chunks
 	    // THIS IS WHY WE CAN'T HAVE NICE THINGS
@@ -258,21 +258,17 @@ wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_fram
 	    	
 	    	if (number_of_bytes % 2 != 0) {
 	    		// Consume pad byte
-	    		u8 pad;
-	    		ok = os_file_read(wav->file, &pad, 1, &read);
-			    if (!ok || read != 1) {
-			        os_file_close(wav->file);
-			        return false;
-			    }
+			    number_of_bytes -= 1;
 	    	}
-	    	
-	    	wav->pcm_start = byte_pos - chunk_size;
 	    	
 	    	u64 number_of_samples
 	    		= number_of_bytes / (wav->bits_per_sample / 8);
 	    		
+	    	wav->pcm_start = os_file_get_pos(wav->file);
+	    	
     		wav->number_of_frames = number_of_samples / wav->channels;
 	    	*number_of_frames = wav->number_of_frames; // If same sample rates...
+	    	
 	    } else {
 	    	log_warning("Unhandled chunk id '%s' in wave file @ %s", chunk_id, path);
 	    	
@@ -821,7 +817,8 @@ audio_source_sample_next_frames(Audio_Source *src, u64 first_frame_index, u64 nu
 	
     u64 new_index = first_frame_index;
     
-    
+    // #Checkout
+    // first_frame_index = max(first_frame_index, 3);
     
     int num_retrieved;
 	switch (src->kind) {
@@ -876,6 +873,8 @@ audio_source_sample_next_frames(Audio_Source *src, u64 first_frame_index, u64 nu
 		break;
 	}
 	}
+	
+	if (looping && new_index == src->number_of_frames) new_index = 0;
 	
 	return new_index;
 }
@@ -1658,6 +1657,8 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 			if (p->state != AUDIO_PLAYER_STATE_PLAYING) {
 				if (p->fade_frames == 0) continue;
 			}
+			
+			if (p->frame_index >= p->source.number_of_frames && !p->looping) continue;
 			
 			spinlock_acquire_or_wait(&p->sample_lock);
 			
