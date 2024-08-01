@@ -15,6 +15,7 @@ typedef struct Context_Extra
 // This defaults to "entry", but we can set it to anything (except "main" or other existing proc names"
 #define ENTRY_PROC entry
 
+
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
 
@@ -34,8 +35,10 @@ typedef struct Context_Extra
 // #include "oogabooga/examples/growing_array_example.c"
 
 // This is where you swap in your own project!
-#include "globals.c"
-#include "utils.c"
-#include "entity.c"
-#include "ui.c"
-#include "game.c"
+#include "game/utils.c"
+#include "game/entity.c"
+#include "game/weapons.c"
+#include "game/globals.c"
+#include "game/ui.c"
+#include "game_loop.c"
+#include "entry_point.c"

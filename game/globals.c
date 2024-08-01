@@ -1,15 +1,12 @@
-typedef struct WorldFrame
-{
-    Vector2 world_mouse_pos;
-    // UI uses different matrix
-    Vector2 ui_mouse_pos;
-} WorldFrame;
 
-// SpriteCell sprite_cells[MONSTER_MAX];
 
-WorldFrame world_frame = (WorldFrame){0};
 
-void reset_world_frame()
-{
-    world_frame = (WorldFrame){0};
-}
+struct Game {
+    Vector2 camera_pos;
+    Entity room_enemies[ROOM_ENTITIES];
+    Entity player_entity;
+    Gfx_Image *player_sprites;
+    Gfx_Image *weapon_sprites;
+    Gfx_Image *walls;
+    Gfx_Font *font;
+} typedef Game;

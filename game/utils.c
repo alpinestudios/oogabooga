@@ -1,11 +1,14 @@
 #define SPRITE_PIXEL_SIZE 16
 
+
 #define V2_ZERO ((Vector2){0.0, 0.0})
 #define V2_ONE ((Vector2){1.0, 1.0})
 #define V2_RIGHT ((Vector2){1.0, 0.0})
 #define V2_LEFT ((Vector2){-1.0, 0.0})
 #define V2_UP ((Vector2){0.0, 1.0})
 #define V2_DOWN ((Vector2){0.0, -1.0})
+
+#define V3_ZERO ((Vector3){0.0, 0.0, 0.0})
 
 Vector2 screen_to_world()
 {
@@ -93,7 +96,7 @@ bool animate_f32_to_target(float *value, float target, float delta_t, float rate
     return false;
 }
 
-void animate_v2_to_target(Vector2 *value, Vector2 target, float delta_t, float rate)
+bool animate_v2_to_target(Vector2 *value, Vector2 target, float delta_t, float rate)
 {
     animate_f32_to_target(&(value->x), target.x, delta_t, rate);
     animate_f32_to_target(&(value->y), target.y, delta_t, rate);
@@ -107,4 +110,14 @@ Range2f quad_to_range(Draw_Quad quad)
 int is_char_a_digit(char c)
 {
     return c >= '0' && c <= '9';
+}
+
+float slerp(float start, float end, float t) {
+    // Normalize the angles
+    float difference = fmod(end - start + M_PI, 2.0 * M_PI) - M_PI;
+    if (difference < -M_PI) {
+        difference += 2.0 * M_PI;
+    }
+
+    return start + t * difference;
 }
