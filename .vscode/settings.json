@@ -1,6 +1,8 @@
 {
   "C_Cpp.errorSquiggles": "disabled",
   "files.associations": {
-    "immintrin.h": "c"
+    "immintrin.h": "c",
+    "cmath": "c",
+    "utility": "c"
   }
 }
