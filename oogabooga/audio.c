@@ -11,23 +11,32 @@
 		
 	void play_one_audio_clip_source(Audio_Source source);
 	void play_one_audio_clip(string path);
-	void play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos);
-	void play_one_audio_clip_at_position(string path, Vector3 pos);
+	void play_one_audio_clip_source_config(Audio_Source source, Audio_Playback_Config config);
+	void play_one_audio_clip_config(string path, Audio_Playback_Config config);
 	
 		Playing audio (with players):
 	
 	Audio_Player * audio_player_get_one();
 	void           audio_player_release(Audio_Player *p);
-	
+
+		BEWARE! Most of these operations are potentially slow because they may need to synchronize with audio thread.
+		
 	void    audio_player_set_state(Audio_Player *p, Audio_Player_State state);
 	void    audio_player_set_time_stamp(Audio_Player *p, float64 time_in_seconds);
 	void    audio_player_set_progression_factor(Audio_Player *p, float64 factor);
     bool    audio_player_at_source_end(Audio_Player *p);
 	float64 audio_player_get_time_stamp(Audio_Player *p);
 	float64 audio_player_get_current_progression_factor(Audio_Player *p);
-	void    audio_player_set_source(Audio_Player *p, Audio_Source src, bool retain_progression_factor);
+	void    audio_player_set_source(Audio_Player *p, Audio_Source src);
 	void    audio_player_clear_source(Audio_Player *p);
 	void    audio_player_set_looping(Audio_Player *p, bool looping);
+	
+		Configuring playback:
+		
+	player->config.enable_spacialization = true/false;
+	player->config.position_ndc          = v3(...);
+	player->config.volume                = ...; // (1.0 by default)
+	player->config.playback_speed        = ...; // (1.0 by default)
 	
 */
 
@@ -161,13 +170,6 @@ bool
 wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_frames) {
 
 	// https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
-	// Seriously, why is everything Microsoft makes so stinky when it should be so simple?
-	// The above specification is pretty straight forward and to the point, but then I
-	// start finding nonsense in random WAV files because some people thought it was a
-	// good idea to try and add "extensions" to it and now there is LITERALLY junk in
-	// wave files that should just be so simple.
-	// Apparently, some wave files are just... mpeg audio... with a wave header...
-	// I JUST WANT SOME PCM FRAMES
 
     wav->file = os_file_open(path, O_READ);
     
@@ -214,8 +216,7 @@ wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_fram
 	    sub_chunk_byte_pos += chunk_size;
 	    
 	    // Ignored chunks
-	    // THIS IS WHY WE CAN'T HAVE NICE THINGS
-	    // (yes, some files actually has a chunk with id "junk")
+	    // (yes, some wave files actually has a chunk with id "junk")
 	    if (strings_match(chunk_id, STR("bext"))
 	     || strings_match(chunk_id, STR("fact"))
 	     || strings_match(chunk_id, STR("junk"))) {
@@ -284,6 +285,9 @@ wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_fram
 	    }
 	}
     
+    // This is a bit cheeky because format 0x0001 is actually 16-bit pcm, and 0x0003 16-bit float specifically
+    // so I'm just kinda mudding the wave spec here. I'm not sure why past Charlie did that. Present Charlie is
+    // superior and would never ever make a brain mistake like that.
     if (wav->format == 0xFFFE) {
         if (is_equal_wav_guid(&wav->sub_format, &WAV_SUBTYPE_PCM)) {
             wav->format = 0x0001;
@@ -306,8 +310,8 @@ wav_open_file(string path, Wav_Stream *wav, u64 sample_rate, u64 *number_of_fram
     }
     
     if (wav->sample_rate != sample_rate) {
-    	f32 ratio = (f32)sample_rate/(f32)wav->sample_rate;
-    	*number_of_frames = (u64)round((f32)wav->number_of_frames*ratio);
+    	f64 ratio = (f64)sample_rate/(f64)wav->sample_rate;
+    	*number_of_frames = (u64)round((f64)wav->number_of_frames*ratio);
     }
 
     // Set the file position to the beginning of the PCM data
@@ -326,8 +330,8 @@ wav_close(Wav_Stream *wav) {
 bool 
 wav_set_frame_pos(Wav_Stream *wav, u64 output_sample_rate, u64 frame_index) {
 
-	f32 ratio = (f32)wav->sample_rate/(f32)output_sample_rate;
-	frame_index = (u64)round(ratio*(f32)frame_index);
+	f64 ratio = (f64)wav->sample_rate/(f64)output_sample_rate;
+	frame_index = (u64)round(ratio*(f64)frame_index);
 	
 	u64 frame_size = wav->channels*(wav->bits_per_sample/8);
 	return os_file_set_pos(wav->file, wav->pcm_start + frame_index*frame_size);
@@ -351,7 +355,7 @@ wav_read_frames(Wav_Stream *wav, Audio_Format format, void *frames,
 	
 	u64 remaining_frames = (end-pos)/frame_size;
 	
-	f32 ratio = (f32)wav->sample_rate / (f32)format.sample_rate;
+	f64 ratio = (f64)wav->sample_rate / (f64)format.sample_rate;
 
 	u64 frames_to_output = min(round(remaining_frames/ratio), number_of_frames);
 	u64 frames_to_read   = frames_to_output;
@@ -508,7 +512,7 @@ wav_read_frames(Wav_Stream *wav, Audio_Format format, void *frames,
 		format,
 		convert_buffer, 
 		(Audio_Format){ format.bit_width, wav->channels, wav->sample_rate},
-		frames_to_read
+		frames_to_output
 	);
 	assert(converted == frames_to_output);
 	
@@ -727,7 +731,7 @@ audio_source_get_frames(Audio_Source *src, u64 first_frame_index,
 		
 	} break; // case AUDIO_DECODER_WAV:
 	case AUDIO_DECODER_OGG:  {
-		f32 ratio = (f32)src->ogg->sample_rate/(f32)src->format.sample_rate;
+		f64 ratio = (f64)src->ogg->sample_rate/(f64)src->format.sample_rate;
 		
 		third_party_allocator = src->allocator;
 		bool seek_ok = stb_vorbis_seek(src->ogg, round(first_frame_index*ratio));
@@ -800,7 +804,7 @@ audio_source_get_frames(Audio_Source *src, u64 first_frame_index,
 				src->format,
 				convert_buffer, 
 				(Audio_Format){src->format.bit_width, src->ogg->channels, src->ogg->sample_rate},
-				number_of_frames_to_sample
+				number_of_frames
 			);
 		}
 		
@@ -826,9 +830,6 @@ audio_source_sample_next_frames(Audio_Source *src, u64 first_frame_index, u64 nu
 	assert(first_frame_index < src->number_of_frames, "Invalid first_frame_index");
 	
     u64 new_index = first_frame_index;
-    
-    // #Checkout
-    // first_frame_index = max(first_frame_index, 3);
     
     int num_retrieved;
 	switch (src->kind) {
@@ -903,11 +904,6 @@ mix_frames(void *dst, void *src, u64 frame_count, Audio_Format format) {
     u64 frame_size = comp_size * format.channels;
     u64 output_size = frame_count * frame_size;
     
-    // #Speed #Simd #Incomplete
-    // Quality:
-    // - Dithering
-    // - Clipping. Dynamic Range Compression?
-    
     for (u64 frame = 0; frame < frame_count; frame++) {
         
         for (u64 c = 0; c < format.channels; c++) {
@@ -970,7 +966,7 @@ resample_frames(void *dst, Audio_Format dst_format,
     assert(dst_format.channels == src_format.channels, "Channel count must be the same for sample rate conversion");
     assert(dst_format.bit_width == src_format.bit_width, "Types must be the same for sample rate conversion");
 
-    f32 src_ratio = (f32)src_format.sample_rate / (f32)dst_format.sample_rate;
+    f64 src_ratio = (f64)src_format.sample_rate / (f64)dst_format.sample_rate;
     u64 dst_frame_count = (u64)round(src_frame_count / src_ratio);
     u64 dst_comp_size = get_audio_bit_width_byte_size(dst_format.bit_width);
     u64 dst_frame_size = dst_comp_size * dst_format.channels;
@@ -1010,34 +1006,24 @@ resample_frames(void *dst, Audio_Format dst_format,
         }
     }
 
-    // Correct padding on downsampling since we downsample backwards
-    if (dst_format.sample_rate < src_format.sample_rate) {
-    	void *dst_after_pad = (u8*)dst + (src_frame_count - dst_frame_count) * dst_frame_size;
-    	u64 padding = (u64)dst_after_pad - (u64)dst;
-    	memcpy(
-    		dst, 
-    		dst_after_pad, 
-    		dst_frame_count * dst_frame_size
-		);
-		memset((u8*)dst+dst_frame_count * dst_frame_size, 0, padding);
-	}
+    
 }
 
 // Assumes dst buffer is large enough
 int // Returns outputted number of frames
 convert_frames(void *dst, Audio_Format dst_format, 
-               void *src, Audio_Format src_format, u64 src_frame_count) {
+               void *src, Audio_Format src_format, u64 output_frame_count) {
 
 	u64 dst_comp_size = get_audio_bit_width_byte_size(dst_format.bit_width);
     u64 dst_frame_size = dst_comp_size * dst_format.channels;
 	u64 src_comp_size = get_audio_bit_width_byte_size(src_format.bit_width);
     u64 src_frame_size = src_comp_size * src_format.channels;
 	   
-	u64 output_frame_count = src_frame_count;
+	u64 src_frame_count = output_frame_count;
 	
     if (dst_format.sample_rate != src_format.sample_rate) {
-    	f32 ratio = (f32)src_format.sample_rate/(f32)dst_format.sample_rate;
-    	output_frame_count = (u64)round((f32)src_frame_count/ratio);
+    	f64 ratio = (f64)src_format.sample_rate/(f64)dst_format.sample_rate;
+    	src_frame_count = (u64)round((f64)output_frame_count*ratio);
     }
 
 	if (bytes_match(&dst_format, &src_format, sizeof(Audio_Format))) {
@@ -1158,9 +1144,17 @@ typedef enum Audio_Player_State {
 	AUDIO_PLAYER_STATE_PAUSED,
 	AUDIO_PLAYER_STATE_PLAYING
 } Audio_Player_State;
+
+typedef struct Audio_Playback_Config {
+	Vector3 position_ndc;
+	bool enable_spacialization;
+	float32 volume;
+	float32 playback_speed;
+} Audio_Playback_Config;
+
 typedef struct Audio_Player {
 	// You shouldn't set these directly.
-	// Configure players with the player_xxxxx procedures
+	// Set playback state with the player_xxxxx procedures
 	Audio_Source source;
 	bool has_source;
 	bool allocated;
@@ -1172,13 +1166,17 @@ typedef struct Audio_Player {
 	u64 fade_frames_total;
 	bool release_when_done;
 	// I think we only need to sync when audio thread samples the source, which should be
-	// very quick and low contention, hence a spinlock.
+	// fairly quick and low contention, hence a spinlock.
 	Spinlock sample_lock; 
 	
-	// These can be set safely
-	Vector3 position; // ndc space -1 to 1
-	bool disable_spacialization;
-	float32 volume;
+	// #Cleanup
+	DEPRECATED(Vector3 position, "Use player->config.position_ndc instead"); // ndc space -1 to 1
+	DEPRECATED(bool disable_spacialization, "Use player->config.enable_spacialization instead");
+	DEPRECATED(float32 volume, "Use player->config.volume instead");
+	DEPRECATED(float32 playback_speed, "Use player->config.playback_speed instead");
+	
+	// This is safe to set whenever
+	Audio_Playback_Config config;
 	
 } Audio_Player;
 #define AUDIO_PLAYERS_PER_BLOCK 128
@@ -1208,7 +1206,8 @@ audio_player_get_one() {
 			
 				memset(&block->players[i], 0, sizeof(block->players[i]));
 				block->players[i].allocated = true;
-				block->players[i].volume = 1.0;
+				block->players[i].config.volume = 1.0;
+				block->players[i].config.playback_speed = 1.0;
 				
 				return &block->players[i];
 			}
@@ -1229,7 +1228,8 @@ audio_player_get_one() {
 	last->next = new_block;
 
 	new_block->players[0].allocated = true;
-	new_block->players[0].volume = 1.0;
+	new_block->players[0].config.volume = 1.0;
+	block->players[0].config.playback_speed = 1.0;
 	return &new_block->players[0];
 }
 
@@ -1322,7 +1322,7 @@ audio_player_get_current_progression_factor(Audio_Player *p) {
 	return progression;
 }
 void 
-audio_player_set_source(Audio_Player *p, Audio_Source src, bool retain_progression_factor) {
+audio_player_set_source(Audio_Player *p, Audio_Source src) {
 
 	float64 last_progression = audio_player_get_current_progression_factor(p);
 	
@@ -1331,11 +1331,7 @@ audio_player_set_source(Audio_Player *p, Audio_Source src, bool retain_progressi
 	p->source = src;
 	p->has_source = true;
 	
-	if (retain_progression_factor) {
-		p->frame_index = (u64)round((float64)p->source.number_of_frames*last_progression);
-	} else {
-		p->frame_index = 0;
-	}
+	p->frame_index = 0;
 	
 	spinlock_release(&p->sample_lock);
 }
@@ -1373,20 +1369,33 @@ bool just_audio_clips_initted = false;
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void
-play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos) {
+DEPRECATED(play_one_audio_clip_source_at_position(Audio_Source source, Vector3 pos), "Use play_one_audio_clip_source_with_config() instead") {
 	Audio_Player *p = audio_player_get_one();
-	audio_player_set_source(p, source, false);
+	audio_player_set_source(p, source);
 	audio_player_set_state(p, AUDIO_PLAYER_STATE_PLAYING);
-	p->position = pos;
+	p->config.position_ndc = pos;
+	p->config.enable_spacialization = true;
+	p->release_when_done = true;
+}
+
+void
+play_one_audio_clip_source_with_config(Audio_Source source, Audio_Playback_Config config) {
+	Audio_Player *p = audio_player_get_one();
+	audio_player_set_source(p, source);
+	audio_player_set_state(p, AUDIO_PLAYER_STATE_PLAYING);
+	p->config = config;
 	p->release_when_done = true;
 }
 
 void inline 
 play_one_audio_clip_source(Audio_Source source) {
-	play_one_audio_clip_source_at_position(source, v3(0, 0, 0));
+	Audio_Playback_Config config = {0};
+	config.volume = 1.0;
+	config.playback_speed = 1.0;
+	play_one_audio_clip_source_with_config(source, config);
 }
 void
-play_one_audio_clip_at_position(string path, Vector3 pos) {
+DEPRECATED(play_one_audio_clip_at_position(string path, Vector3 pos), "Use play_one_audio_clip_with_config() instead") {
 	if (!just_audio_clips_initted) {
 		just_audio_clips_initted = true;
 		just_audio_clips = make_hash_table(string, Audio_Source, get_heap_allocator());
@@ -1397,7 +1406,7 @@ play_one_audio_clip_at_position(string path, Vector3 pos) {
 		play_one_audio_clip_source_at_position(*src_ptr, pos);
 	} else {
 		Audio_Source new_src;
-		bool ok = audio_open_source_load(&new_src, path, get_heap_allocator());
+		bool ok = audio_open_source_stream(&new_src, path, get_heap_allocator());
 		if (!ok) {
 			log_error("Could not load audio to play from %s", path);
 			return;
@@ -1407,9 +1416,33 @@ play_one_audio_clip_at_position(string path, Vector3 pos) {
 	}
 	
 }
+void
+play_one_audio_clip_with_config(string path, Audio_Playback_Config config) {
+	if (!just_audio_clips_initted) {
+		just_audio_clips_initted = true;
+		just_audio_clips = make_hash_table(string, Audio_Source, get_heap_allocator());
+	}
+	
+	Audio_Source *src_ptr = hash_table_find(&just_audio_clips, path);
+	if (src_ptr) {
+		play_one_audio_clip_source_with_config(*src_ptr, config);
+	} else {
+		Audio_Source new_src;
+		bool ok = audio_open_source_stream(&new_src, path, get_heap_allocator());
+		if (!ok) {
+			log_error("Could not load audio to play from %s", path);
+			return;
+		}
+		hash_table_add(&just_audio_clips, path, new_src);
+		play_one_audio_clip_source_with_config(new_src, config);
+	}
+}
 void inline
 play_one_audio_clip(string path) {
-	play_one_audio_clip_at_position(path, v3(0, 0, 0));
+	Audio_Playback_Config config = {0};
+	config.volume = 1.0;
+	config.playback_speed = 1.0;
+	play_one_audio_clip_with_config(path, config);
 }
 
 void
@@ -1670,6 +1703,9 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 				if (p->fade_frames == 0) continue;
 			}
 			
+			// #Incomplete Reverse playback ?
+			if (p->config.playback_speed <= 0.0) continue;
+			
 			if (p->frame_index >= p->source.number_of_frames && !p->looping) continue;
 			
 			spinlock_acquire_or_wait(&p->sample_lock);
@@ -1677,21 +1713,24 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 			Audio_Source src = p->source;
 			
 			mutex_acquire_or_wait(&src.mutex_for_destroy);
+
+			Audio_Format sample_format = src.format;
+			sample_format.sample_rate = sample_format.sample_rate*p->config.playback_speed;
 			
 			bool need_convert = !bytes_match(
 				&out_format, 
-				&src.format, 
+				&sample_format, 
 				sizeof(Audio_Format)
 			);
 			
 			u64 in_comp_size 
-				= get_audio_bit_width_byte_size(src.format.bit_width);
+				= get_audio_bit_width_byte_size(sample_format.bit_width);
 			
-			u64 in_frame_size = in_comp_size * src.format.channels;
+			u64 in_frame_size = in_comp_size * sample_format.channels;
 			u64 input_size = number_of_output_frames * in_frame_size;
 			
+			// #Copypaste #Cleanup
 			u64 biggest_size = max(input_size, output_size);
-	
 			if (!mix_buffer || mix_buffer_size < biggest_size) {
 				u64 new_size = get_next_power_of_two(biggest_size);
 				if (mix_buffer) dealloc(get_heap_allocator(), mix_buffer);
@@ -1704,17 +1743,26 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 			u64 number_of_sample_frames = number_of_output_frames;
 			
 			if (need_convert) {
-				if (src.format.sample_rate != out_format.sample_rate) {
-					f32 src_ratio 
-						= (f32)src.format.sample_rate 
-						  / (f32)out_format.sample_rate;
+				if (sample_format.sample_rate != out_format.sample_rate) {
+					f64 src_ratio 
+						= (f64)sample_format.sample_rate 
+						  / (f64)out_format.sample_rate;
 						
 					number_of_sample_frames = round(number_of_output_frames * src_ratio);
 					input_size = number_of_sample_frames * in_frame_size;
+
+					// #Copypaste #Cleanup  we need to potentially grow the mix buffer again after we change input_size
+					u64 biggest_size = max(input_size, output_size);
+					if (!mix_buffer || mix_buffer_size < biggest_size) {
+						u64 new_size = get_next_power_of_two(biggest_size);
+						if (mix_buffer) dealloc(get_heap_allocator(), mix_buffer);
+						mix_buffer = alloc(get_heap_allocator(), new_size);
+						mix_buffer_size = new_size;
+						memset(mix_buffer, 0, new_size);
+					}
 				}
 				
 				u64 biggest_size = max(input_size, output_size);
-				
 				if (!convert_buffer || convert_buffer_size < biggest_size) {
 					u64 new_size = get_next_power_of_two(biggest_size);
 					if (convert_buffer) dealloc(get_heap_allocator(), convert_buffer);
@@ -1738,12 +1786,14 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 					// For looping players, this means we have a slight offset between the players that start
 					// playing at the exact same time. I'm not sure how else to deal with phase cancellation
 					// in looping players.
+					// #Incomplete player->is_muted_for_phase_cancellation ? 
 					p->frame_index = src.number_of_frames;
 					continue;
 				}
 				growing_array_add((void**)&started_this_frame, &src.uid);
 			}
 	
+			u64 last_frame_index = p->frame_index;
 			p->frame_index = audio_source_sample_next_frames(
 				&src,
 				p->frame_index, 
@@ -1751,6 +1801,9 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 				target_buffer,
 				p->looping
 			);
+			if (p->frame_index > last_frame_index && (p->looping || p->frame_index != src.number_of_frames)) {
+				assert(p->frame_index - last_frame_index == number_of_sample_frames);
+			}
 			
 			if (p->fade_frames > 0) {
 				u64 frames_to_fade = min(p->fade_frames, number_of_sample_frames);
@@ -1813,17 +1866,17 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 					mix_buffer, 
 					out_format, 
 					convert_buffer, 
-					src.format,
-					number_of_sample_frames
+					sample_format,
+					number_of_output_frames
 				);
 				assert(converted == number_of_output_frames);
 			}
 
-			if (!p->disable_spacialization) {
-				apply_audio_spacialization(mix_buffer, out_format, number_of_output_frames, p->position);
+			if (p->config.enable_spacialization) {
+				apply_audio_spacialization(mix_buffer, out_format, number_of_output_frames, p->config.position_ndc);
 			}
-			if (p->volume != 0.0) {
-				apply_audio_volume(mix_buffer, out_format, number_of_output_frames, p->volume);
+			if (p->config.volume != 0.0) {
+				apply_audio_volume(mix_buffer, out_format, number_of_output_frames, p->config.volume);
 			}
 			
 			mix_frames(output, mix_buffer, number_of_output_frames, out_format);

@@ -4,7 +4,13 @@ Gfx_Font *font;
 
 bool button(string label, Vector2 pos, Vector2 size, bool enabled);
 
+/*
+	NOTE:
+	
+		In most cases you will probably just want to call play_one_clip().
+		Using Audio Players is for when you need more control over the playback.
 
+*/
 
 int entry(int argc, char **argv) {
 	
@@ -25,7 +31,7 @@ int entry(int argc, char **argv) {
 	bool bruh_ok = audio_open_source_load(&bruh, STR("oogabooga/examples/bruh.wav"), heap);
 	assert(bruh_ok, "Could not load bruh.wav");
 
-	bool song_ok = audio_open_source_stream(&song, STR("oogabooga/examples/song.ogg"),  heap);
+	bool song_ok = audio_open_source_stream_format(&song, STR("oogabooga/examples/song.ogg"), heap);
 	assert(song_ok, "Could not load song.ogg");
 	
 	// By default, audio sources will be converted to the same format as the output buffer.
@@ -42,11 +48,11 @@ int entry(int argc, char **argv) {
 	// But this is probably only something you would need to care about if you had a very
 	// complicated audio system.
 	
-	audio_player_set_source(clip_player, bruh, false);
-	audio_player_set_source(song_player, song, false);
+	audio_player_set_source(clip_player, bruh);
+	audio_player_set_source(song_player, song);
 	
 	audio_player_set_state(clip_player, AUDIO_PLAYER_STATE_PAUSED);
-	audio_player_set_state(song_player, AUDIO_PLAYER_STATE_PLAYING);
+	audio_player_set_state(song_player, AUDIO_PLAYER_STATE_PAUSED);
 	
 	audio_player_set_looping(clip_player, true);
 	//play_one_audio_clip(STR("oogabooga/examples/block.wav"));
@@ -57,13 +63,8 @@ int entry(int argc, char **argv) {
 		draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 		
 		if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
-			float mx = input_frame.mouse_x;
-			float my = input_frame.mouse_y;
 			// Easy mode (when you don't care and just want to play a clip)
-			Vector3 p = v3(mx/(f32)window.width*2.0-1, my/(f32)window.height*2.0-1, 0);
-			log("%f, %f", p.x, p.y);
-			play_one_audio_clip_at_position(STR("oogabooga/examples/block.wav"), p);
-			// Or just play_one_audio_clip if you don't care about spacialization
+			play_one_audio_clip(STR("oogabooga/examples/block.wav"));
 		}
 		
 		
@@ -89,7 +90,12 @@ int entry(int argc, char **argv) {
 		}
 		rect.y -= FONT_HEIGHT*1.8;
 		if (button(STR("One Bruh"), rect.xy, rect.zw, false)) {
-			play_one_audio_clip(STR("oogabooga/examples/bruh.wav"));
+			Audio_Playback_Config config = {0};
+			config.volume                = 1.0;
+			config.playback_speed        = get_random_float32_in_range(0.8, 1.2);
+			config.enable_spacialization = true;
+			config.position_ndc          = v3(get_random_float32_in_range(-1, 1), get_random_float32_in_range(-1, 1), 0);
+			play_one_audio_clip_with_config(STR("oogabooga/examples/bruh.wav"), config);
 		}
 		rect.y -= FONT_HEIGHT*3;
 		if (button(STR("Reset song"), rect.xy, rect.zw, false)) {
@@ -99,16 +105,30 @@ int entry(int argc, char **argv) {
 		rect.y = window.height/2-FONT_HEIGHT-40;
 		rect.x += rect.z + FONT_HEIGHT;
 		if (button(STR("Song vol up"), rect.xy, rect.zw, false)) {
-			song_player->volume += 0.05;
+			song_player->config.volume += 0.05;
 		}
 		rect.y -= FONT_HEIGHT*1.8;
 		if (button(STR("Song vol down"), rect.xy, rect.zw, false)) {
-			song_player->volume -= 0.05;
+			song_player->config.volume -= 0.05;
 		}
-		song_player->volume = clamp(song_player->volume, 0, 20);
+		song_player->config.volume = clamp(song_player->config.volume, 0, 20);
 		rect.x += rect.z + FONT_HEIGHT;
-		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
-		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->volume*100)), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);
+		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->config.volume*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
+		draw_text(font, tprint("Song volume: %d%%", (s64)round(song_player->config.volume*100)), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);
+		rect.x -= rect.z + FONT_HEIGHT;
+		
+		rect.y -= FONT_HEIGHT*5;
+		if (button(STR("Speed up"), rect.xy, rect.zw, false)) {
+			song_player->config.playback_speed += 0.05;
+		}
+		rect.y -= FONT_HEIGHT*1.8;
+		if (button(STR("Speed down"), rect.xy, rect.zw, false)) {
+			song_player->config.playback_speed -= 0.05;
+		}
+		song_player->config.playback_speed = clamp(song_player->config.playback_speed, 0, 20);
+		rect.x += rect.z + FONT_HEIGHT;
+		draw_text(font, tprint("Speed: %d%%", (s64)round(song_player->config.playback_speed*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
+		draw_text(font, tprint("Speed: %d%%", (s64)round(song_player->config.playback_speed*100)), FONT_HEIGHT, rect.xy, v2(1, 1), COLOR_WHITE);
 		
 		
 		rect.y -= FONT_HEIGHT*3;
@@ -119,6 +139,12 @@ int entry(int argc, char **argv) {
 		os_update(); 
 		gfx_update();
 	}
+	
+	// Don't actually do this on exit!!
+	// Your OS will clean up everything when program exits, so this is only slowing down the time it takes for the program to exit.
+	// This is just for testing purposes.
+	audio_source_destroy(&bruh);
+	audio_source_destroy(&song);
 
 	return 0;
 }
