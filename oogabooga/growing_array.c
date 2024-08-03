@@ -1,46 +1,85 @@
 
 /*
 
-    Thing *things;
-    growing_array_init(&things, sizeof(Thing));
-    
-    growing_array_deinit(&things);
-    
-    Thing new_thing;
-    growing_array_add(&things, &new_thing); // 'thing' is copied
-    
-    Thing *nth_thing = &things[n];
-    
-    growing_array_reserve_count(&things, 690);
-    growing_array_resize_count(&things, 69);
-    
-    // "Slow", but stuff in the array keeps the same order
-    growing_array_ordered_remove_by_index(&things, i);
-    
-    // Fast, but will not keep stuff ordered
-    growing_array_unordered_remove_by_index(&things, i);
-    
-    growing_array_ordered_remove_by_pointer(&things, nth_thing);
-    growing_array_unordered_remove_by_pointer(&things, nth_thing);
-    
-    Thing thing_prototype;
-    growing_array_ordered_remove_one_by_value(&things, thing_prototype);
-    growing_array_unordered_remove_one_by_value(&things, thing_prototype);
-    growing_array_ordered_remove_all_by_value(&things, thing_prototype);
-    growing_array_unordered_remove_all_by_value(&things, thing_prototype);
-    
-    growing_array_get_valid_count(&things);
-    growing_array_get_allocated_count(&things);
+	Full API:
+	
+		void growing_array_init_reserve(void **array, u64 block_size_in_bytes, u64 count_to_reserve, Allocator allocator);
+		void growing_array_init(void **array, u64 block_size_in_bytes, Allocator allocator);
+		void growing_array_deinit(void **array);
+		
+		void *growing_array_add_empty(void **array);
+		void growing_array_add(void **array, void *item);
+		
+		void growing_array_reserve(void **array, u64 count_to_reserve);
+		void growing_array_resize(void **array, u64 new_count);
+		void growing_array_pop(void **array);
+		void growing_array_clear(void **array);
+		
+		// Returns -1 if not found
+		s32  growing_array_find_index_from_left_by_pointer(void **array, void *p);
+		s32  growing_array_find_index_from_left_by_value(void **array, void *p);
+		
+		void growing_array_ordered_remove_by_index(void **array, u32 index);
+		void growing_array_unordered_remove_by_index(void **array, u32 index);
+		bool growing_array_ordered_remove_by_pointer(void **array, void *p);
+		bool growing_array_unordered_remove_by_pointer(void **array, void *p);
+		bool growing_array_ordered_remove_one_by_value(void **array, void *p);
+		bool growing_array_unordered_remove_one_by_value(void **array, void *p);
+		
+		u32  growing_array_get_valid_count(void *array);
+		u32  growing_array_get_allocated_count(void *array);
+
+	Usage:
+	
+	    Thing *things;
+	    growing_array_init(&things, sizeof(Thing));
+	    
+	    growing_array_deinit(&things);
+	    
+	    Thing new_thing;
+	    growing_array_add(&things, &new_thing); // 'thing' is copied
+	    
+	    Thing *nth_thing = &things[n];
+	    
+	    growing_array_reserve_count(&things, 690);
+	    growing_array_resize_count(&things, 69);
+	    
+	    // "Slow", but stuff in the array keeps the same order
+	    growing_array_ordered_remove_by_index(&things, i);
+	    
+	    // Fast, but will not keep stuff ordered
+	    growing_array_unordered_remove_by_index(&things, i);
+	    
+	    growing_array_ordered_remove_by_pointer(&things, nth_thing);
+	    growing_array_unordered_remove_by_pointer(&things, nth_thing);
+	    
+	    Thing thing_prototype;
+	    growing_array_ordered_remove_one_by_value(&things, thing_prototype);
+	    growing_array_unordered_remove_one_by_value(&things, thing_prototype);
+	    growing_array_ordered_remove_all_by_value(&things, thing_prototype);
+	    growing_array_unordered_remove_all_by_value(&things, thing_prototype);
+	    
+	    growing_array_get_valid_count(&things);
+	    growing_array_get_allocated_count(&things);
     
 */
 
+#define GROWING_ARRAY_SIGNATURE 2224364215
+
 typedef struct Growing_Array_Header {
+	u32 signature;
     u32 valid_count;
     u32 allocated_count;
     u32 block_size_in_bytes;
     Allocator allocator;
 } Growing_Array_Header;
 
+bool 
+check_growing_array_signature(void **array) {
+	Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
+	if (header->signature != GROWING_ARRAY_SIGNATURE) return false;
+	return true;
+}
 
 void
 growing_array_init_reserve(void **array, u64 block_size_in_bytes, u64 count_to_reserve, Allocator allocator) {
@@ -54,6 +93,7 @@ growing_array_init_reserve(void **array, u64 block_size_in_bytes, u64 count_to_r
     header->block_size_in_bytes = block_size_in_bytes;
     header->valid_count = 0;
     header->allocated_count = count_to_reserve;
+    header->signature = GROWING_ARRAY_SIGNATURE;
     
     *array = header+1;
 }
@@ -63,12 +103,14 @@ growing_array_init(void **array, u64 block_size_in_bytes, Allocator allocator) {
 }
 void
 growing_array_deinit(void **array) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     dealloc(header->allocator, header);
 }
 
 void
 growing_array_reserve(void **array, u64 count_to_reserve) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     
     if (header->allocated_count >= count_to_reserve) return;
@@ -90,6 +132,7 @@ growing_array_reserve(void **array, u64 count_to_reserve) {
 
 void*
 growing_array_add_empty(void **array) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     growing_array_reserve(array, header->valid_count+1);
     
@@ -119,18 +162,21 @@ void growing_array_resize(void **array, u64 new_count) {
 }
 
 void growing_array_pop(void **array) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     assert(header->valid_count > 0, "No items to pop in growing array");
     header->valid_count -= 1;
 }
 
 void growing_array_clear(void **array) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     header->valid_count = 0;
 }
 
 void 
 growing_array_ordered_remove_by_index(void **array, u32 index) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     assert(index < header->valid_count, "Growing array index out of range");
     
@@ -150,6 +196,7 @@ growing_array_ordered_remove_by_index(void **array, u32 index) {
 }
 void 
 growing_array_unordered_remove_by_index(void **array, u32 index) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     assert(index < header->valid_count, "Growing array index out of range");
     
@@ -171,6 +218,7 @@ growing_array_unordered_remove_by_index(void **array, u32 index) {
 
 s32
 growing_array_find_index_from_left_by_pointer(void **array, void *p) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     
     for (u32 i = 0; i < header->valid_count; i++) {
@@ -184,6 +232,7 @@ growing_array_find_index_from_left_by_pointer(void **array, void *p) {
 }
 s32
 growing_array_find_index_from_left_by_value(void **array, void *p) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     
     for (u32 i = 0; i < header->valid_count; i++) {
@@ -251,11 +300,13 @@ growing_array_unordered_remove_one_by_value(void **array, void *p) {
 
 u32
 growing_array_get_valid_count(void *array) {
+	assert(check_growing_array_signature(&array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)array) - 1;
     return header->valid_count;
 }
 u32
 growing_array_get_allocated_count(void *array) {
+	assert(check_growing_array_signature(&array), "Not a valid growing array");
     Growing_Array_Header *header = ((Growing_Array_Header*)array) - 1;
     return header->allocated_count;
 }

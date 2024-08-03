@@ -102,7 +102,7 @@ int entry(int argc, char **argv) {
 				v2(input_frame.mouse_x+256, input_frame.mouse_y+256)
 			);
 		}
-		
+
 		seed_for_random = 69;
 		for (u64 i = 0; i < 30000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
@@ -113,7 +113,7 @@ int entry(int argc, char **argv) {
 			
 			float x = get_random_float32() * (max_x-min_x) + min_x;
 			float y = get_random_float32() * (max_y-min_y) + min_y;
-			
+
 			push_z_layer((s32)(y*100));
 			draw_image(bush_image, v2(x, y), v2(0.1, 0.1), COLOR_WHITE);
 			pop_z_layer();

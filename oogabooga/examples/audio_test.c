@@ -31,7 +31,7 @@ int entry(int argc, char **argv) {
 	bool bruh_ok = audio_open_source_load(&bruh, STR("oogabooga/examples/bruh.wav"), heap);
 	assert(bruh_ok, "Could not load bruh.wav");
 
-	bool song_ok = audio_open_source_stream_format(&song, STR("oogabooga/examples/song.ogg"), heap);
+	bool song_ok = audio_open_source_stream(&song, STR("oogabooga/examples/song.ogg"), heap);
 	assert(song_ok, "Could not load song.ogg");
 	
 	// By default, audio sources will be converted to the same format as the output buffer.

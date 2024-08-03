@@ -1,6 +1,6 @@
+- Gamepad
 
 - Audio
-	- Avoid playing identical audio at the same time
 	- Allow audio programming
 		- Inject mixer proc per player
 		- Inject a mixer proc before and after filling output buffer
@@ -9,14 +9,13 @@
 	- Handle audio sources which had their format defaulted to update when default device changes
 		For streamed audio sources this should be easy enough, because the conversion happens from raw format to source format as we stream it.
 		For loaded sources though, we would need to convert the source->pcm_frames.
+			Probably just dirty flag
 	- Optimize
 		- Spam simd
-		- Concurrent jobs for players?
         - Pool of intermediate buffers (2^)
-	- Bugs:
-		- Small fadeout on pause is slightly noisy
-		- Setting time stamp/progression causes noise (need fade transition like on pause/play)
-		- End of clip also causes noise if audio clip does not end smoothly
+	- Bugs / Issues:
+		- Small fadeout on start/pause is sometimes noisy
+		- If audio starts/end abrubtly we will get noise. Maybe detect that on load and apply small fade in/out?
 		- Setting audio source to a format which differs from audio output format in both channels and bit_width at the same time will produce pure loud noise.
 		- 24-Bit audio conversion doesn't really work
 			
@@ -38,12 +37,14 @@
 - OS
 	- Window::bool is_minimized
 	- don't set window.width & window.height to 0
+	- Handle monitor change
 	- Sockets recv, send
 	- Mouse pointer
 	   - Hide mouse pointer
+
+- Better hash table
 	
 - Memory
-	- In heap allocator, mark pages that fit entirely into free nodes as NOACCESS
 	- Arenas
 
 - Examples/Guides:
@@ -51,13 +52,19 @@
     - Z sorting
     - Scissor boxing
     - Concurrency
+    - strings
 	
 - Rework profiler
 	- Store records and convert to google trace format on exit
 	- Measure both time and cycles, output a google_trace_cycles.json & google_trace_time.json
+	
+- Concurrency
+	- Event objects for binary semaphore
 	
 - Needs testing:
 	- Audio format channel conversions
 	- sample rate downsampling
 	- non stereo or mono audio
 	- Audio spacialization on anything that's not stereo
+	- Compiling with msvc
+	- Compiling with gcc

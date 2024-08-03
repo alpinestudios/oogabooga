@@ -249,7 +249,7 @@ typedef struct Cpu_Capabilities {
     #define COMPILER_CAN_DO_AVX2 0
     #define COMPILER_CAN_DO_AVX512 0
     
-    #define deprecated(msg) 
+    #define DEPRECATED(proc, msg) 
     
     #define MEMORY_BARRIER
     

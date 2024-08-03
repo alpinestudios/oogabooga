@@ -396,6 +396,11 @@ void os_init(u64 program_memory_capacity) {
 #ifndef OOGABOOGA_HEADLESS
     win32_init_window();
     
+    // Set a dummy output format before audio init in case it fails.
+    audio_output_format.sample_rate = 48000;
+    audio_output_format.channels = 2;
+    audio_output_format.bit_width = AUDIO_BITS_32;
+    
     local_persist Thread audio_thread, audio_poll_default_device_thread;
     
     os_thread_init(&audio_thread, win32_audio_thread);
@@ -1416,8 +1421,6 @@ const GUID CLSID_MMDeviceEnumerator = {0xbcde0395, 0xe52f, 0x467c, {0x8e,0x3d, 0
 const GUID IID_IMMDeviceEnumerator = {0xa95664d2, 0x9614, 0x4f35, {0xa7,0x46, 0xde,0x8d,0xb6,0x36,0x17,0xe6}};
 const GUID IID_IAudioClient = {0x1cb9ad4c, 0xdbfa, 0x4c32, {0xb1,0x78, 0xc2,0xf5,0x68,0xa7,0x03,0xb2}};
 const GUID IID_IAudioRenderClient = {0xf294acfc, 0x3146, 0x4483, {0xa7,0xbf, 0xad,0xdc,0xa7,0xc2,0x60,0xe2}};
-DEFINE_GUID(IID_ISimpleAudioVolume, 
-0x87CE5498, 0x68D6, 0x44E5, 0x92, 0x15, 0x6D, 0xA4, 0x7E, 0xF8, 0x83, 0xD8);
 
 IAudioClient* win32_audio_client;
 IAudioRenderClient* win32_render_client;
@@ -1425,11 +1428,12 @@ bool win32_audio_deactivated = false;
 Audio_Format audio_output_format; // For use when loading audio sources
 IMMDevice* win32_audio_device = 0;
 IMMDeviceEnumerator* win32_device_enumerator = 0;
-ISimpleAudioVolume* win32_audio_volume = 0;
 Mutex audio_init_mutex;
 
 void
 win32_audio_init() {
+
+	local_persist bool did_report_error_last_call = false;
 
 	win32_audio_client = 0;
 	win32_render_client = 0;
@@ -1502,7 +1506,8 @@ win32_audio_init() {
 		);
 		if (hr != S_OK) {
 			win32_audio_deactivated = true;
-			log_error("Default audio output device is not supported.");
+			if (!did_report_error_last_call) log_error("Default audio output device is not supported.");
+			did_report_error_last_call = true;
 			return;
 		}
 		output_format = (WAVEFORMATEX*)format_s16;
@@ -1518,6 +1523,12 @@ win32_audio_init() {
     	BUFFER_DURATION_MS*10000ll, 0, 
     	output_format, 0
 	);
+	if (hr == 0x8889000A) {
+		if (!did_report_error_last_call) log_error("IAudioClient_Initialize failed for default device\nSample rate: %d\nBit-width: %d\n Channels: %d", device_base_format->nSamplesPerSec, device_base_format->wBitsPerSample, device_base_format->nChannels);
+		win32_audio_deactivated = true;
+		did_report_error_last_call = true;
+		return;
+	}
     win32_check_hr(hr);
 	
     hr = IAudioClient_GetService(win32_audio_client, &IID_IAudioRenderClient, (void**)&win32_render_client);
@@ -1536,14 +1547,8 @@ win32_audio_init() {
     DWORD task_index;
 	AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &task_index);
 
-	hr = IAudioClient_GetService(win32_audio_client, &IID_ISimpleAudioVolume, (void**)&win32_audio_volume);
-	if (SUCCEEDED(hr)) {
-	    hr = ISimpleAudioVolume_SetMasterVolume(win32_audio_volume, 1.0f, 0);
-	    win32_check_hr(hr);
-	    ISimpleAudioVolume_Release(win32_audio_volume);
-	}
-
     log_info("Successfully initialized default audio device. Channels: %d, sample_rate: %d, bits: %d", audio_output_format.channels, audio_output_format.sample_rate, get_audio_bit_width_byte_size(audio_output_format.bit_width)*8);
+    did_report_error_last_call = false;
 }
 
 
@@ -1574,6 +1579,7 @@ win32_audio_poll_default_device_thread(Thread *t) {
 	    win32_check_hr(hr);
 	    
 	    if (wcscmp(now_default_id, previous_id) != 0) {
+	    	log("Hi");
 	        win32_audio_deactivated = true;
 	    }
 	    
