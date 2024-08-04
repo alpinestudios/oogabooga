@@ -405,6 +405,8 @@ void oogabooga_init(u64 program_memory_size) {
 
 int ENTRY_PROC(int argc, char **argv);
 
+#define OOGABOOGA_LINK_EXTERNAL_INSTANCE 1
+
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 #if OOGABOOGA_BUILD_SHARED_LIBRARY

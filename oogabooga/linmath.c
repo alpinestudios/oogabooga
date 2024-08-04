@@ -50,36 +50,36 @@ typedef union alignat(16) Vector4 {
 inline Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
 #define v4_expand(v) (v).x, (v).y, (v).z, (v).w
 
-inline Vector2 v2_add(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+Vector2 v2_add(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_add_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_sub(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+Vector2 v2_sub(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_sub_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_mul(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+Vector2 v2_mul(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_mul_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_mulf(LMATH_ALIGN Vector2 a, float32 s) {
+Vector2 v2_mulf(LMATH_ALIGN Vector2 a, float32 s) {
 	return v2_mul(a, v2(s, s));
 }
-inline Vector2 v2_div(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+Vector2 v2_div(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	simd_div_float32_64((f32*)&a, (f32*)&b, (f32*)&a);
 	return a;
 }
-inline Vector2 v2_divf(LMATH_ALIGN Vector2 a, float32 s) {
+Vector2 v2_divf(LMATH_ALIGN Vector2 a, float32 s) {
 	return v2_div(a, v2(s, s));
 }
 
-inline Vector3 v3_add(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+Vector3 v3_add(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
 	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_add_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
 	return a128.xyz;
 }
-inline Vector3 v3_sub(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
+Vector3 v3_sub(LMATH_ALIGN Vector3 a, LMATH_ALIGN Vector3 b) {
 	LMATH_ALIGN Vector4 a128 = v4(a.x, a.y, a.z, 0.0);
 	LMATH_ALIGN Vector4 b128 = v4(b.x, b.y, b.z, 0.0);
 	simd_sub_float32_128_aligned((f32*)&a128, (f32*)&b128, (f32*)&a128);
@@ -128,34 +128,34 @@ inline Vector4 v4_divf(LMATH_ALIGN Vector4 a, float32 s) {
 }
 
 // #Simd
-inline float32 v2_length(LMATH_ALIGN Vector2 a) {
+float32 v2_length(LMATH_ALIGN Vector2 a) {
 	return sqrt(a.x*a.x + a.y*a.y);
 }
-inline Vector2 v2_normalize(LMATH_ALIGN Vector2 a) {
+Vector2 v2_normalize(LMATH_ALIGN Vector2 a) {
     float32 length = v2_length(a);
     if (length == 0) {
         return (Vector2){0, 0};
     }
     return v2_divf(a, length);
 }
-inline float32 v2_average(LMATH_ALIGN Vector2 a) {
+float32 v2_average(LMATH_ALIGN Vector2 a) {
 	return (a.x+a.y)/2.0;
 }
-inline Vector2 v2_abs(LMATH_ALIGN Vector2 a) {
+Vector2 v2_abs(LMATH_ALIGN Vector2 a) {
 	return v2(fabsf(a.x), fabsf(a.y));
 }
-inline float32 v2_cross(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+float32 v2_cross(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
     return (a.x * b.y) - (a.y * b.x);
 }
-inline float v2_dot(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
+float v2_dot(LMATH_ALIGN Vector2 a, LMATH_ALIGN Vector2 b) {
 	return simd_dot_product_float32_64((float*)&a, (float*)&b);
 }
 
-inline float32 v3_length(LMATH_ALIGN Vector3 a) {
+float32 v3_length(LMATH_ALIGN Vector3 a) {
     return sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }
 
-inline Vector3 v3_normalize(LMATH_ALIGN Vector3 a) {
+Vector3 v3_normalize(LMATH_ALIGN Vector3 a) {
     float32 length = v3_length(a);
     if (length == 0) {
         return (Vector3){0, 0, 0};
@@ -275,7 +275,7 @@ Matrix4 m4_make_rotation(LMATH_ALIGN Vector3 axis, float32 radians) {
     return m;
 }
 
-inline Matrix4 m4_make_rotation_z(float32 radians) {
+Matrix4 m4_make_rotation_z(float32 radians) {
 	return m4_make_rotation(v3(0, 0, 1), radians);
 }
 
@@ -301,21 +301,21 @@ Matrix4 m4_mul(LMATH_ALIGN Matrix4 a, LMATH_ALIGN Matrix4 b) {
     return result;
 }
 
-inline Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
+Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
     Matrix4 translation_matrix = m4_make_translation(translation);
     return m4_mul(m, translation_matrix);
 }
 
-inline Matrix4 m4_rotate(Matrix4 m, LMATH_ALIGN Vector3 axis, float32 radians) {
+Matrix4 m4_rotate(Matrix4 m, LMATH_ALIGN Vector3 axis, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(axis, radians);
     return m4_mul(m, rotation_matrix);
 }
-inline Matrix4 m4_rotate_z(Matrix4 m, float32 radians) {
+Matrix4 m4_rotate_z(Matrix4 m, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(v3(0, 0, 1), radians);
     return m4_mul(m, rotation_matrix);
 }
 
-inline Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
+Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
     Matrix4 scale_matrix = m4_make_scale(scale);
     return m4_mul(m, scale_matrix);
 }

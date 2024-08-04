@@ -5,8 +5,11 @@ import std::os::win32;
 def Win32_HANDLE = Win32_PVOID;
 def Win32_HWND = Win32_HANDLE;
 
-
+const float SPRITE_PIXEL_SIZE = 16;
 const Vector4 COLOR_WHITE = {{ 1, 1, 1, 1 }};
+// const Matrix4 IDENTITY = 
+
+// define m4_identity m4_make_scale(v3(1, 1, 1))
 
 struct CString {
 	ulong count;
@@ -106,9 +109,31 @@ union Vector2 {
 	struct {float  x, y;}
 }
 
-fn Vector2 Vector2.add(&self, Vector2 b)
+fn Vector2 Vector2.add(self, Vector2 b)
 {
-    return {{ self.x + b.x, self.y + b.y }};
+	return v2_add(self, b);
+}
+
+fn bool Vector2.equals(self, Vector2 b)
+{
+	return self.x == b.x && self.y == b.y;
+}
+
+fn Vector2 Vector2.mulf(self, float b)
+{
+	return v2_mulf(self, b);
+}
+
+fn Vector2 Vector2.sub(self, Vector2 b) {
+	return v2_sub(self, b);
+}
+
+fn float Vector2.length(self) {
+	return v2_length(self);
+}
+
+fn float Vector2.distance(self, Vector2 b) {
+	return v2_length(v2_sub(self, b));
 }
 
 fn Vector2 Vector2.normalize(&self)
@@ -314,21 +339,43 @@ struct Input_Frame {
 }
 
 
-extern fn GfxImage *load_image_from_disk(CString path, Allocator allocator);
+
+extern fn void push_z_layer(int z);
+extern fn void pop_z_layer();
+extern fn void push_window_scissor(Vector2 min, Vector2 max);
+extern fn void pop_window_scissor();
+
+
 extern fn DrawQuad *draw_image(GfxImage *image, Vector2 position, Vector2 size, Vector4 color);
 extern fn DrawQuad *draw_image_xform(GfxImage *image, Matrix4, Vector2 size, Vector4 color);
 extern fn DrawQuad *draw_rect(Vector2 position, Vector2 size, Vector4 color);
+extern fn DrawQuad *draw_rect_xform(Matrix4 xform, Vector2 size, Vector4 color);
 extern fn DrawQuad *draw_circle_xform(Matrix4, Vector2, Vector4);
+extern fn DrawQuad *draw_circle(Vector2, Vector2, Vector4);
+extern fn void draw_line(Vector2 p0, Vector2 p1, float line_width, Vector4 color);
+
+extern fn GfxImage *load_image_from_disk(CString path, Allocator allocator);
 
 extern fn void oogabooga_init(ulong);
 extern fn void os_update();
 extern fn void gfx_update();
+extern fn bool os_read_entire_file_s(CString path, CString *result, Allocator allocator);
+extern fn bool shader_recompile_with_extension(CString, ulong);
+
+extern fn void dealloc_string(Allocator allocator, CString s);
+
 extern fn double os_get_current_time_in_seconds();
 extern fn void os_high_precision_sleep(double);
+extern fn ulong os_get_current_cycle_count();
 
+extern fn float get_random_float32_in_range(float, float);
+extern fn float get_random_float32();
+
+// GLOBALS
 extern engine::OsWindow window;
 extern engine::DrawFrame draw_frame;
 extern engine::Input_Frame input_frame;
+extern ulong seed_for_random;
 
 extern fn Vector4 hex_to_rgba(long);
 
@@ -355,7 +402,14 @@ extern fn Matrix4 m4_inverse(Matrix4);
 
 extern fn Vector2 v2_normalize(Vector2);
 extern fn Vector2 v2_add(Vector2, Vector2);
+extern fn Vector2 v2_sub(Vector2, Vector2);
+extern fn float v2_length(Vector2);
 extern fn Vector2 v2_mulf(Vector2, float);
 
 extern fn double fmod(double, double);
 extern fn double fabs(double);
+
+extern fn double lerpf(double from, double to, double x);
+extern fn long lerpi(long from, long to, double x);
+extern fn double smerpf(double from, double to, double t);
+extern fn long smerpi(long from, long to, double t);

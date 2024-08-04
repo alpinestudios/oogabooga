@@ -38,20 +38,21 @@ fn Vector2 get_image_size(GfxImage *image)
     return Vector2 {{image.width, image.height}};
 }
 
-fn Vector4 get_uv_coords(Vector2 imageSize, Vector2 cellIndex, float cellSize, int numberOfCellsOnX, int numberOfCellsOnY)
+fn Vector4 get_uv_coords(Vector2 image_size, Vector2 cell_index, float cell_size, Vector2 cell_count)
 {
     // Calculate the width and height of each cell in UV space
-    float cellWidth = cellSize / imageSize.x;
-    float cellHeight = cellSize / imageSize.y;
+    float cell_width = cell_size / image_size.x;
+    float cell_height = cell_size / image_size.y;
 
-    float u = (float)engine::fmod(cellIndex.x, numberOfCellsOnX) * cellWidth;
-    float v = (float)engine::fmod(cellIndex.y, numberOfCellsOnY) * cellHeight;
+    float u = (float)engine::fmod(cell_index.x, cell_count.x) * cell_width;
+    float v = 1.0f - ((float)engine::fmod(cell_index.y, cell_count.y) + 1) * cell_height;
 
     return {{
         u,
         v,
-        u + cellWidth,
-        v + cellHeight}};
+        u + cell_width,
+        v + cell_height
+    }};
 }
 
 fn float calc_rotation_to_target(Vector2 a, Vector2 b) {
@@ -97,3 +98,82 @@ fn float deg_to_rad(float deg)
     return deg * (math::PI / 180.0f);
 }
 
+def SPRITE_PIXEL_SIZE = engine::SPRITE_PIXEL_SIZE;
+fn engine::Matrix4 flip_sprite_x(engine::Matrix4 xform) {
+    xform = engine::m4_translate(xform, {{SPRITE_PIXEL_SIZE / 2, SPRITE_PIXEL_SIZE / 2, 0}});
+    xform = engine::m4_scale(xform, {{ -1, 1, 1 }});
+    xform = engine::m4_translate(xform, {{-SPRITE_PIXEL_SIZE / 2, -SPRITE_PIXEL_SIZE / 2, 0}});
+
+    return xform;
+}
+
+
+fn bool point_inside_rect(Vector2 min, Vector2 max, Vector2 p) {
+  return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y;
+}
+
+
+// Rect min is the bottom left corner
+fn bool rect_circle_collision(Vector2 rect_min, Vector2 size, Vector2 circle_center, float radius) {
+    float dist_x = $$abs(circle_center.x - (rect_min.x + size.x / 2));
+    float dist_y = $$abs(circle_center.y - (rect_min.y + size.y / 2));
+
+    if (dist_x > (size.x / 2 + radius)) { return false; }
+    if (dist_y > (size.y / 2 + radius)) { return false; }
+
+    if (dist_x <= (size.x / 2)) { return true; }
+    if (dist_y <= (size.y / 2)) { return true; }
+
+    float dx = dist_x - size.x / 2;
+    float dy = dist_y - size.y / 2;
+    return (dx * dx + dy * dy <= (radius * radius));
+}
+
+
+fn bool line_circle_collision(Vector2 p1, Vector2 p2, Vector2 circle_center, float radius) {
+    // Vector from p1 to p2
+    Vector2 d = {{ p2.x - p1.x, p2.y - p1.y }};
+    
+    // Vector from p1 to the circle center
+    Vector2 f = {{ p1.x - circle_center.x, p1.y - circle_center.y }};
+    
+    float a = d.x * d.x + d.y * d.y;
+    float b = 2 * (f.x * d.x + f.y * d.y);
+    float c = f.x * f.x + f.y * f.y - radius * radius;
+
+    float discriminant = b * b - 4 * a * c;
+    
+    // If discriminant is negative, no real roots, the line does not intersect the circle
+    if (discriminant < 0) {
+        return false;
+    }
+
+    discriminant = $$sqrt(discriminant);
+
+    // Find the points of intersection, t1 and t2 are the parameter values
+    float t1 = (-b - discriminant) / (2 * a);
+    float t2 = (-b + discriminant) / (2 * a);
+
+    // Check if the intersection points are within the segment
+    if (t1 >= 0 && t1 <= 1) {
+        return true;
+    }
+    if (t2 >= 0 && t2 <= 1) {
+        return true;
+    }
+
+    return false;
+}
+
+
+import std::io;
+fn bool circles_overlap(Vector2 center1, float radius1, Vector2 center2, float radius2) {
+    // Calculate the distance between the centers of the two circles
+    float distance = center1.distance(center2);
+    // Check if the distance is less than or equal to the sum of the radii
+    if (distance <= (radius1 + radius2)) {
+        return true;
+    }
+
+    return false;
+}
