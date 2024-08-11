@@ -1,6 +1,6 @@
 
 #define CINTERFACE
-#include <Shlwapi.h>
+#include <shlwapi.h>
 #include <audioclient.h>
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
@@ -1308,7 +1308,7 @@ win32_mouse_pointer_kind_to_win32(Mouse_Pointer_Kind k) {
 
 void ogb_instance
 os_set_mouse_pointer_standard(Mouse_Pointer_Kind kind) {
-    thread_local local_persist HCURSOR loaded_pointers[MOUSE_POINTER_MAX] = {0};
+    local_persist thread_local HCURSOR loaded_pointers[MOUSE_POINTER_MAX] = {0};
     
     if (loaded_pointers[kind] == 0) {
         loaded_pointers[kind] = LoadCursor(0, win32_mouse_pointer_kind_to_win32(kind));

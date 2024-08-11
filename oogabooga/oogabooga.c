@@ -229,7 +229,7 @@ typedef u8 bool;
 #ifdef _WIN32
 	#define COBJMACROS
 	#undef noreturn
-	#include <Windows.h>
+	#include <windows.h>
     #if CONFIGURATION == DEBUG
     	#include <dbghelp.h>
     #endif
