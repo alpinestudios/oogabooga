@@ -369,10 +369,10 @@ wav_read_frames(Wav_Stream *wav, Audio_Format format, void *frames,
 		= number_of_frames*max(format.channels,wav->channels)*4;
 	
 	// #Cleanup #Memory refactor intermediate buffers
-	thread_local local_persist void *raw_buffer = 0;
-	thread_local local_persist u64  raw_buffer_size = 0;
-	thread_local local_persist void *convert_buffer = 0;
-	thread_local local_persist u64  convert_buffer_size = 0;
+	local_persist thread_local void *raw_buffer = 0;
+	local_persist thread_local u64  raw_buffer_size = 0;
+	local_persist thread_local void *convert_buffer = 0;
+	local_persist thread_local u64  convert_buffer_size = 0;
 	if (!raw_buffer || required_size > raw_buffer_size) {
 		if (raw_buffer) dealloc(get_heap_allocator(), raw_buffer);
 		
@@ -747,8 +747,8 @@ audio_source_get_frames(Audio_Source *src, u64 first_frame_index,
 		u64 required_size = convert_frame_size*number_of_frames;
 		
 		// #Cleanup #Memory refactor intermediate buffers
-		thread_local local_persist void *convert_buffer = 0;
-		thread_local local_persist u64  convert_buffer_size = 0;
+		local_persist thread_local void *convert_buffer = 0;
+		local_persist thread_local u64  convert_buffer_size = 0;
 		if (!convert_buffer || required_size > convert_buffer_size) {
 			if (convert_buffer) dealloc(get_heap_allocator(), convert_buffer);
 			
@@ -1671,10 +1671,10 @@ do_program_audio_sample(u64 number_of_output_frames, Audio_Format out_format,
 	Audio_Player_Block *block = &audio_player_block;
 	
 	// #Cleanup #Memory refactor intermediate buffers
-	thread_local local_persist void *mix_buffer = 0;
-	thread_local local_persist u64 mix_buffer_size;
-	thread_local local_persist void *convert_buffer = 0;
-	thread_local local_persist u64 convert_buffer_size;
+	local_persist thread_local void *mix_buffer = 0;
+	local_persist thread_local u64 mix_buffer_size;
+	local_persist thread_local void *convert_buffer = 0;
+	local_persist thread_local u64 convert_buffer_size;
 	
 	memset(mix_buffer, 0, mix_buffer_size);
 	
