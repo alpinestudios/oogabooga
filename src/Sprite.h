@@ -5,19 +5,21 @@
 
 enum SpriteID {
     SPRITE_ID_NONE = 0,
+    // Entities
     SPRITE_ID_PLAYER,
     SPRITE_ID_SNAIL_01,
+    // Utility
+    SPRITE_ID_GUN_01,
     SPRITE_ID_MAX
 };
 
 typedef struct Sprite {
     Gfx_Image *image;
-    Vector2 size;
 } Sprite_t;
 
 Sprite_t g_sprites[MAX_SPRITES_NUMBER];
 
-void load_sprite(string path, enum SpriteID spriteId, Vector2 size) {
+void load_sprite(string path, enum SpriteID spriteId) {
     assert(spriteId >= 0 && spriteId < SPRITE_ID_MAX, "SpriteID of %u is in a wrong range!", spriteId);
     assert(g_sprites[spriteId].image == NULL, "SpriteID of %u is already loaded!", spriteId);
 
@@ -25,10 +27,16 @@ void load_sprite(string path, enum SpriteID spriteId, Vector2 size) {
     assert(loaded_image, "Failed loading %s image!", path);
 
     Sprite_t tempSprite = {
-        .image = loaded_image,
-        .size = size};
+        .image = loaded_image
+    };
 
     g_sprites[spriteId] = tempSprite;
+}
+
+void unload_sprite(enum SpriteID spriteId) {
+    assert(spriteId >= 0 && spriteId < SPRITE_ID_MAX, "SpriteID of %u is in a wrong range!", spriteId);
+    assert(g_sprites[spriteId].image != NULL, "SpriteID of %u has not been loaded yet!", spriteId);
+    delete_image(g_sprites[spriteId].image);
 }
 
 Sprite_t *get_sprite(enum SpriteID spriteId) {
