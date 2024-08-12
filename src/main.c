@@ -35,8 +35,8 @@ int entry(int argc, char **argv) {
     window.title = STR("Duck's revenge");
     window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
     window.scaled_height = 720;
-    window.x = 200;
-    window.y = 90;
+    window.x = 3440 / 2;
+    window.y = 1440 / 2;
     window.clear_color = hex_to_rgba(0x222b1bff);
 
     Custom_Mouse_Pointer crosshair_mouse_pointer = os_make_custom_mouse_pointer_from_file(STR("src/res/sprites/crosshair.png"), 4, 4, get_heap_allocator());
@@ -199,8 +199,23 @@ int entry(int argc, char **argv) {
         input_axis = v2_mulf(input_axis, PLAYER_MOVE_SPEED * delta_time);
         player_entity->position = v2_add(player_entity->position, input_axis);
 
-        // :player actions
+        // :item collection
+        {
+            for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
+                Entity_t *entity = &world->entities[i];
+                if (entity->is_valid && entity->entity_type == ENTITY_TYPE_ITEM) {
+                    assert(entity->itemID > 0 && entity->itemID < ITEM_ID_MAX, "Entity has wrong itemID assigned!");
 
+                    float distance = fabs(v2_dist(entity->position, player_entity->position));
+                    if (distance <= PLAYER_ITEM_COLLECT_RANGE) {
+                        world_item_add_to_inventory(entity->itemID, 1);
+                        entity_destroy(entity);
+                    }
+                }
+            }
+        }
+
+        // :player actions
         if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
             consume_key_just_pressed(MOUSE_BUTTON_LEFT);
             Entity_t *entity = world_frame->selected_entity;

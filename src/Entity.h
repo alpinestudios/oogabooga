@@ -2,9 +2,10 @@
 #define ENTITY_H
 
 #include "sprite.h"
+#include "item.h"
 
 /* Constants */
-
+const float PLAYER_ITEM_COLLECT_RANGE = 8.0f;
 const int PLAYER_DEFAULT_HEALTH = 100;
 const int ENEMY_DEFAULT_HEALTH = 20;
 const int ROCK_DEFAULT_HEALTH = 3;
@@ -30,6 +31,7 @@ enum EntityType {
 typedef struct Entity {
     enum EntityType entity_type;
     enum SpriteID spriteID;
+    enum ItemID itemID;
     int health;
     Vector2 position;
     bool is_valid;
@@ -72,6 +74,7 @@ void entity_setup_item_rock(Entity_t *entity) {
     entity->spriteID = SPRITE_ID_ITEM_ROCK;
     entity->selectable = true;
     entity->render_sprite = true;
+    entity->itemID = ITEM_ID_ROCK;
 }
 
 void player_update(Entity_t *self, float64 delta_time) {
