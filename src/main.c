@@ -6,7 +6,8 @@
 #include "vector_ext.h"
 #include "world.h"
 
-const float PLAYER_SELECT_RANGE = 12.0f;
+const float32 PLAYER_MOVE_SPEED = 200.0f;
+const float32 PLAYER_SELECT_RANGE = 12.0f;
 
 Vector2 screen_to_world() {
     float mouse_x = input_frame.mouse_x;
@@ -34,7 +35,7 @@ int entry(int argc, char **argv) {
     window.y = 90;
     window.clear_color = hex_to_rgba(0x222b1bff);
 
-    Custom_Mouse_Pointer crosshair_mouse_pointer = os_make_custom_mouse_pointer_from_file(STR("src/res/img/crosshair.png"), 4, 4, get_heap_allocator());
+    Custom_Mouse_Pointer crosshair_mouse_pointer = os_make_custom_mouse_pointer_from_file(STR("src/res/sprites/crosshair.png"), 4, 4, get_heap_allocator());
     assert(crosshair_mouse_pointer, "Couldn't load crosshair mouse pointer.");
 
     Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
@@ -43,10 +44,14 @@ int entry(int argc, char **argv) {
 
     /* Sprites load */
     {
-        load_sprite(fixed_string("src/res/img/player.png"), SPRITE_ID_PLAYER);
-        load_sprite(fixed_string("src/res/img/snail_01.png"), SPRITE_ID_SNAIL_01);
-        load_sprite(fixed_string("src/res/img/rock_01.png"), SPRITE_ID_ROCK_01);
-        load_sprite(fixed_string("src/res/img/gun_01.png"), SPRITE_ID_GUN_01);
+        /* General */
+        load_sprite(fixed_string("src/res/sprites/player.png"), SPRITE_ID_PLAYER);
+        load_sprite(fixed_string("src/res/sprites/snail_01.png"), SPRITE_ID_SNAIL_01);
+        load_sprite(fixed_string("src/res/sprites/gun_01.png"), SPRITE_ID_GUN_01);
+        /* Map */
+        load_sprite(fixed_string("src/res/sprites/rock_01.png"), SPRITE_ID_ROCK_01);
+        /* Items */
+        load_sprite(fixed_string("src/res/sprites/rock_item.png"), SPRITE_ID_ITEM_ROCK);
     }
 
     world = alloc(get_heap_allocator(), sizeof(World_t));
@@ -67,9 +72,17 @@ int entry(int argc, char **argv) {
     /* Create rocks */
     for (size_t i = 0; i < 10; i++) {
         Entity_t *rock = entity_create();
-        setup_rock_entity(rock);
+        entity_setup_rock(rock);
         rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
         rock->position = round_world_pos_to_tile(rock->position);
+    }
+
+    /* Create item rocks */
+    for (size_t i = 0; i < 5; i++) {
+        Entity_t *item_rock = entity_create();
+        entity_setup_item_rock(item_rock);
+        item_rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.25, window.pixel_width * 0.25), get_random_float32_in_range(window.pixel_height * -0.25, window.pixel_height * 0.25));
+        item_rock->position = round_world_pos_to_tile(item_rock->position);
     }
 
     float zoom = 3.3f;
@@ -171,15 +184,35 @@ int entry(int argc, char **argv) {
             }
         }
 
-        const float32 player_move_speed = 100.0f;
-
         input_axis = v2_normalize(input_axis);
-        input_axis = v2_mulf(input_axis, player_move_speed * delta_time);
+        input_axis = v2_mulf(input_axis, PLAYER_MOVE_SPEED * delta_time);
 
         Entity_t *player_entity = world_get_player();
         assert(player_entity != NULL);
-
         player_entity->position = v2_add(player_entity->position, input_axis);
+
+        // :player actions
+
+        if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
+            consume_key_just_pressed(MOUSE_BUTTON_LEFT);
+            Entity_t *entity = world_frame->selected_entity;
+            if (entity) {
+                entity->health -= 1;
+                if (entity->health <= 0) {
+                    entity_destroy(entity);
+
+                    switch (entity->entity_type)
+                    {
+                    case ENTITY_TYPE_ROCK:
+                        log("Spawning rock item");
+                        break;
+                    default:
+                        log("Loot not implemented for this entity type.");
+                        break;
+                    }
+                }
+            }
+        }
 
         // Entity rendering & update
         {

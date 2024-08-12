@@ -9,6 +9,8 @@ enum SpriteID {
     SPRITE_ID_PLAYER,
     SPRITE_ID_SNAIL_01,
     SPRITE_ID_ROCK_01,
+    // Items
+    SPRITE_ID_ITEM_ROCK,
     // Utility
     SPRITE_ID_GUN_01,
     SPRITE_ID_MAX

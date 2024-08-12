@@ -7,7 +7,6 @@
 #define WORLD_MAX_ENTITY_COUNT 1024
 
 /* Structs */
-
 typedef struct World {
     Entity_t entities[WORLD_MAX_ENTITY_COUNT];
     Entity_t *player;
