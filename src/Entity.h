@@ -51,9 +51,8 @@ void entity_setup_player(Entity_t *entity) {
 void entity_setup_snail(Entity_t *entity) {
     entity->entity_type = ENTITY_TYPE_SNAIL;
     entity->spriteID = SPRITE_ID_SNAIL_01;
-    entity->position = v2(0.0f, 0.0f);
-    entity->render_sprite = true;
     entity->update = enemy_update;
+    entity->render_sprite = true;
     entity->health = ENEMY_DEFAULT_HEALTH;
     entity->selectable = true;
     entity->destroyable = true;
@@ -62,7 +61,6 @@ void entity_setup_snail(Entity_t *entity) {
 void entity_setup_rock(Entity_t *entity) {
     entity->entity_type = ENTITY_TYPE_ROCK;
     entity->spriteID = SPRITE_ID_ROCK_01;
-    entity->position = v2(0.0f, 0.0f);
     entity->render_sprite = true;
     entity->health = ROCK_DEFAULT_HEALTH;
     entity->selectable = true;
@@ -72,7 +70,6 @@ void entity_setup_rock(Entity_t *entity) {
 void entity_setup_item_rock(Entity_t *entity) {
     entity->entity_type = ENTITY_TYPE_ITEM;
     entity->spriteID = SPRITE_ID_ITEM_ROCK;
-    entity->position = v2(0.0f, 0.0f);
     entity->selectable = true;
     entity->render_sprite = true;
 }

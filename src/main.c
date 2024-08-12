@@ -27,6 +27,10 @@ Vector2 screen_to_world() {
     return world_pos.xy;
 }
 
+float sin_breathe(float time, float rate) {
+    return (sin(time * rate) + 1) / 2;
+}
+
 int entry(int argc, char **argv) {
     window.title = STR("Duck's revenge");
     window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
@@ -125,6 +129,7 @@ int entry(int argc, char **argv) {
             draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
             draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), world_frame->tile_mouse_pos.x, world_frame->tile_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
         }
+
         // :entity selection
         {
             float min_mouse_entity_dist = PLAYER_SELECT_RANGE;
@@ -199,17 +204,18 @@ int entry(int argc, char **argv) {
             if (entity && entity->destroyable) {
                 entity->health -= 1;
                 if (entity->health <= 0) {
-                    entity_destroy(entity);
-
-                    switch (entity->entity_type)
-                    {
+                    // Loot then destroy
+                    switch (entity->entity_type) {
                     case ENTITY_TYPE_ROCK:
-                        log("Spawning rock item");
+                        Entity_t *spawned_entity = entity_create();
+                        entity_setup_item_rock(spawned_entity);
+                        spawned_entity->position = entity->position;
                         break;
                     default:
-                        log("Loot not implemented for this entity type.");
+                        log("Loot not implemented for entity type of %u.", entity->entity_type);
                         break;
                     }
+                    entity_destroy(entity);
                 }
             }
         }
@@ -231,16 +237,24 @@ int entry(int argc, char **argv) {
                         Sprite_t *entity_sprite = get_sprite(entity->spriteID);
 
                         Matrix4 entity_xform = m4_scalar(1.0);
+                        
+                        // Player y axis swap depending on mouse position
                         if (entity->entity_type == ENTITY_TYPE_PLAYER && input_frame.mouse_x < window.scaled_width * 0.5) {
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
                             entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
                         } else {
-                            entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                            if (entity->entity_type == ENTITY_TYPE_ITEM) { /* Item wobbling */
+                                entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y + (2 * sin_breathe(os_get_current_time_in_seconds(), 5.0f)), 1.0f));
+                            } else {
+                                entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                            }
                         }
+
                         Vector4 draw_color = COLOR_WHITE;
                         if (entity == world_frame->selected_entity) {
                             draw_color = COLOR_RED;
                         }
+
                         draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), draw_color);
                         draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), entity->position.x, entity->position.y), font_height, v2(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y - 8.0f), v2(0.1, 0.1), COLOR_WHITE);
                     }
