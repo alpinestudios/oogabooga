@@ -46,7 +46,7 @@ int entry(int argc, char **argv) {
     assert(font, "Failed loading arial.ttf");
     const u32 font_height = 48;
 
-    /* Sprites load */
+    // :sprites load
     {
         /* General */
         load_sprite(fixed_string("src/res/sprites/player.png"), SPRITE_ID_PLAYER);
@@ -61,33 +61,39 @@ int entry(int argc, char **argv) {
     world = alloc(get_heap_allocator(), sizeof(World_t));
     world_frame = alloc(get_heap_allocator(), sizeof(WorldFrame_t));
 
-    Entity_t *player = entity_create();
-    entity_setup_player(player);
-    world_set_player(player);
+    // :init
+    {
+        Entity_t *player = entity_create();
+        entity_setup_player(player);
+        world_set_player(player);
 
-    /* Create an enemy snails */
-    for (size_t i = 0; i < 10; i++) {
-        Entity_t *snail = entity_create();
-        entity_setup_snail(snail);
-        snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
-        snail->position = round_world_pos_to_tile(snail->position);
+        /* Create an enemy snails */
+        for (size_t i = 0; i < 10; i++) {
+            Entity_t *snail = entity_create();
+            entity_setup_snail(snail);
+            snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
+            snail->position = round_world_pos_to_tile(snail->position);
+        }
+
+        /* Create rocks */
+        for (size_t i = 0; i < 10; i++) {
+            Entity_t *rock = entity_create();
+            entity_setup_rock(rock);
+            rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
+            rock->position = round_world_pos_to_tile(rock->position);
+        }
+
+        /* Create item rocks */
+        for (size_t i = 0; i < 5; i++) {
+            Entity_t *item_rock = entity_create();
+            entity_setup_item_rock(item_rock);
+            item_rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.25, window.pixel_width * 0.25), get_random_float32_in_range(window.pixel_height * -0.25, window.pixel_height * 0.25));
+            item_rock->position = round_world_pos_to_tile(item_rock->position);
+        }
     }
 
-    /* Create rocks */
-    for (size_t i = 0; i < 10; i++) {
-        Entity_t *rock = entity_create();
-        entity_setup_rock(rock);
-        rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
-        rock->position = round_world_pos_to_tile(rock->position);
-    }
-
-    /* Create item rocks */
-    for (size_t i = 0; i < 5; i++) {
-        Entity_t *item_rock = entity_create();
-        entity_setup_item_rock(item_rock);
-        item_rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.25, window.pixel_width * 0.25), get_random_float32_in_range(window.pixel_height * -0.25, window.pixel_height * 0.25));
-        item_rock->position = round_world_pos_to_tile(item_rock->position);
-    }
+    Entity_t *player_entity = world_get_player();
+    assert(player_entity != NULL);
 
     float zoom = 3.3f;
     Vector2 camera_pos = v2(0, 0);
@@ -149,7 +155,7 @@ int entry(int argc, char **argv) {
         {
             int tile_radius_x = 40;
             int tile_radius_y = 30;
-            Vector2i player_tile_pos = world_pos_to_tile_pos(player->position);
+            Vector2i player_tile_pos = world_pos_to_tile_pos(player_entity->position);
 
             for (int x = player_tile_pos.x - tile_radius_x; x < tile_radius_x + player_tile_pos.x; x++) {
                 for (int y = player_tile_pos.y - tile_radius_y; y < tile_radius_y + player_tile_pos.y; y++) {
@@ -191,9 +197,6 @@ int entry(int argc, char **argv) {
 
         input_axis = v2_normalize(input_axis);
         input_axis = v2_mulf(input_axis, PLAYER_MOVE_SPEED * delta_time);
-
-        Entity_t *player_entity = world_get_player();
-        assert(player_entity != NULL);
         player_entity->position = v2_add(player_entity->position, input_axis);
 
         // :player actions
@@ -237,7 +240,7 @@ int entry(int argc, char **argv) {
                         Sprite_t *entity_sprite = get_sprite(entity->spriteID);
 
                         Matrix4 entity_xform = m4_scalar(1.0);
-                        
+
                         // Player y axis swap depending on mouse position
                         if (entity->entity_type == ENTITY_TYPE_PLAYER && input_frame.mouse_x < window.scaled_width * 0.5) {
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));

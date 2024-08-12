@@ -2,6 +2,7 @@
 #define WORLD_H
 
 #include "entity.h"
+#include "item.h"
 
 /* Constants */
 #define WORLD_MAX_ENTITY_COUNT 1024
@@ -10,6 +11,7 @@
 typedef struct World {
     Entity_t entities[WORLD_MAX_ENTITY_COUNT];
     Entity_t *player;
+    Item_t inventory[ITEM_ID_MAX];
 } World_t;
 
 typedef struct WorldFrame {
@@ -60,6 +62,20 @@ Entity_t *world_get_player() {
 
 void world_frame_reset() {
     memset(world_frame, 0x00, sizeof(WorldFrame_t));
+}
+
+void world_item_add_to_inventory(enum ItemID id, int amount) {
+    assert(id >= 0 && id < ITEM_ID_MAX, "ItemID of %u is in a wrong range!", id);
+    world->inventory[id].amount += amount;
+}
+
+void world_item_remove_from_inventory(enum ItemID id, int amount) {
+    assert(id >= 0 && id < ITEM_ID_MAX, "ItemID of %u is in a wrong range!", id);
+    if (world->inventory[id].amount < amount) {
+        world->inventory[id].amount = 0;
+    } else {
+        world->inventory[id].amount -= amount;
+    }
 }
 
 #endif
