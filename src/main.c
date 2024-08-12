@@ -99,12 +99,13 @@ int entry(int argc, char **argv) {
         }
 
         // :world space mouse
-        {
-            Vector2 worldMousePos = screen_to_world();
-            draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), worldMousePos.x, worldMousePos.y), font_height, v2(worldMousePos.x, worldMousePos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
+        Vector2 world_mouse_pos = screen_to_world();
+        Vector2i tile_mouse_pos = world_pos_to_tile_pos(world_mouse_pos);
 
-            Vector2i mouseTilePos = world_pos_to_tile_pos(worldMousePos);
-            draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), mouseTilePos.x, mouseTilePos.y), font_height, v2(worldMousePos.x, worldMousePos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
+        {
+            draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), world_mouse_pos.x, world_mouse_pos.y), font_height, v2(world_mouse_pos.x, world_mouse_pos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
+
+            draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), tile_mouse_pos.x, tile_mouse_pos.y), font_height, v2(world_mouse_pos.x, world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
 
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &g_world->entities[i];
@@ -116,7 +117,7 @@ int entry(int argc, char **argv) {
                     Vector4 color = COLOR_WHITE;
                     color.a = 0.4;
 
-                    if (range2f_contains(bounds, worldMousePos)) {
+                    if (range2f_contains(bounds, world_mouse_pos)) {
                         color.a = 1.0f;
                     }
 
@@ -127,16 +128,19 @@ int entry(int argc, char **argv) {
 
         // :tiles
         {
-            Vector2i player_tile_pos = world_pos_to_tile_pos(player->position);
-
             int tile_radius_x = 40;
             int tile_radius_y = 30;
+            Vector2i player_tile_pos = world_pos_to_tile_pos(player->position);
 
             for (int x = player_tile_pos.x - tile_radius_x; x < tile_radius_x + player_tile_pos.x; x++) {
                 for (int y = player_tile_pos.y - tile_radius_y; y < tile_radius_y + player_tile_pos.y; y++) {
-                    if ((x + (y % 2 == 0)) % 2 == 0) {
-                        float x_pos = (x * TILE_WIDTH) - TILE_OFFSET;
-                        float y_pos = (y * TILE_WIDTH);
+                    int x_pos = (x * TILE_WIDTH) - TILE_OFFSET;
+                    int y_pos = (y * TILE_WIDTH);
+
+                    Vector2i world_tile_pos_in_tile_pos = world_pos_to_tile_pos(v2(x_pos + TILE_OFFSET, y_pos));
+                    if (world_tile_pos_in_tile_pos.x == tile_mouse_pos.x && world_tile_pos_in_tile_pos.y == tile_mouse_pos.y) {
+                        draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR_HOVER);
+                    } else if ((x + (y % 2 == 0)) % 2 == 0) {
                         draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR);
                     }
                 }
