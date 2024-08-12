@@ -130,7 +130,7 @@ int entry(int argc, char **argv) {
             float min_mouse_entity_dist = PLAYER_SELECT_RANGE;
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
-                if (entity->is_valid) {
+                if (entity->is_valid && entity->selectable) {
                     float mouse_to_entity_dist = absi(v2_dist(entity->position, world_frame->world_mouse_pos));
                     if (mouse_to_entity_dist < min_mouse_entity_dist) {
                         world_frame->selected_entity = entity;
@@ -196,7 +196,7 @@ int entry(int argc, char **argv) {
         if (is_key_just_pressed(MOUSE_BUTTON_LEFT)) {
             consume_key_just_pressed(MOUSE_BUTTON_LEFT);
             Entity_t *entity = world_frame->selected_entity;
-            if (entity) {
+            if (entity && entity->destroyable) {
                 entity->health -= 1;
                 if (entity->health <= 0) {
                     entity_destroy(entity);
