@@ -1,10 +1,30 @@
 #include "animate.h"
 #include "entity.h"
+#include "range.h"
 #include "sprite.h"
+#include "tile.h"
 #include "world.h"
 
+Vector2 screen_to_world() {
+    float mouseX = input_frame.mouse_x;
+    float mouseY = input_frame.mouse_y;
+    Matrix4 projection = draw_frame.projection;
+    Matrix4 view = draw_frame.view;
+    float window_width = window.pixel_width;
+    float window_height = window.pixel_height;
+
+    float ndcX = (mouseX / (window_width * 0.5f)) - 1.0f;
+    float ndcY = (mouseY / (window_height * 0.5f)) - 1.0f;
+
+    Vector4 worldPos = {ndcX, ndcY, 0, 1};
+    worldPos = m4_transform(m4_inverse(projection), worldPos);
+    worldPos = m4_transform(view, worldPos);
+
+    return (Vector2){worldPos.x, worldPos.y};
+}
+
 int entry(int argc, char **argv) {
-    window.title = STR("Duck revenge");
+    window.title = STR("Duck's revenge");
     window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
     window.scaled_height = 720;
     window.x = 200;
@@ -13,6 +33,11 @@ int entry(int argc, char **argv) {
 
     Custom_Mouse_Pointer crosshair_mouse_pointer = os_make_custom_mouse_pointer_from_file(STR("src/res/img/crosshair.png"), 4, 4, get_heap_allocator());
     assert(crosshair_mouse_pointer, "Couldn't load crosshair mouse pointer.");
+
+    Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
+    assert(font, "Failed loading arial.ttf");
+    const u32 font_height = 48;
+
     /* Sprites load */
     {
         load_sprite(fixed_string("src/res/img/player.png"), SPRITE_ID_PLAYER);
@@ -32,6 +57,7 @@ int entry(int argc, char **argv) {
         Entity_t *snail = entity_create();
         setup_snail_entity(snail);
         snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
+        snail->position = round_world_pos_to_tile(snail->position);
     }
 
     /* Create rocks */
@@ -39,17 +65,16 @@ int entry(int argc, char **argv) {
         Entity_t *rock = entity_create();
         setup_rock_entity(rock);
         rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
+        rock->position = round_world_pos_to_tile(rock->position);
     }
 
     float zoom = 3.3f;
     Vector2 camera_pos = v2(0, 0);
-
     float64 last_time = os_get_current_time_in_seconds();
-
     while (!window.should_close) {
         reset_temporary_storage();
+        os_update();
 
-        draw_frame.view = m4_make_scale(v3(1 / zoom, 1 / zoom, 1.0f));
         draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 
         float64 now = os_get_current_time_in_seconds();
@@ -64,13 +89,58 @@ int entry(int argc, char **argv) {
         }
         os_set_mouse_pointer_custom(crosshair_mouse_pointer);
 
-        /* Camera */
+        // :camera
         {
             Vector2 target_pos = world_get_player()->position;
             animate_v2_to_target(&camera_pos, target_pos, delta_time, 30.0f);
             draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
             draw_frame.view = m4_mul(draw_frame.view, m4_make_translation(v3(camera_pos.x, camera_pos.y, 0)));
             draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0 / zoom, 1.0 / zoom, 1.0)));
+        }
+
+        // :world space mouse
+        {
+            Vector2 worldMousePos = screen_to_world();
+            draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), worldMousePos.x, worldMousePos.y), font_height, v2(worldMousePos.x, worldMousePos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
+
+            Vector2i mouseTilePos = world_pos_to_tile_pos(worldMousePos);
+            draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), mouseTilePos.x, mouseTilePos.y), font_height, v2(worldMousePos.x, worldMousePos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
+
+            for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
+                Entity_t *entity = &g_world->entities[i];
+                if (entity->isValid) {
+                    Sprite_t *sprite = get_sprite(entity->spriteID);
+                    Range2f bounds = range2f_make_bottom_center(v2(sprite->image->width, sprite->image->height));
+                    bounds = range2f_shift(bounds, entity->position);
+
+                    Vector4 color = COLOR_WHITE;
+                    color.a = 0.4;
+
+                    if (range2f_contains(bounds, worldMousePos)) {
+                        color.a = 1.0f;
+                    }
+
+                    draw_rect(bounds.min, range2f_size(bounds), color);
+                }
+            }
+        }
+
+        // :tiles
+        {
+            Vector2i player_tile_pos = world_pos_to_tile_pos(player->position);
+
+            int tile_radius_x = 40;
+            int tile_radius_y = 30;
+
+            for (int x = player_tile_pos.x - tile_radius_x; x < tile_radius_x + player_tile_pos.x; x++) {
+                for (int y = player_tile_pos.y - tile_radius_y; y < tile_radius_y + player_tile_pos.y; y++) {
+                    if ((x + (y % 2 == 0)) % 2 == 0) {
+                        float x_pos = (x * TILE_WIDTH) - TILE_OFFSET;
+                        float y_pos = (y * TILE_WIDTH);
+                        draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR);
+                    }
+                }
+            }
         }
 
         Vector2 input_axis = v2(0, 0);
@@ -108,7 +178,7 @@ int entry(int argc, char **argv) {
 
         // Entity rendering & update
         {
-            for (size_t i = 0; i < WORLD_MAX_ENTITIES; i++) {
+            for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &g_world->entities[i];
                 if (entity->isValid) {
                     /* Update */
@@ -117,32 +187,26 @@ int entry(int argc, char **argv) {
                     }
                     /* Render */
                     if (entity->renderSprite == true) {
+                        // Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
+                        // draw_image_xform(gun_sprite->image, entity_xform, v2(gun_sprite->image->width, gun_sprite->image->height), COLOR_WHITE);
+
                         Sprite_t *entity_sprite = get_sprite(entity->spriteID);
-                        Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
-                        switch (entity->entityType) {
-                        case ENTITY_TYPE_PLAYER: {
-                            Matrix4 entity_xform = m4_scalar(1.0);
-                            if (input_frame.mouse_x < window.scaled_width * 0.5) {
-                                entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
-                                entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
-                            } else {
-                                entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
-                            }
-                            draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
-                            draw_image_xform(gun_sprite->image, entity_xform, v2(gun_sprite->image->width, gun_sprite->image->height), COLOR_WHITE);
-                        } break;
-                        default: {
-                            Matrix4 entity_xform = m4_scalar(1.0);
+
+                        Matrix4 entity_xform = m4_scalar(1.0);
+                        if (entity->entityType == ENTITY_TYPE_PLAYER && input_frame.mouse_x < window.scaled_width * 0.5) {
+                            entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                            entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
+                        } else {
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
-                            draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
-                        } break;
                         }
+
+                        draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
+                        draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), entity->position.x, entity->position.y), font_height, v2(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y - 8.0f), v2(0.1, 0.1), COLOR_WHITE);
                     }
                 }
             }
         }
 
-        os_update();
         gfx_update();
     }
 

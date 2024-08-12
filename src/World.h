@@ -4,12 +4,12 @@
 #include "entity.h"
 
 /* Constants */
-#define WORLD_MAX_ENTITIES 1024
+#define WORLD_MAX_ENTITY_COUNT 1024
 
 /* Structs */
 
 typedef struct World {
-    Entity_t entities[WORLD_MAX_ENTITIES];
+    Entity_t entities[WORLD_MAX_ENTITY_COUNT];
     Entity_t *player;
 } World_t;
 
@@ -19,7 +19,7 @@ World_t *g_world;
 /* Functions */
 Entity_t *entity_create() {
     Entity_t *entity = NULL;
-    for (size_t i = 0; i < WORLD_MAX_ENTITIES; i++) {
+    for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
         entity = &g_world->entities[i];
         if (!entity->isValid) {
             entity->isValid = true;
@@ -35,7 +35,7 @@ void entity_destroy(Entity_t *entity) {
 }
 
 Entity_t *find_first_entity_of_type(enum EntityType entityType) {
-    for (size_t i = 0; i < WORLD_MAX_ENTITIES; i++) {
+    for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
         Entity_t *entity = &g_world->entities[i];
         if (entity->isValid && entity->entityType == entityType) {
             return entity;
