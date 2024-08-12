@@ -6,12 +6,15 @@
 
 /* Constants */
 #define WORLD_MAX_ENTITY_COUNT 1024
+#define UI_INVENTORY_SLOTS 6
 
 /* Structs */
 typedef struct World {
     Entity_t entities[WORLD_MAX_ENTITY_COUNT];
     Entity_t *player;
-    Item_t inventory[ITEM_ID_MAX];
+    ItemData_t inventory[ITEM_ID_MAX];
+    ItemSlot_t slots[UI_INVENTORY_SLOTS];
+    u32 active_item_slot;
 } World_t;
 
 typedef struct WorldFrame {
@@ -60,6 +63,10 @@ Entity_t *world_get_player() {
     return world->player;
 }
 
+void world_init_inventory_item_data() {
+    world->inventory[ITEM_ID_ROCK].spriteID = SPRITE_ID_ITEM_ROCK;
+}
+
 void world_frame_reset() {
     memset(world_frame, 0x00, sizeof(WorldFrame_t));
 }
@@ -75,6 +82,18 @@ void world_item_remove_from_inventory(enum ItemID id, int amount) {
         world->inventory[id].amount = 0;
     } else {
         world->inventory[id].amount -= amount;
+    }
+}
+
+void world_select_next_item_slot() {
+    world->active_item_slot = (world->active_item_slot + 1) % UI_INVENTORY_SLOTS;
+}
+
+void world_select_previous_item_slot() {
+    if (world->active_item_slot == 0) {
+        world->active_item_slot = UI_INVENTORY_SLOTS - 1;
+    } else {
+        world->active_item_slot = (world->active_item_slot - 1) % UI_INVENTORY_SLOTS;
     }
 }
 

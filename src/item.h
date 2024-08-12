@@ -7,8 +7,13 @@ enum ItemID {
     ITEM_ID_MAX,
 };
 
-typedef struct Item {
+typedef struct ItemData {
     int amount;
-} Item_t;
+    enum SpriteID spriteID;
+} ItemData_t;
+
+typedef struct ItemSlot {
+    enum ItemID itemID;
+} ItemSlot_t;
 
 #endif

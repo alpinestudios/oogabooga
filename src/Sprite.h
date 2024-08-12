@@ -13,6 +13,8 @@ enum SpriteID {
     SPRITE_ID_ITEM_ROCK,
     // Utility
     SPRITE_ID_GUN_01,
+    // UI
+    SPRITE_ID_UI_ITEM_FRAME,
     SPRITE_ID_MAX
 };
 
@@ -30,8 +32,7 @@ void load_sprite(string path, enum SpriteID spriteId) {
     assert(loaded_image, "Failed loading %s image!", path);
 
     Sprite_t tempSprite = {
-        .image = loaded_image
-    };
+        .image = loaded_image};
 
     g_sprites[spriteId] = tempSprite;
 }

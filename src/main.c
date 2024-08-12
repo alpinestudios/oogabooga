@@ -56,6 +56,8 @@ int entry(int argc, char **argv) {
         load_sprite(fixed_string("src/res/sprites/rock_01.png"), SPRITE_ID_ROCK_01);
         /* Items */
         load_sprite(fixed_string("src/res/sprites/rock_item.png"), SPRITE_ID_ITEM_ROCK);
+        /* UI */
+        load_sprite(fixed_string("src/res/sprites/ui_item_frame.png"), SPRITE_ID_UI_ITEM_FRAME);
     }
 
     world = alloc(get_heap_allocator(), sizeof(World_t));
@@ -66,6 +68,7 @@ int entry(int argc, char **argv) {
         Entity_t *player = entity_create();
         entity_setup_player(player);
         world_set_player(player);
+        world_init_inventory_item_data();
 
         /* Create an enemy snails */
         for (size_t i = 0; i < 10; i++) {
@@ -90,6 +93,9 @@ int entry(int argc, char **argv) {
             item_rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.25, window.pixel_width * 0.25), get_random_float32_in_range(window.pixel_height * -0.25, window.pixel_height * 0.25));
             item_rock->position = round_world_pos_to_tile(item_rock->position);
         }
+
+        // Mock rock in slot 0; TODO: Remove
+        world->slots[0].itemID = ITEM_ID_ROCK;
     }
 
     Entity_t *player_entity = world_get_player();
@@ -186,6 +192,16 @@ int entry(int argc, char **argv) {
             input_axis.y += 1.0;
         }
 
+        if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
+            consume_key_just_pressed(KEY_ARROW_RIGHT);
+            world_select_next_item_slot();
+        }
+
+        if (is_key_just_pressed(KEY_ARROW_LEFT)) {
+            consume_key_just_pressed(KEY_ARROW_LEFT);
+            world_select_previous_item_slot();
+        }
+
         if (is_key_down(KEY_ARROW_UP)) {
             zoom += 1.0f * 10.0f * delta_time;
         }
@@ -276,6 +292,35 @@ int entry(int argc, char **argv) {
                         draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), draw_color);
                         draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), entity->position.x, entity->position.y), font_height, v2(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y - 8.0f), v2(0.1, 0.1), COLOR_WHITE);
                     }
+                }
+            }
+        }
+
+        // :UI Rendering
+        {
+            draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
+            draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0 / zoom, 1.0 / zoom, 1.0)));
+            draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5f, window.pixel_width * 0.5f, 0, window.pixel_height, -1, 10);
+
+            Sprite_t *ui_frame_sprite = get_sprite(SPRITE_ID_UI_ITEM_FRAME);
+            const int FRAME_GAP = 4.0f;
+            const int BOTTOM_MARGIN = 4.0f;
+            const int TOTAL_INVENTORY_WIDTH = (UI_INVENTORY_SLOTS * ui_frame_sprite->image->width) + (UI_INVENTORY_SLOTS > 1 ? FRAME_GAP * (UI_INVENTORY_SLOTS - 1) : 0);
+
+            for (int i = 0; i < UI_INVENTORY_SLOTS; i++) {
+                Vector3 slot_position = v3((-(TOTAL_INVENTORY_WIDTH * 0.5f) + (i * (ui_frame_sprite->image->width + FRAME_GAP))), BOTTOM_MARGIN, 0.0f);
+                Matrix4 ui_frame_xform = m4_scalar(1.0);
+                ui_frame_xform = m4_translate(ui_frame_xform, slot_position);
+                Vector4 slot_render_color = v4(0.7f, 0.7f, 0.7f, 0.7f);
+                if (i == world->active_item_slot) {
+                    slot_render_color = v4(1.0f, 1.0f, 1.0f, 1.0f);
+                }
+                draw_image_xform(ui_frame_sprite->image, ui_frame_xform, v2(ui_frame_sprite->image->width, ui_frame_sprite->image->height), slot_render_color);
+                enum ItemID itemID = world->slots[i].itemID;
+                if (itemID != ITEM_ID_NONE) {
+                    Sprite_t *item_sprite = get_sprite(world->inventory[itemID].spriteID);
+                    Vector2 item_ui_pos = v2(slot_position.x + item_sprite->image->width, slot_position.y + item_sprite->image->height);
+                    draw_image(item_sprite->image, item_ui_pos, v2(item_sprite->image->width, item_sprite->image->height), slot_render_color);
                 }
             }
         }
