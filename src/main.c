@@ -49,13 +49,13 @@ int entry(int argc, char **argv) {
     g_world = alloc(get_heap_allocator(), sizeof(World_t));
 
     Entity_t *player = entity_create();
-    setup_player_entity(player);
+    entity_setup_player(player);
     world_set_player(player);
 
     /* Create an enemy snails */
     for (size_t i = 0; i < 10; i++) {
         Entity_t *snail = entity_create();
-        setup_snail_entity(snail);
+        entity_setup_snail(snail);
         snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
         snail->position = round_world_pos_to_tile(snail->position);
     }
@@ -109,7 +109,7 @@ int entry(int argc, char **argv) {
 
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &g_world->entities[i];
-                if (entity->isValid) {
+                if (entity->is_valid) {
                     Sprite_t *sprite = get_sprite(entity->spriteID);
                     Range2f bounds = range2f_make_bottom_center(v2(sprite->image->width, sprite->image->height));
                     bounds = range2f_shift(bounds, entity->position);
@@ -184,20 +184,20 @@ int entry(int argc, char **argv) {
         {
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &g_world->entities[i];
-                if (entity->isValid) {
+                if (entity->is_valid) {
                     /* Update */
                     if (entity->update != NULL) {
                         entity->update(entity, delta_time);
                     }
                     /* Render */
-                    if (entity->renderSprite == true) {
+                    if (entity->render_sprite == true) {
                         // Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
                         // draw_image_xform(gun_sprite->image, entity_xform, v2(gun_sprite->image->width, gun_sprite->image->height), COLOR_WHITE);
 
                         Sprite_t *entity_sprite = get_sprite(entity->spriteID);
 
                         Matrix4 entity_xform = m4_scalar(1.0);
-                        if (entity->entityType == ENTITY_TYPE_PLAYER && input_frame.mouse_x < window.scaled_width * 0.5) {
+                        if (entity->entity_type == ENTITY_TYPE_PLAYER && input_frame.mouse_x < window.scaled_width * 0.5) {
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
                             entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
                         } else {

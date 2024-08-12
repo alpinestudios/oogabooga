@@ -8,8 +8,8 @@ typedef struct Entity Entity_t;
 
 typedef void (*UpdateFunc_t)(Entity_t *self, float64 deltaTime);
 
-void setup_player_entity(Entity_t *entity);
-void setup_snail_entity(Entity_t *entity);
+void entity_setup_player(Entity_t *entity);
+void entity_setup_snail(Entity_t *entity);
 void player_update(Entity_t *self, float64 delta_time);
 void enemy_update(Entity_t *self, float64 delta_time);
 
@@ -21,35 +21,35 @@ enum EntityType {
 };
 
 typedef struct Entity {
-    enum EntityType entityType;
+    enum EntityType entity_type;
     enum SpriteID spriteID;
     Vector2 position;
-    bool isValid;
-    bool renderSprite;
+    bool is_valid;
+    bool render_sprite;
     UpdateFunc_t update;
 } Entity_t;
 
-void setup_player_entity(Entity_t *entity) {
-    entity->entityType = ENTITY_TYPE_PLAYER;
+void entity_setup_player(Entity_t *entity) {
+    entity->entity_type = ENTITY_TYPE_PLAYER;
     entity->spriteID = SPRITE_ID_PLAYER;
     entity->position = v2(0.0f, 0.0f);
-    entity->renderSprite = true;
+    entity->render_sprite = true;
     entity->update = player_update;
 }
 
-void setup_snail_entity(Entity_t *entity) {
-    entity->entityType = ENTITY_TYPE_SNAIL;
+void entity_setup_snail(Entity_t *entity) {
+    entity->entity_type = ENTITY_TYPE_SNAIL;
     entity->spriteID = SPRITE_ID_SNAIL_01;
     entity->position = v2(0.0f, 0.0f);
-    entity->renderSprite = true;
+    entity->render_sprite = true;
     entity->update = enemy_update;
 }
 
 void setup_rock_entity(Entity_t *entity){
-    entity->entityType = ENTITY_TYPE_ROCK;
+    entity->entity_type = ENTITY_TYPE_ROCK;
     entity->spriteID = SPRITE_ID_ROCK_01;
     entity->position = v2(0.0f, 0.0f);
-    entity->renderSprite = true;
+    entity->render_sprite = true;
 }
 
 void player_update(Entity_t *self, float64 delta_time) {
