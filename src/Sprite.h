@@ -8,6 +8,7 @@ enum SpriteID {
     // Entities
     SPRITE_ID_PLAYER,
     SPRITE_ID_SNAIL_01,
+    SPRITE_ID_ROCK_01,
     // Utility
     SPRITE_ID_GUN_01,
     SPRITE_ID_MAX

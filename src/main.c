@@ -17,6 +17,7 @@ int entry(int argc, char **argv) {
     {
         load_sprite(fixed_string("src/res/img/player.png"), SPRITE_ID_PLAYER);
         load_sprite(fixed_string("src/res/img/snail_01.png"), SPRITE_ID_SNAIL_01);
+        load_sprite(fixed_string("src/res/img/rock_01.png"), SPRITE_ID_ROCK_01);
         load_sprite(fixed_string("src/res/img/gun_01.png"), SPRITE_ID_GUN_01);
     }
 
@@ -31,6 +32,13 @@ int entry(int argc, char **argv) {
         Entity_t *snail = entity_create();
         setup_snail_entity(snail);
         snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
+    }
+
+    /* Create rocks */
+    for (size_t i = 0; i < 10; i++) {
+        Entity_t *rock = entity_create();
+        setup_rock_entity(rock);
+        rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
     }
 
     float zoom = 3.3f;
@@ -108,25 +116,27 @@ int entry(int argc, char **argv) {
                         entity->update(entity, delta_time);
                     }
                     /* Render */
-                    Sprite_t *entity_sprite = get_sprite(entity->spriteID);
-					Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
-                    switch (entity->entityType) {
-                    case ENTITY_TYPE_PLAYER: {
-                        Matrix4 entity_xform = m4_scalar(1.0);
-                        if (input_frame.mouse_x < window.scaled_width * 0.5) {
-                            entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
-                            entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
-                        } else {
+                    if (entity->renderSprite == true) {
+                        Sprite_t *entity_sprite = get_sprite(entity->spriteID);
+                        Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
+                        switch (entity->entityType) {
+                        case ENTITY_TYPE_PLAYER: {
+                            Matrix4 entity_xform = m4_scalar(1.0);
+                            if (input_frame.mouse_x < window.scaled_width * 0.5) {
+                                entity_xform = m4_translate(entity_xform, v3(entity->position.x + entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                                entity_xform = m4_mul(entity_xform, m4_make_scale(v3(-1.0f, 1.0f, 1.0f)));
+                            } else {
+                                entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                            }
+                            draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
+                            draw_image_xform(gun_sprite->image, entity_xform, v2(gun_sprite->image->width, gun_sprite->image->height), COLOR_WHITE);
+                        } break;
+                        default: {
+                            Matrix4 entity_xform = m4_scalar(1.0);
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
+                            draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
+                        } break;
                         }
-                        draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
-						draw_image_xform(gun_sprite->image, entity_xform, v2(gun_sprite->image->width, gun_sprite->image->height), COLOR_WHITE);
-                    } break;
-                    default: {
-                        Matrix4 entity_xform = m4_scalar(1.0);
-                        entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
-                        draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
-                    } break;
                     }
                 }
             }
