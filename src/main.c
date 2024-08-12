@@ -3,24 +3,27 @@
 #include "range.h"
 #include "sprite.h"
 #include "tile.h"
+#include "vector_ext.h"
 #include "world.h"
 
+const float PLAYER_SELECT_RANGE = 12.0f;
+
 Vector2 screen_to_world() {
-    float mouseX = input_frame.mouse_x;
-    float mouseY = input_frame.mouse_y;
+    float mouse_x = input_frame.mouse_x;
+    float mouse_y = input_frame.mouse_y;
     Matrix4 projection = draw_frame.projection;
     Matrix4 view = draw_frame.view;
     float window_width = window.pixel_width;
     float window_height = window.pixel_height;
 
-    float ndcX = (mouseX / (window_width * 0.5f)) - 1.0f;
-    float ndcY = (mouseY / (window_height * 0.5f)) - 1.0f;
+    float ndc_x = (mouse_x / (window_width * 0.5f)) - 1.0f;
+    float ndc_y = (mouse_y / (window_height * 0.5f)) - 1.0f;
 
-    Vector4 worldPos = {ndcX, ndcY, 0, 1};
-    worldPos = m4_transform(m4_inverse(projection), worldPos);
-    worldPos = m4_transform(view, worldPos);
+    Vector4 world_pos = {ndc_x, ndc_y, 0, 1};
+    world_pos = m4_transform(m4_inverse(projection), world_pos);
+    world_pos = m4_transform(view, world_pos);
 
-    return (Vector2){worldPos.x, worldPos.y};
+    return world_pos.xy;
 }
 
 int entry(int argc, char **argv) {
@@ -46,7 +49,8 @@ int entry(int argc, char **argv) {
         load_sprite(fixed_string("src/res/img/gun_01.png"), SPRITE_ID_GUN_01);
     }
 
-    g_world = alloc(get_heap_allocator(), sizeof(World_t));
+    world = alloc(get_heap_allocator(), sizeof(World_t));
+    world_frame = alloc(get_heap_allocator(), sizeof(WorldFrame_t));
 
     Entity_t *player = entity_create();
     entity_setup_player(player);
@@ -73,9 +77,8 @@ int entry(int argc, char **argv) {
     float64 last_time = os_get_current_time_in_seconds();
     while (!window.should_close) {
         reset_temporary_storage();
+        world_frame_reset();
         os_update();
-
-        draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 
         float64 now = os_get_current_time_in_seconds();
         float64 delta_time = now - last_time;
@@ -84,10 +87,7 @@ int entry(int argc, char **argv) {
         }
         last_time = now;
 
-        if (is_key_just_released(KEY_ESCAPE)) {
-            window.should_close = true;
-        }
-        os_set_mouse_pointer_custom(crosshair_mouse_pointer);
+        draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 
         // :camera
         {
@@ -98,30 +98,31 @@ int entry(int argc, char **argv) {
             draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0 / zoom, 1.0 / zoom, 1.0)));
         }
 
-        // :world space mouse
-        Vector2 world_mouse_pos = screen_to_world();
-        Vector2i tile_mouse_pos = world_pos_to_tile_pos(world_mouse_pos);
+        if (is_key_just_released(KEY_ESCAPE)) {
+            window.should_close = true;
+        }
+        os_set_mouse_pointer_custom(crosshair_mouse_pointer);
 
+        // :world space mouse position
+        world_frame->world_mouse_pos = screen_to_world();
+        world_frame->tile_mouse_pos = world_pos_to_tile_pos(world_frame->world_mouse_pos);
+
+        // :position debug
         {
-            draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), world_mouse_pos.x, world_mouse_pos.y), font_height, v2(world_mouse_pos.x, world_mouse_pos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
-
-            draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), tile_mouse_pos.x, tile_mouse_pos.y), font_height, v2(world_mouse_pos.x, world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
-
+            draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 8.0f), v2(0.1, 0.1), COLOR_RED);
+            draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), world_frame->tile_mouse_pos.x, world_frame->tile_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
+        }
+        // :entity selection
+        {
+            float min_mouse_entity_dist = PLAYER_SELECT_RANGE;
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
-                Entity_t *entity = &g_world->entities[i];
+                Entity_t *entity = &world->entities[i];
                 if (entity->is_valid) {
-                    Sprite_t *sprite = get_sprite(entity->spriteID);
-                    Range2f bounds = range2f_make_bottom_center(v2(sprite->image->width, sprite->image->height));
-                    bounds = range2f_shift(bounds, entity->position);
-
-                    Vector4 color = COLOR_WHITE;
-                    color.a = 0.4;
-
-                    if (range2f_contains(bounds, world_mouse_pos)) {
-                        color.a = 1.0f;
+                    float mouse_to_entity_dist = absi(v2_dist(entity->position, world_frame->world_mouse_pos));
+                    if (mouse_to_entity_dist < min_mouse_entity_dist) {
+                        world_frame->selected_entity = entity;
+                        min_mouse_entity_dist = mouse_to_entity_dist;
                     }
-
-                    draw_rect(bounds.min, range2f_size(bounds), color);
                 }
             }
         }
@@ -138,7 +139,7 @@ int entry(int argc, char **argv) {
                     int y_pos = (y * TILE_WIDTH);
 
                     Vector2i world_tile_pos_in_tile_pos = world_pos_to_tile_pos(v2(x_pos + TILE_OFFSET, y_pos));
-                    if (world_tile_pos_in_tile_pos.x == tile_mouse_pos.x && world_tile_pos_in_tile_pos.y == tile_mouse_pos.y) {
+                    if (world_tile_pos_in_tile_pos.x == world_frame->tile_mouse_pos.x && world_tile_pos_in_tile_pos.y == world_frame->tile_mouse_pos.y) {
                         draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR_HOVER);
                     } else if ((x + (y % 2 == 0)) % 2 == 0) {
                         draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR);
@@ -183,7 +184,7 @@ int entry(int argc, char **argv) {
         // Entity rendering & update
         {
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
-                Entity_t *entity = &g_world->entities[i];
+                Entity_t *entity = &world->entities[i];
                 if (entity->is_valid) {
                     /* Update */
                     if (entity->update != NULL) {
@@ -203,8 +204,11 @@ int entry(int argc, char **argv) {
                         } else {
                             entity_xform = m4_translate(entity_xform, v3(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y, 1.0f));
                         }
-
-                        draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), COLOR_WHITE);
+                        Vector4 draw_color = COLOR_WHITE;
+                        if (entity == world_frame->selected_entity) {
+                            draw_color = COLOR_RED;
+                        }
+                        draw_image_xform(entity_sprite->image, entity_xform, v2(entity_sprite->image->width, entity_sprite->image->height), draw_color);
                         draw_text(font, sprint(get_temporary_allocator(), STR("%.2f %.2f"), entity->position.x, entity->position.y), font_height, v2(entity->position.x - entity_sprite->image->width * 0.5f, entity->position.y - 8.0f), v2(0.1, 0.1), COLOR_WHITE);
                     }
                 }
