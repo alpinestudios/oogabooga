@@ -3,6 +3,7 @@
 
 #include "entity.h"
 #include "item.h"
+#include "ui.h"
 
 /* Constants */
 #define WORLD_MAX_ENTITY_COUNT 1024
@@ -15,12 +16,15 @@ typedef struct World {
     ItemData_t inventory[ITEM_ID_MAX];
     ItemSlot_t slots[UI_INVENTORY_SLOTS];
     u32 active_item_slot;
+    enum UIState ui_state;
 } World_t;
 
 typedef struct WorldFrame {
     Entity_t *selected_entity;
     Vector2 world_mouse_pos;
     Vector2i tile_mouse_pos;
+    Matrix4 view;
+    Matrix4 proj;
 } WorldFrame_t;
 
 /* Global variables */
@@ -95,6 +99,11 @@ void world_select_previous_item_slot() {
     } else {
         world->active_item_slot = (world->active_item_slot - 1) % UI_INVENTORY_SLOTS;
     }
+}
+
+void world_set_ui_state(enum UIState state) {
+    assert(state >= 0 && state < UI_STATE_MAX, "UIState of %u is in a wrong range!", state);
+    world->ui_state = state;
 }
 
 #endif

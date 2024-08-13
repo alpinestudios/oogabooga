@@ -11,6 +11,20 @@
 const float32 PLAYER_MOVE_SPEED = 200.0f;
 const float32 PLAYER_SELECT_RANGE = 12.0f;
 
+const float SCREEN_WIDTH = 240.0;
+const float SCREEN_HEIGHT = 135.0;
+
+void set_screen_space() {
+    draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
+    draw_frame.projection = m4_make_orthographic_projection(-1.0f, 1.0f, -1.0f, 1.0f, -1, 10);
+    draw_frame.projection = m4_make_orthographic_projection(0.0, SCREEN_WIDTH, 0.0, SCREEN_HEIGHT, -1, 10);
+}
+
+void set_world_space() {
+    draw_frame.projection = world_frame->proj;
+    draw_frame.view = world_frame->view;
+}
+
 Vector2 screen_to_world() {
     float mouse_x = input_frame.mouse_x;
     float mouse_y = input_frame.mouse_y;
@@ -130,6 +144,11 @@ int entry(int argc, char **argv) {
             draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0 / zoom, 1.0 / zoom, 1.0)));
         }
 
+        {
+            world_frame->proj = draw_frame.projection;
+            world_frame->view = draw_frame.view;
+        }
+
         if (is_key_just_released(KEY_ESCAPE)) {
             window.should_close = true;
         }
@@ -152,7 +171,8 @@ int entry(int argc, char **argv) {
                 Entity_t *entity = &world->entities[i];
                 if (entity->is_valid && entity->selectable) {
                     float mouse_to_entity_dist = absi(v2_dist(entity->position, world_frame->world_mouse_pos));
-                    if (mouse_to_entity_dist < min_mouse_entity_dist) {
+                    float player_to_entity_dist = absi(v2_dist(entity->position, player_entity->position));
+                    if (mouse_to_entity_dist < min_mouse_entity_dist && player_to_entity_dist <= PLAYER_SELECT_RANGE) {
                         world_frame->selected_entity = entity;
                         min_mouse_entity_dist = mouse_to_entity_dist;
                     }
@@ -179,16 +199,6 @@ int entry(int argc, char **argv) {
                     }
                 }
             }
-        }
-
-        if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
-            consume_key_just_pressed(KEY_ARROW_RIGHT);
-            world_select_next_item_slot();
-        }
-
-        if (is_key_just_pressed(KEY_ARROW_LEFT)) {
-            consume_key_just_pressed(KEY_ARROW_LEFT);
-            world_select_previous_item_slot();
         }
 
         if (is_key_down(KEY_ARROW_UP)) {
@@ -238,6 +248,27 @@ int entry(int argc, char **argv) {
             } else if (world->slots[world->active_item_slot].itemID != ITEM_ID_NONE) { // Entity not selected and a weapon armed
                 Vector2 target = world_frame->world_mouse_pos;
                 player_shoot(target);
+            }
+        }
+
+        if (is_key_just_pressed(KEY_TAB)) {
+            consume_key_just_pressed(KEY_TAB);
+            if (world->ui_state == UI_STATE_INVENTORY) {
+                world_set_ui_state(UI_STATE_NONE);
+            } else {
+                world_set_ui_state(UI_STATE_INVENTORY);
+            }
+        }
+
+        if (world->ui_state == UI_STATE_INVENTORY) {
+            if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
+                consume_key_just_pressed(KEY_ARROW_RIGHT);
+                world_select_next_item_slot();
+            }
+
+            if (is_key_just_pressed(KEY_ARROW_LEFT)) {
+                consume_key_just_pressed(KEY_ARROW_LEFT);
+                world_select_previous_item_slot();
             }
         }
 
@@ -296,29 +327,28 @@ int entry(int argc, char **argv) {
 
         // :UI Rendering
         {
-            draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
-            draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0 / zoom, 1.0 / zoom, 1.0)));
-            draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5f, window.pixel_width * 0.5f, 0, window.pixel_height, -1, 10);
-
-            Sprite_t *ui_frame_sprite = get_sprite(SPRITE_ID_UI_ITEM_FRAME);
-            const int FRAME_GAP = 4.0f;
-            const int BOTTOM_MARGIN = 4.0f;
-            const int TOTAL_INVENTORY_WIDTH = (UI_INVENTORY_SLOTS * ui_frame_sprite->image->width) + (UI_INVENTORY_SLOTS > 1 ? FRAME_GAP * (UI_INVENTORY_SLOTS - 1) : 0);
-
-            for (int i = 0; i < UI_INVENTORY_SLOTS; i++) {
-                Vector3 slot_position = v3((-(TOTAL_INVENTORY_WIDTH * 0.5f) + (i * (ui_frame_sprite->image->width + FRAME_GAP))), BOTTOM_MARGIN, 0.0f);
-                Matrix4 ui_frame_xform = m4_scalar(1.0);
-                ui_frame_xform = m4_translate(ui_frame_xform, slot_position);
-                Vector4 slot_render_color = v4(0.7f, 0.7f, 0.7f, 0.7f);
-                if (i == world->active_item_slot) {
-                    slot_render_color = v4(1.0f, 1.0f, 1.0f, 1.0f);
-                }
-                draw_image_xform(ui_frame_sprite->image, ui_frame_xform, v2(ui_frame_sprite->image->width, ui_frame_sprite->image->height), slot_render_color);
-                enum ItemID itemID = world->slots[i].itemID;
-                if (itemID != ITEM_ID_NONE) {
-                    Sprite_t *item_sprite = get_sprite(world->inventory[itemID].spriteID);
-                    Vector2 item_ui_pos = v2(slot_position.x + item_sprite->image->width, slot_position.y + item_sprite->image->height);
-                    draw_image(item_sprite->image, item_ui_pos, v2(item_sprite->image->width, item_sprite->image->height), slot_render_color);
+            if (world->ui_state == UI_STATE_INVENTORY) {
+                set_screen_space();
+                Sprite_t *ui_frame_sprite = get_sprite(SPRITE_ID_UI_ITEM_FRAME);
+                const int FRAME_GAP = 4.0f;
+                const int BOTTOM_MARGIN = 4.0f;
+                const int LEFT_MARGIN = 4.0f;
+                const int TOTAL_INVENTORY_WIDTH = (UI_INVENTORY_SLOTS * ui_frame_sprite->image->width) + (UI_INVENTORY_SLOTS > 1 ? FRAME_GAP * (UI_INVENTORY_SLOTS - 1) : 0);
+                for (int i = 0; i < UI_INVENTORY_SLOTS; i++) {
+                    Vector3 slot_position = v3(LEFT_MARGIN + (i * (ui_frame_sprite->image->width + FRAME_GAP)), BOTTOM_MARGIN, 0.0f);
+                    Matrix4 ui_frame_xform = m4_scalar(1.0);
+                    ui_frame_xform = m4_translate(ui_frame_xform, slot_position);
+                    Vector4 slot_render_color = v4(0.7f, 0.7f, 0.7f, 0.7f);
+                    if (i == world->active_item_slot) {
+                        slot_render_color = v4(1.0f, 1.0f, 1.0f, 1.0f);
+                    }
+                    draw_image_xform(ui_frame_sprite->image, ui_frame_xform, v2(ui_frame_sprite->image->width, ui_frame_sprite->image->height), slot_render_color);
+                    enum ItemID itemID = world->slots[i].itemID;
+                    if (itemID != ITEM_ID_NONE) {
+                        Sprite_t *item_sprite = get_sprite(world->inventory[itemID].spriteID);
+                        Vector2 item_ui_pos = v2(slot_position.x + item_sprite->image->width, slot_position.y + item_sprite->image->height);
+                        draw_image(item_sprite->image, item_ui_pos, v2(item_sprite->image->width, item_sprite->image->height), slot_render_color);
+                    }
                 }
             }
         }
