@@ -2,6 +2,7 @@
 #define PLAYER_H
 
 #include "entity.h"
+#include "world.h"
 
 void player_shoot(Vector2 target) {
     Entity_t *player = world_get_player();
