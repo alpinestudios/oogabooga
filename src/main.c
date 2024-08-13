@@ -282,7 +282,7 @@ int entry(int argc, char **argv) {
 
         //     physics_apply_force(player_entity, force);
         // }
-         
+
         // :debug player's velocity line
         {
             Entity_t *player = world_get_player();
@@ -291,11 +291,13 @@ int entry(int argc, char **argv) {
             draw_line(player->position, v2_add(player->position, v2_mulf(player_move_direction, length)), 2, COLOR_BLUE);
         }
 
+        int valid_entities = 0;
         // Entity rendering & update
         {
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
                 if (entity->is_valid) {
+                    valid_entities++;
                     /* Update */
                     if (entity->update != NULL) {
                         entity->update(entity, delta_time);
@@ -331,6 +333,13 @@ int entry(int argc, char **argv) {
                     }
                 }
             }
+        }
+
+        // :debug info
+        {
+            set_screen_space();
+            draw_text(font, sprint(get_temporary_allocator(), STR("Current valid entities: %u"), valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
+            set_world_space();
         }
 
         // :UI Rendering
