@@ -1,5 +1,6 @@
 #include "animate.h"
 #include "entity.h"
+#include "physics.h"
 #include "range.h"
 #include "sprite.h"
 #include "tile.h"
@@ -178,20 +179,6 @@ int entry(int argc, char **argv) {
             }
         }
 
-        Vector2 input_axis = v2(0, 0);
-        if (is_key_down('A')) {
-            input_axis.x -= 1.0;
-        }
-        if (is_key_down('D')) {
-            input_axis.x += 1.0;
-        }
-        if (is_key_down('S')) {
-            input_axis.y -= 1.0;
-        }
-        if (is_key_down('W')) {
-            input_axis.y += 1.0;
-        }
-
         if (is_key_just_pressed(KEY_ARROW_RIGHT)) {
             consume_key_just_pressed(KEY_ARROW_RIGHT);
             world_select_next_item_slot();
@@ -210,10 +197,6 @@ int entry(int argc, char **argv) {
                 zoom -= 1.0f * 10.0f * delta_time;
             }
         }
-
-        input_axis = v2_normalize(input_axis);
-        input_axis = v2_mulf(input_axis, PLAYER_MOVE_SPEED * delta_time);
-        player_entity->position = v2_add(player_entity->position, input_axis);
 
         // :item collection
         {
@@ -252,6 +235,17 @@ int entry(int argc, char **argv) {
                 }
             }
         }
+
+        // if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) { // TODO: Go further with rolling mechanism
+        //     consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
+        //     Entity_t *player_entity = world_get_player();
+
+        //     Vector2 direction = v2_sub(world_frame->world_mouse_pos, player_entity->position);
+        //     direction = v2_normalize(direction);
+        //     Vector2 force = v2_mulf(direction, 500.0f);
+
+        //     physics_apply_force(player_entity, force);
+        // }
 
         // Entity rendering & update
         {

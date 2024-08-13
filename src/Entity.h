@@ -19,6 +19,10 @@ void entity_setup_snail(Entity_t *entity);
 void player_update(Entity_t *self, float64 delta_time);
 void enemy_update(Entity_t *self, float64 delta_time);
 
+// External functions
+extern void physics_apply_force(Entity_t *entity, Vector2 force, float delta_time);
+extern void physics_update_with_friction(Entity_t *entity, float delta_time);
+
 enum EntityType {
     ENTITY_TYPE_NONE = 0,
     ENTITY_TYPE_PLAYER,
@@ -28,6 +32,13 @@ enum EntityType {
     ENTITY_TYPE_MAX
 };
 
+typedef struct Rigidbody {
+    Vector2 velocity;
+    float acceleration;
+    float max_speed;
+    float friction;
+} Rigidbody_t;
+
 typedef struct Entity {
     enum EntityType entity_type;
     union {
@@ -36,6 +47,7 @@ typedef struct Entity {
     enum SpriteID spriteID;
     int health;
     Vector2 position;
+    Rigidbody_t rigidbody;
     bool is_valid;
     bool render_sprite;
     bool selectable;
@@ -50,6 +62,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .health = PLAYER_DEFAULT_HEALTH,
         .render_sprite = true,
         .update = player_update,
+        .rigidbody = {.acceleration = 10.0f, .friction = 0.95f, .max_speed = 500.0f},
     },
     [ENTITY_TYPE_SNAIL] = {
         .entity_type = ENTITY_TYPE_SNAIL,
@@ -86,6 +99,7 @@ void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID it
     entity->selectable = template->selectable;
     entity->destroyable = template->destroyable;
     entity->update = template->update;
+    entity->rigidbody = template->rigidbody;
 
     if (type == ENTITY_TYPE_ITEM) {
         assert(item_id >= ITEM_ID_NONE && item_id < ITEM_ID_MAX, "ItemID of %u is in a wrong range!", item_id);
@@ -95,7 +109,7 @@ void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID it
     }
 }
 
-void entity_setup(Entity_t *entity, enum EntityType type){
+void entity_setup(Entity_t *entity, enum EntityType type) {
     entity_setup_general(entity, type, ITEM_ID_NONE);
 }
 
@@ -104,7 +118,26 @@ void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
 }
 
 void player_update(Entity_t *self, float64 delta_time) {
-    // log("Updating player");
+    Vector2 movement_force = v2(0, 0);
+    if (is_key_down('A')) {
+        movement_force.x -= 1.0f;
+    }
+    if (is_key_down('D')) {
+        movement_force.x += 1.0f;
+    }
+    if (is_key_down('S')) {
+        movement_force.y -= 1.0f;
+    }
+    if (is_key_down('W')) {
+        movement_force.y += 1.0f;
+    }
+
+    movement_force = v2_normalize(movement_force);
+    movement_force = v2_mulf(movement_force, self->rigidbody.acceleration);
+
+    physics_apply_force(self, movement_force, delta_time);
+
+    physics_update_with_friction(self, delta_time);
 }
 
 void enemy_update(Entity_t *self, float64 delta_time) {
