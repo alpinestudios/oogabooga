@@ -3,7 +3,7 @@
 
 #include "entity.h"
 
-void physics_apply_force(Entity_t *entity, Vector2 force, float delta_time) {
+void physics_apply_force(Entity_t *entity, Vector2 force) {
     entity->rigidbody.velocity = v2_add(entity->rigidbody.velocity, force);
 }
 

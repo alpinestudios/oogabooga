@@ -13,6 +13,7 @@ enum SpriteID {
     SPRITE_ID_ITEM_ROCK,
     // Utility
     SPRITE_ID_GUN_01,
+    SPRITE_ID_BULLET_01,
     // UI
     SPRITE_ID_UI_ITEM_FRAME,
     SPRITE_ID_MAX

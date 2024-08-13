@@ -9,6 +9,7 @@ const float PLAYER_ITEM_COLLECT_RANGE = 8.0f;
 const int PLAYER_DEFAULT_HEALTH = 100;
 const int ENEMY_DEFAULT_HEALTH = 20;
 const int ROCK_DEFAULT_HEALTH = 3;
+const int BULLET_DEFAULT_HEALTH = 1;
 
 typedef struct Entity Entity_t;
 
@@ -16,11 +17,12 @@ typedef void (*UpdateFunc_t)(Entity_t *self, float64 deltaTime);
 
 void entity_setup_player(Entity_t *entity);
 void entity_setup_snail(Entity_t *entity);
+void common_update(Entity_t *self, float64 delta_time);
 void player_update(Entity_t *self, float64 delta_time);
 void enemy_update(Entity_t *self, float64 delta_time);
 
 // External functions
-extern void physics_apply_force(Entity_t *entity, Vector2 force, float delta_time);
+extern void physics_apply_force(Entity_t *entity, Vector2 force);
 extern void physics_update_with_friction(Entity_t *entity, float delta_time);
 
 enum EntityType {
@@ -29,6 +31,7 @@ enum EntityType {
     ENTITY_TYPE_SNAIL,
     ENTITY_TYPE_ROCK,
     ENTITY_TYPE_ITEM,
+    ENTITY_TYPE_BULLET,
     ENTITY_TYPE_MAX
 };
 
@@ -86,6 +89,18 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .render_sprite = true,
         .selectable = true,
     },
+    [ENTITY_TYPE_BULLET] = {
+        .entity_type = ENTITY_TYPE_BULLET,
+        .spriteID = SPRITE_ID_BULLET_01,
+        .health = BULLET_DEFAULT_HEALTH,
+        .render_sprite = true,
+        .destroyable = true,
+        .update = common_update,
+        .rigidbody = {
+            .friction = 0.999f,
+            .max_speed = 500.0f,
+        },
+    },
 };
 
 void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID item_id) {
@@ -117,6 +132,10 @@ void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
     entity_setup_general(entity, ENTITY_TYPE_ITEM, item_id);
 }
 
+void common_update(Entity_t *self, float64 delta_time) {
+    physics_update_with_friction(self, delta_time);
+}
+
 void player_update(Entity_t *self, float64 delta_time) {
     Vector2 movement_force = v2(0, 0);
     if (is_key_down('A')) {
@@ -135,9 +154,9 @@ void player_update(Entity_t *self, float64 delta_time) {
     movement_force = v2_normalize(movement_force);
     movement_force = v2_mulf(movement_force, self->rigidbody.acceleration);
 
-    physics_apply_force(self, movement_force, delta_time);
+    physics_apply_force(self, movement_force);
 
-    physics_update_with_friction(self, delta_time);
+    common_update(self, delta_time);
 }
 
 void enemy_update(Entity_t *self, float64 delta_time) {

@@ -1,6 +1,7 @@
 #include "animate.h"
 #include "entity.h"
 #include "physics.h"
+#include "player.h"
 #include "range.h"
 #include "sprite.h"
 #include "tile.h"
@@ -53,6 +54,7 @@ int entry(int argc, char **argv) {
         load_sprite(fixed_string("src/res/sprites/player.png"), SPRITE_ID_PLAYER);
         load_sprite(fixed_string("src/res/sprites/snail_01.png"), SPRITE_ID_SNAIL_01);
         load_sprite(fixed_string("src/res/sprites/gun_01.png"), SPRITE_ID_GUN_01);
+        load_sprite(fixed_string("src/res/sprites/bullet_01.png"), SPRITE_ID_BULLET_01);
         /* Map */
         load_sprite(fixed_string("src/res/sprites/rock_01.png"), SPRITE_ID_ROCK_01);
         /* Items */
@@ -233,6 +235,9 @@ int entry(int argc, char **argv) {
                     }
                     entity_destroy(entity);
                 }
+            } else if (world->slots[world->active_item_slot].itemID != ITEM_ID_NONE) { // Entity not selected and a weapon armed
+                Vector2 target = world_frame->world_mouse_pos;
+                player_shoot(target);
             }
         }
 
