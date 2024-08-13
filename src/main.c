@@ -66,14 +66,14 @@ int entry(int argc, char **argv) {
     // :init
     {
         Entity_t *player = entity_create();
-        entity_setup_player(player);
+        entity_setup(player, ENTITY_TYPE_PLAYER);
         world_set_player(player);
         world_init_inventory_item_data();
 
         /* Create an enemy snails */
         for (size_t i = 0; i < 10; i++) {
             Entity_t *snail = entity_create();
-            entity_setup_snail(snail);
+            entity_setup(snail, ENTITY_TYPE_SNAIL);
             snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
             snail->position = round_world_pos_to_tile(snail->position);
         }
@@ -81,7 +81,7 @@ int entry(int argc, char **argv) {
         /* Create rocks */
         for (size_t i = 0; i < 10; i++) {
             Entity_t *rock = entity_create();
-            entity_setup_rock(rock);
+            entity_setup(rock, ENTITY_TYPE_ROCK);
             rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
             rock->position = round_world_pos_to_tile(rock->position);
         }
@@ -89,7 +89,7 @@ int entry(int argc, char **argv) {
         /* Create item rocks */
         for (size_t i = 0; i < 5; i++) {
             Entity_t *item_rock = entity_create();
-            entity_setup_item_rock(item_rock);
+            entity_setup_item(item_rock, ITEM_ID_ROCK);
             item_rock->position = v2(get_random_float32_in_range(window.pixel_width * -0.25, window.pixel_width * 0.25), get_random_float32_in_range(window.pixel_height * -0.25, window.pixel_height * 0.25));
             item_rock->position = round_world_pos_to_tile(item_rock->position);
         }
@@ -220,11 +220,10 @@ int entry(int argc, char **argv) {
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
                 if (entity->is_valid && entity->entity_type == ENTITY_TYPE_ITEM) {
-                    assert(entity->itemID > 0 && entity->itemID < ITEM_ID_MAX, "Entity has wrong itemID assigned!");
-
+                    assert(entity->subtype.itemID > 0 && entity->subtype.itemID < ITEM_ID_MAX, "Entity has wrong subtype.itemID of %u assigned!", entity->subtype.itemID);
                     float distance = fabs(v2_dist(entity->position, player_entity->position));
                     if (distance <= PLAYER_ITEM_COLLECT_RANGE) {
-                        world_item_add_to_inventory(entity->itemID, 1);
+                        world_item_add_to_inventory(entity->subtype.itemID, 1);
                         entity_destroy(entity);
                     }
                 }
@@ -242,7 +241,7 @@ int entry(int argc, char **argv) {
                     switch (entity->entity_type) {
                     case ENTITY_TYPE_ROCK:
                         Entity_t *spawned_entity = entity_create();
-                        entity_setup_item_rock(spawned_entity);
+                        entity_setup_item(spawned_entity, ITEM_ID_ROCK);
                         spawned_entity->position = entity->position;
                         break;
                     default:

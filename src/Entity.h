@@ -1,8 +1,8 @@
 #ifndef ENTITY_H
 #define ENTITY_H
 
-#include "sprite.h"
 #include "item.h"
+#include "sprite.h"
 
 /* Constants */
 const float PLAYER_ITEM_COLLECT_RANGE = 8.0f;
@@ -30,8 +30,10 @@ enum EntityType {
 
 typedef struct Entity {
     enum EntityType entity_type;
+    union {
+        enum ItemID itemID;
+    } subtype;
     enum SpriteID spriteID;
-    enum ItemID itemID;
     int health;
     Vector2 position;
     bool is_valid;
@@ -41,40 +43,64 @@ typedef struct Entity {
     UpdateFunc_t update;
 } Entity_t;
 
-void entity_setup_player(Entity_t *entity) {
-    entity->entity_type = ENTITY_TYPE_PLAYER;
-    entity->spriteID = SPRITE_ID_PLAYER;
-    entity->position = v2(0.0f, 0.0f);
-    entity->render_sprite = true;
-    entity->update = player_update;
-    entity->health = PLAYER_DEFAULT_HEALTH;
+const Entity_t ENTITY_TEMPLATES[] = {
+    [ENTITY_TYPE_PLAYER] = {
+        .entity_type = ENTITY_TYPE_PLAYER,
+        .spriteID = SPRITE_ID_PLAYER,
+        .health = PLAYER_DEFAULT_HEALTH,
+        .render_sprite = true,
+        .update = player_update,
+    },
+    [ENTITY_TYPE_SNAIL] = {
+        .entity_type = ENTITY_TYPE_SNAIL,
+        .spriteID = SPRITE_ID_SNAIL_01,
+        .health = ENEMY_DEFAULT_HEALTH,
+        .render_sprite = true,
+        .selectable = true,
+        .destroyable = true,
+        .update = enemy_update,
+    },
+    [ENTITY_TYPE_ROCK] = {
+        .entity_type = ENTITY_TYPE_ROCK,
+        .spriteID = SPRITE_ID_ROCK_01, // TODO: Handle it later, change this field to array, add all sprite variants and when creating entity, select one by random.
+        .health = ROCK_DEFAULT_HEALTH,
+        .render_sprite = true,
+        .selectable = true,
+        .destroyable = true,
+    },
+    [ENTITY_TYPE_ITEM] = {
+        .entity_type = ENTITY_TYPE_ITEM,
+        .render_sprite = true,
+        .selectable = true,
+    },
+};
+
+void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID item_id) {
+    assert(type > ENTITY_TYPE_NONE && type < ENTITY_TYPE_MAX, "Entity type of %u is in a wrong range!", type);
+    const Entity_t *template = &ENTITY_TEMPLATES[type];
+
+    entity->entity_type = template->entity_type;
+    entity->spriteID = template->spriteID;
+    entity->health = template->health;
+    entity->render_sprite = template->render_sprite;
+    entity->selectable = template->selectable;
+    entity->destroyable = template->destroyable;
+    entity->update = template->update;
+
+    if (type == ENTITY_TYPE_ITEM) {
+        assert(item_id >= ITEM_ID_NONE && item_id < ITEM_ID_MAX, "ItemID of %u is in a wrong range!", item_id);
+        const ItemTemplate_t *template = &ITEM_TEMPLATES[item_id];
+        entity->subtype.itemID = template->itemID;
+        entity->spriteID = template->spriteID;
+    }
 }
 
-void entity_setup_snail(Entity_t *entity) {
-    entity->entity_type = ENTITY_TYPE_SNAIL;
-    entity->spriteID = SPRITE_ID_SNAIL_01;
-    entity->update = enemy_update;
-    entity->render_sprite = true;
-    entity->health = ENEMY_DEFAULT_HEALTH;
-    entity->selectable = true;
-    entity->destroyable = true;
+void entity_setup(Entity_t *entity, enum EntityType type){
+    entity_setup_general(entity, type, ITEM_ID_NONE);
 }
 
-void entity_setup_rock(Entity_t *entity) {
-    entity->entity_type = ENTITY_TYPE_ROCK;
-    entity->spriteID = SPRITE_ID_ROCK_01;
-    entity->render_sprite = true;
-    entity->health = ROCK_DEFAULT_HEALTH;
-    entity->selectable = true;
-    entity->destroyable = true;
-}
-
-void entity_setup_item_rock(Entity_t *entity) {
-    entity->entity_type = ENTITY_TYPE_ITEM;
-    entity->spriteID = SPRITE_ID_ITEM_ROCK;
-    entity->selectable = true;
-    entity->render_sprite = true;
-    entity->itemID = ITEM_ID_ROCK;
+void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
+    entity_setup_general(entity, ENTITY_TYPE_ITEM, item_id);
 }
 
 void player_update(Entity_t *self, float64 delta_time) {
