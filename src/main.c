@@ -282,6 +282,14 @@ int entry(int argc, char **argv) {
 
         //     physics_apply_force(player_entity, force);
         // }
+         
+        // :debug player's velocity line
+        {
+            Entity_t *player = world_get_player();
+            Vector2 player_move_direction = v2_normalize(player->rigidbody.velocity);
+            float length = v2_length(player->rigidbody.velocity);
+            draw_line(player->position, v2_add(player->position, v2_mulf(player_move_direction, length)), 2, COLOR_BLUE);
+        }
 
         // Entity rendering & update
         {

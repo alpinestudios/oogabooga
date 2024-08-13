@@ -15,11 +15,14 @@ void player_shoot(Vector2 target) {
     direction = v2_normalize(direction);
     direction = v2_mulf(direction, bullet->rigidbody.max_speed);
 
-    // Apply force to the bullet
-    physics_apply_force(bullet, direction);
-
     // Apply knockback
     physics_apply_force(player, v2_mulf(direction, -0.15));
+
+    // Compensate player's velocity
+    direction = v2_add(direction, player->rigidbody.velocity);
+
+    // Apply force to the bullet
+    physics_apply_force(bullet, direction);
 
     // TODO: Play sound here
     // play_sound(SOUND_PLAYER_SHOOT);

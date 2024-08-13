@@ -97,8 +97,8 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .destroyable = true,
         .update = common_update,
         .rigidbody = {
-            .friction = 0.999f,
-            .max_speed = 500.0f,
+            .friction = 0.9999f,
+            .max_speed = 750.0f,
         },
     },
 };
