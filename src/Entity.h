@@ -15,8 +15,6 @@ typedef struct Entity Entity_t;
 
 typedef void (*UpdateFunc_t)(Entity_t *self, float64 deltaTime);
 
-void entity_setup_player(Entity_t *entity);
-void entity_setup_snail(Entity_t *entity);
 void common_update(Entity_t *self, float64 delta_time);
 void player_update(Entity_t *self, float64 delta_time);
 void enemy_update(Entity_t *self, float64 delta_time);
@@ -24,6 +22,7 @@ void enemy_update(Entity_t *self, float64 delta_time);
 // External functions
 extern void physics_apply_force(Entity_t *entity, Vector2 force);
 extern void physics_update_with_friction(Entity_t *entity, float delta_time);
+extern void entity_destroy(Entity_t *entity);
 
 enum EntityType {
     ENTITY_TYPE_NONE = 0,
@@ -55,6 +54,7 @@ typedef struct Entity {
     bool render_sprite;
     bool selectable;
     bool destroyable;
+    float lifetime;
     UpdateFunc_t update;
 } Entity_t;
 
@@ -96,6 +96,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .render_sprite = true,
         .destroyable = true,
         .update = common_update,
+        .lifetime = 1.0f,
         .rigidbody = {
             .friction = 0.9999f,
             .max_speed = 750.0f,
@@ -114,6 +115,7 @@ void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID it
     entity->selectable = template->selectable;
     entity->destroyable = template->destroyable;
     entity->update = template->update;
+    entity->lifetime = template->lifetime;
     entity->rigidbody = template->rigidbody;
 
     if (type == ENTITY_TYPE_ITEM) {
@@ -133,6 +135,12 @@ void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
 }
 
 void common_update(Entity_t *self, float64 delta_time) {
+    if (self->lifetime > 0.0f) {
+        self->lifetime -= delta_time;
+        if (self->lifetime <= 0.0f) {
+            entity_destroy(self);
+        }
+    }
     physics_update_with_friction(self, delta_time);
 }
 
