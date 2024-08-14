@@ -1,5 +1,6 @@
 #include "animate.h"
 #include "entity.h"
+#include "pathfinding.h"
 #include "physics.h"
 #include "player.h"
 #include "range.h"
@@ -164,17 +165,35 @@ int entry(int argc, char **argv) {
             draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), world_frame->tile_mouse_pos.x, world_frame->tile_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
         }
 
-        // :entity selection
+        // :entity selection && hashmap filling
+        int hashmap_correct_entries = 0;
+        int hashmap_collisions = 0;
         {
             float min_mouse_entity_dist = PLAYER_SELECT_RANGE;
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
-                if (entity->is_valid && entity->selectable) {
-                    float mouse_to_entity_dist = absi(v2_dist(entity->position, world_frame->world_mouse_pos));
-                    float player_to_entity_dist = absi(v2_dist(entity->position, player_entity->position));
-                    if (mouse_to_entity_dist < min_mouse_entity_dist && player_to_entity_dist <= PLAYER_SELECT_RANGE) {
-                        world_frame->selected_entity = entity;
-                        min_mouse_entity_dist = mouse_to_entity_dist;
+                if (entity->is_valid) {
+                    Vector2i entity_tile_pos = world_pos_to_tile_pos(entity->position);
+                    entity_position_hashmap_insert(entity_tile_pos, entity);
+                    if (entity->selectable) {
+                        float mouse_to_entity_dist = absi(v2_dist(entity->position, world_frame->world_mouse_pos));
+                        float player_to_entity_dist = absi(v2_dist(entity->position, player_entity->position));
+                        if (mouse_to_entity_dist < min_mouse_entity_dist && player_to_entity_dist <= PLAYER_SELECT_RANGE) {
+                            world_frame->selected_entity = entity;
+                            min_mouse_entity_dist = mouse_to_entity_dist;
+                        }
+                    }
+                }
+            }
+            // Debug hashmap stats collection
+            for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
+                EntityHashEntry_t *entry = world_frame->entity_position_hashmap[i];
+                if (entry != NULL) {
+                    hashmap_correct_entries++;
+                    entry = entry->next;
+                    while (entry != NULL) {
+                        hashmap_collisions++;
+                        entry = entry->next;
                     }
                 }
             }
@@ -338,7 +357,9 @@ int entry(int argc, char **argv) {
         // :debug info
         {
             set_screen_space();
-            draw_text(font, sprint(get_temporary_allocator(), STR("Current valid entities: %u"), valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Current valid entities: %d"), valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap valid entities: %d"), hashmap_correct_entries), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 5.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap collisions: %d"), hashmap_collisions), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 10.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             set_world_space();
         }
 

@@ -2,7 +2,9 @@
 #define ENTITY_H
 
 #include "item.h"
+#include "pathfinding.h"
 #include "sprite.h"
+#include "tile.h"
 
 /* Constants */
 const float PLAYER_ITEM_COLLECT_RANGE = 8.0f;
@@ -10,6 +12,7 @@ const int PLAYER_DEFAULT_HEALTH = 100;
 const int ENEMY_DEFAULT_HEALTH = 20;
 const int ROCK_DEFAULT_HEALTH = 3;
 const int BULLET_DEFAULT_HEALTH = 1;
+const float ENEMY_PATH_UPDATE_INTERVAL = 0.33f;
 
 typedef struct Entity Entity_t;
 
@@ -23,6 +26,10 @@ void enemy_update(Entity_t *self, float64 delta_time);
 extern void physics_apply_force(Entity_t *entity, Vector2 force);
 extern void physics_update_with_friction(Entity_t *entity, float delta_time);
 extern void entity_destroy(Entity_t *entity);
+extern Entity_t *world_get_player();
+extern bool world_tile_is_occupied(Vector2i tile_pos);
+extern bool world_tile_is_occupied_close_distance(Vector2i tile_pos);
+extern Entity_t *entity_position_hashmap_get(Vector2i pos);
 
 enum EntityType {
     ENTITY_TYPE_NONE = 0,
@@ -33,6 +40,12 @@ enum EntityType {
     ENTITY_TYPE_BULLET,
     ENTITY_TYPE_MAX
 };
+
+typedef struct PathData {
+    Vector2i *path;
+    int path_length;
+    int current_path_index;
+} PathData_t;
 
 typedef struct Rigidbody {
     Vector2 velocity;
@@ -56,6 +69,8 @@ typedef struct Entity {
     bool destroyable;
     float lifetime;
     UpdateFunc_t update;
+    PathData_t path_data;
+    float path_refresh_counter;
 } Entity_t;
 
 const Entity_t ENTITY_TEMPLATES[] = {
@@ -75,6 +90,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .selectable = true,
         .destroyable = true,
         .update = enemy_update,
+        .rigidbody = {.acceleration = 32.0f, .friction = 0.98f, .max_speed = 120.0f},
     },
     [ENTITY_TYPE_ROCK] = {
         .entity_type = ENTITY_TYPE_ROCK,
@@ -134,6 +150,32 @@ void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
     entity_setup_general(entity, ENTITY_TYPE_ITEM, item_id);
 }
 
+void entity_set_target_astar(Entity_t *entity, Vector2 target) {
+    Vector2i start_tile = world_pos_to_tile_pos(entity->position);
+    Vector2i end_tile = world_pos_to_tile_pos(target);
+
+    NodeHeap_t open_set = {0};
+    NodeHeap_t closed_set = {0};
+
+    // TODO: Fix final approach/attack on the player.
+    int manhattan_distance = v2i_manhattan_distance(start_tile, end_tile);
+    IsOccupied_fn is_occupied = world_tile_is_occupied_close_distance;
+    if (manhattan_distance <= 6) {
+        is_occupied = world_tile_is_occupied_close_distance;
+    }
+    Node_t *end_node = a_star(start_tile, end_tile, is_occupied, &open_set, &closed_set);
+
+    if (end_node != NULL) {
+        if (entity->path_data.path != NULL) {
+            dealloc(get_heap_allocator(), entity->path_data.path);
+        }
+        entity->path_data.path = get_path(end_node, &entity->path_data.path_length);
+        entity->path_data.current_path_index = 0;
+    }
+
+    // NodeHeaps cleanup is not needed since it uses temprorary memory. It may be improved in the future.
+}
+
 void common_update(Entity_t *self, float64 delta_time) {
     if (self->lifetime > 0.0f) {
         self->lifetime -= delta_time;
@@ -168,7 +210,41 @@ void player_update(Entity_t *self, float64 delta_time) {
 }
 
 void enemy_update(Entity_t *self, float64 delta_time) {
-    // log("Updating enemy");
+
+    if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
+        entity_set_target_astar(self, world_get_player()->position);
+    }
+
+    if (self->path_data.path != NULL && self->path_data.current_path_index < self->path_data.path_length) {
+        // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
+        // for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
+        //     Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
+        //     draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.4));
+        // }
+
+        Vector2 target_world_pos = tile_pos_to_world_pos(self->path_data.path[self->path_data.current_path_index]);
+        Vector2 to_target = v2_sub(target_world_pos, self->position);
+        float distance_to_target = v2_length(to_target);
+
+        if (distance_to_target < 1.0f) {
+            self->path_data.current_path_index++;
+            if (self->path_refresh_counter >= ENEMY_PATH_UPDATE_INTERVAL) {
+                if (self->path_data.path == NULL || self->path_data.current_path_index != 0) {
+                    entity_set_target_astar(self, world_get_player()->position);
+                    self->rigidbody.velocity = v2(0.0, 0.0);
+                }
+                self->path_refresh_counter = 0.0f;
+            }
+        } else {
+            Vector2 direction = v2_normalize(to_target);
+            Vector2 acceleration = v2_mulf(direction, self->rigidbody.acceleration);
+            physics_apply_force(self, acceleration);
+        }
+    }
+
+    self->path_refresh_counter += delta_time;
+
+    common_update(self, delta_time);
 }
 
 bool entity_is_collectible(Entity_t *entity) {

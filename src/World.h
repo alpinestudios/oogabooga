@@ -4,12 +4,21 @@
 #include "entity.h"
 #include "item.h"
 #include "ui.h"
+#include "vector_ext.h"
 
 /* Constants */
 #define WORLD_MAX_ENTITY_COUNT 1024
 #define UI_INVENTORY_SLOTS 6
 
+typedef struct EntityHashEntry EntityHashEntry_t;
+
 /* Structs */
+typedef struct EntityHashEntry {
+    Vector2i position;
+    Entity_t *entity;
+    EntityHashEntry_t *next;
+} EntityHashEntry_t;
+
 typedef struct World {
     Entity_t entities[WORLD_MAX_ENTITY_COUNT];
     Entity_t *player;
@@ -25,11 +34,37 @@ typedef struct WorldFrame {
     Vector2i tile_mouse_pos;
     Matrix4 view;
     Matrix4 proj;
+    EntityHashEntry_t *entity_position_hashmap[WORLD_MAX_ENTITY_COUNT];
 } WorldFrame_t;
 
 /* Global variables */
 World_t *world;
 WorldFrame_t *world_frame;
+
+Entity_t *entity_position_hashmap_get(Vector2i pos) {
+    unsigned int hash = v2i_hash(pos, WORLD_MAX_ENTITY_COUNT);
+    EntityHashEntry_t *entry = world_frame->entity_position_hashmap[hash];
+    int counter = 0;
+    while (entry != NULL) {
+        counter++;
+        if (v2i_equal(entry->position, pos)) {
+            return entry->entity;
+        }
+        entry = entry->next;
+    }
+    return NULL;
+}
+
+void entity_position_hashmap_insert(Vector2i pos, Entity_t *entity) {
+    unsigned int hash = v2i_hash(pos, WORLD_MAX_ENTITY_COUNT);
+    EntityHashEntry_t *new_entry = alloc(get_temporary_allocator(), sizeof(EntityHashEntry_t));
+    new_entry->position = pos;
+    new_entry->entity = entity;
+    if (world_frame->entity_position_hashmap[hash] != NULL) {
+        new_entry->next = world_frame->entity_position_hashmap[hash];
+    }
+    world_frame->entity_position_hashmap[hash] = new_entry;
+}
 
 /* Functions */
 Entity_t *entity_create() {
@@ -104,6 +139,15 @@ void world_select_previous_item_slot() {
 void world_set_ui_state(enum UIState state) {
     assert(state >= 0 && state < UI_STATE_MAX, "UIState of %u is in a wrong range!", state);
     world->ui_state = state;
+}
+
+bool world_tile_is_occupied(Vector2i tile_pos) {
+    Entity_t *entity = entity_position_hashmap_get(tile_pos);
+    return entity != NULL && entity->entity_type != ENTITY_TYPE_PLAYER;
+}
+
+bool world_tile_is_occupied_close_distance(Vector2i tile_pos) {
+    return false;
 }
 
 #endif
