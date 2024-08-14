@@ -116,6 +116,46 @@
 
 */
 
+#define WINDOWS 0
+#define LINUX   1
+#define MACOS   2
+
+#ifdef _WIN32
+	#define COBJMACROS
+	#undef noreturn
+	#include <windows.h>
+    #if CONFIGURATION == DEBUG
+    	#include <dbghelp.h>
+    #endif
+	#define TARGET_OS WINDOWS
+	#define OS_PATHS_HAVE_BACKSLASH 1
+	#define VARIADIC_LIST_ZERO 0
+#elif defined(__linux__)
+	#define TARGET_OS LINUX
+	#define OS_PATHS_HAVE_BACKSLASH 0
+	#define VARIADIC_LIST_ZERO {0}
+	#include <limits.h>
+	#include <unistd.h>
+	#include <dlfcn.h>
+	#include <fcntl.h>
+	#include <pthread.h>
+	#include <X11/Xlib.h>
+
+	typedef struct X11_Info {
+		Display* dpy;
+		int screen;
+		Window root;
+		Window win;
+	} X11_Info;
+#elif defined(__APPLE__) && defined(__MACH__)
+	// Include whatever #Incomplete #Portability
+	#define TARGET_OS MACOS
+	#error "Macos is not supported yet";
+	#define OS_PATHS_HAVE_BACKSLASH 1
+#else
+	#error "Current OS not supported!";
+#endif
+
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 1
 #define OGB_VERSION_PATCH 3
@@ -124,8 +164,13 @@
 
 #include <math.h>
 #include <immintrin.h>
-#include <intrin.h>
 #include <stdint.h>
+
+#if TARGET_OS == WINDOWS
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -221,33 +266,6 @@ typedef u8 bool;
 	#define SIMD_ENABLE_AVX512 0
 #endif
 
-
-#define WINDOWS 0
-#define LINUX   1
-#define MACOS   2
-
-#ifdef _WIN32
-	#define COBJMACROS
-	#undef noreturn
-	#include <windows.h>
-    #if CONFIGURATION == DEBUG
-    	#include <dbghelp.h>
-    #endif
-	#define TARGET_OS WINDOWS
-	#define OS_PATHS_HAVE_BACKSLASH 1
-#elif defined(__linux__)
-	// Include whatever #Incomplete #Portability
-	#define TARGET_OS LINUX
-	#error "Linux is not supported yet";
-	#define OS_PATHS_HAVE_BACKSLASH 0
-#elif defined(__APPLE__) && defined(__MACH__)
-	// Include whatever #Incomplete #Portability
-	#define TARGET_OS MACOS
-	#error "Macos is not supported yet";
-	#define OS_PATHS_HAVE_BACKSLASH 1
-#else
-	#error "Current OS not supported!";
-#endif
 
 #if OOGABOOGA_LINK_EXTERNAL_INSTANCE
     #define ogb_instance SHARED_IMPORT extern

@@ -49,10 +49,6 @@ inline void basic_rsqrt_float32_512(float *a, float *result);
 	#error "Compiler cannot generate SSE instructions but ENABLE_SIMD was 1. Did you pass the sse flag to your compiler?"
 #endif
 
-#include <immintrin.h>
-#include <intrin.h>
-
-
 // SSE
 inline void simd_add_float32_64(float *a, float *b, float* result) {
     __m128 va = _mm_loadl_pi(_mm_setzero_ps(), (__m64*)a);
@@ -627,8 +623,13 @@ inline void simd_rsqrt_float32_512_aligned(float *a, float *result) {
 
 #endif
 
+#if TARGET_OS == WINDOWS
 double __cdecl sqrt(_In_ double _X);
 double __cdecl rsqrt(_In_ double _X);
+#else
+double sqrt(double _X); // does it _need_ cdecl?
+double rsqrt(double _X);
+#endif
 
 inline void basic_add_float32_64 (float32 *a, float32 *b, float32* result) {
 	result[0] = a[0] + b[0];

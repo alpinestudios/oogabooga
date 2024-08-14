@@ -12,6 +12,25 @@
 void 
 printf(const char* fmt, ...);
 
+#if TARGET_OS != WINDOWS
+// windows.h always includes this header
+#include <stdarg.h>
+
+// builtins must have a prefix on non-Windows targets
+#define memset __builtin_memset
+#define memcpy __builtin_memcpy
+#define memcmp __builtin_memcmp
+#define strchr __builtin_strchr
+#define strlen __builtin_strlen
+#define strcmp __builtin_strcmp
+#define strncmp __builtin_strncmp
+#define alloca __builtin_alloca
+
+// min and max are macros defined in windef.h
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
 void 
 dump_stack_trace();
 

@@ -124,7 +124,7 @@ string sprint_va_list(Allocator allocator, const string fmt, va_list args) {
 
 
 string sprints(Allocator allocator, const string fmt, ...) {
-	va_list args = 0;
+	va_list args = VARIADIC_LIST_ZERO;
 	va_start(args, fmt);
 	string s = sprint_va_list(allocator, fmt, args);
 	va_end(args);
@@ -133,7 +133,7 @@ string sprints(Allocator allocator, const string fmt, ...) {
 
 // temp allocator
 string tprints(const string fmt, ...) {
-	va_list args = 0;
+	va_list args = VARIADIC_LIST_ZERO;
 	va_start(args, fmt);
 	string s = sprint_va_list(get_temporary_allocator(), fmt, args);
 	va_end(args);
@@ -236,9 +236,9 @@ typedef void(*Logger_Proc)(Log_Level level, string s);
 void string_builder_prints(String_Builder *b, string fmt, ...) {
 	assert(b->allocator.proc, "String_Builder is missing allocator");
 	
-	va_list args1 = 0;
+	va_list args1 = VARIADIC_LIST_ZERO;
 	va_start(args1, fmt);
-	va_list args2 = 0;
+	va_list args2 = VARIADIC_LIST_ZERO;
 	va_copy(args2, args1);
 	
 	u64 formatted_count = format_string_to_buffer(0, 0, temp_convert_to_null_terminated_string(fmt), args1);
@@ -255,9 +255,9 @@ void string_builder_prints(String_Builder *b, string fmt, ...) {
 void string_builder_printf(String_Builder *b, const char *fmt, ...) {
 	assert(b->allocator.proc, "String_Builder is missing allocator");
 	
-	va_list args1 = 0;
+	va_list args1 = VARIADIC_LIST_ZERO;
 	va_start(args1, fmt);
-	va_list args2 = 0;
+	va_list args2 = VARIADIC_LIST_ZERO;
 	va_copy(args2, args1);
 	
 	u64 formatted_count = format_string_to_buffer(0, 0, fmt, args1);

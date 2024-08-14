@@ -4384,7 +4384,11 @@ static void vorbis_init(stb_vorbis *p, const stb_vorbis_alloc *z)
    p->page_crc_tests = -1;
    #ifndef STB_VORBIS_NO_STDIO
    p->close_on_free = FALSE;
+   #ifdef _WIN32
    p->f = NULL;
+   #else
+   p->f = 0;
+   #endif
    #endif
 }
 

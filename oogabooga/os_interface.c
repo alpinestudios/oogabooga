@@ -8,15 +8,11 @@
 	typedef HANDLE File;
 	
 #elif defined(__linux__)
-    #ifndef OOGABOOGA_HEADLESS
-    #define "Linux is only supported for headless builds"
-    #endif
-	typedef SOMETHING Mutex_Handle;
-	typedef SOMETHING Thread_Handle;
-	typedef SOMETHING Dynamic_Library_Handle;
-	typedef SOMETHING Window_Handle;
-	typedef SOMETHING File;
-	#error "Linux is not supported yet";
+	typedef pthread_mutex_t* Mutex_Handle;
+	typedef pthread_t* Thread_Handle;
+	typedef void* Dynamic_Library_Handle;
+	typedef X11_Info Window_Handle;
+	typedef int File;
 #elif defined(__APPLE__) && defined(__MACH__)
 	typedef SOMETHING Mutex_Handle;
 	typedef SOMETHING Thread_Handle;
