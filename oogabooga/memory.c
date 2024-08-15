@@ -647,6 +647,7 @@ void* talloc(u64 size) {
 	if ((u8*)temporary_storage_pointer >= (u8*)temporary_storage+TEMPORARY_STORAGE_SIZE) {
 		if (!has_warned_temporary_storage_overflow) {
 			os_write_string_to_stdout(STR("WARNING: temporary storage was overflown, we wrap around at the start.\n"));
+			has_warned_temporary_storage_overflow = true;
 		}
 		temporary_storage_pointer = temporary_storage;
 		return talloc(size);;
@@ -657,7 +658,7 @@ void* talloc(u64 size) {
 
 void reset_temporary_storage() {
 	temporary_storage_pointer = temporary_storage;	
-	has_warned_temporary_storage_overflow = true;
+	has_warned_temporary_storage_overflow = false;
 }
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
