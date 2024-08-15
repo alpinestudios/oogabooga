@@ -27,6 +27,18 @@ enum EntityType {
     ENTITY_TYPE_MAX
 };
 
+enum EntityState {
+    ENTITY_STATE_NONE = 0,
+    ENTITY_STATE_ROLL,
+    ENTITY_STATE_MAX
+};
+
+const char *EntityStateStr[] = {
+    [ENTITY_STATE_NONE] = "ENTITY_STATE_NONE",
+    [ENTITY_STATE_ROLL] = "ENTITY_STATE_ROLL",
+    [ENTITY_STATE_MAX] = "ENTITY_STATE_MAX",
+};
+
 typedef struct PathData {
     Vector2i *path;
     int path_length;
@@ -36,7 +48,6 @@ typedef struct PathData {
 typedef struct Rigidbody {
     Vector2 velocity;
     float acceleration;
-    float max_speed;
     float friction;
 } Rigidbody_t;
 
@@ -59,6 +70,8 @@ typedef struct Entity {
     PathData_t path_data;
     float path_refresh_counter;
     Vector2i target_prev_calc_pos;
+    enum EntityState state;
+    float state_reset_counter;
 } Entity_t;
 
 void common_update(Entity_t *self, float64 delta_time);
@@ -67,13 +80,19 @@ void enemy_update(Entity_t *self, float64 delta_time);
 
 // External functions
 extern void physics_apply_force(Entity_t *entity, Vector2 force);
-extern void physics_update_with_friction(Entity_t *entity, float delta_time);
+extern void physics_update_with_friction(Entity_t *entity, float delta_time, float friction_factor);
 extern void entity_destroy(Entity_t *entity);
 extern Entity_t *world_get_player();
 extern bool world_tile_is_occupied(Vector2i tile_pos);
 extern bool world_tile_is_occupied_close_distance(Vector2i tile_pos);
 extern bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos);
 extern Entity_t *entity_position_hashmap_get(Vector2i pos);
+
+const float ENTITY_STATE_FRICTION_TABLE[] = {
+    [ENTITY_STATE_NONE] = 0.97f,
+    [ENTITY_STATE_ROLL] = 1.0f,
+    [ENTITY_STATE_MAX] = 0.0f,
+};
 
 const Entity_t ENTITY_TEMPLATES[] = {
     [ENTITY_TYPE_PLAYER] = {
@@ -82,7 +101,10 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .health = PLAYER_DEFAULT_HEALTH,
         .render_sprite = true,
         .update = player_update,
-        .rigidbody = {.acceleration = 10.0f, .friction = 0.95f, .max_speed = 500.0f},
+        .rigidbody = {
+            .acceleration = 8.0f,
+            .friction = 0.97f,
+        },
     },
     [ENTITY_TYPE_SNAIL] = {
         .entity_type = ENTITY_TYPE_SNAIL,
@@ -92,7 +114,10 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .selectable = true,
         .destroyable = true,
         .update = enemy_update,
-        .rigidbody = {.acceleration = 32.0f, .friction = 0.95f, .max_speed = 64.0f},
+        .rigidbody = {
+            .acceleration = 4.0f,
+            .friction = 0.97f,
+        },
     },
     [ENTITY_TYPE_ROCK] = {
         .entity_type = ENTITY_TYPE_ROCK,
@@ -119,8 +144,8 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .lifetime = 1.0f,
         .is_walkable = true,
         .rigidbody = {
+            .acceleration = 960.0f,
             .friction = 0.9999f,
-            .max_speed = 750.0f,
         },
     },
 };
@@ -156,6 +181,14 @@ void entity_setup_item(Entity_t *entity, enum ItemID item_id) {
     entity_setup_general(entity, ENTITY_TYPE_ITEM, item_id);
 }
 
+void entity_set_state(Entity_t *self, enum EntityState state) {
+    self->state = state;
+}
+
+void entity_set_sprite(Entity_t *self, enum SpriteID sprite_id) {
+    self->spriteID = sprite_id;
+}
+
 void entity_set_target_astar(Entity_t *entity, Vector2 target) {
     Vector2i start_tile = world_pos_to_tile_pos(entity->position);
     Vector2i end_tile = world_pos_to_tile_pos(target);
@@ -185,7 +218,12 @@ void common_update(Entity_t *self, float64 delta_time) {
             entity_destroy(self);
         }
     }
-    physics_update_with_friction(self, delta_time);
+
+    float friction_factor = self->rigidbody.friction;
+    if (self->state > 0 && self->state < ENTITY_STATE_MAX) {
+        friction_factor = ENTITY_STATE_FRICTION_TABLE[self->state];
+    }
+    physics_update_with_friction(self, delta_time, friction_factor);
 }
 
 void player_update(Entity_t *self, float64 delta_time) {
@@ -203,10 +241,22 @@ void player_update(Entity_t *self, float64 delta_time) {
         movement_force.y += 1.0f;
     }
 
-    movement_force = v2_normalize(movement_force);
-    movement_force = v2_mulf(movement_force, self->rigidbody.acceleration);
+    if (self->state != ENTITY_STATE_NONE) {
+        self->state_reset_counter += delta_time;
+    }
 
-    physics_apply_force(self, movement_force);
+    const float PLAYER_ROLL_TIME = 0.10f;
+    if (self->state_reset_counter >= PLAYER_ROLL_TIME) {
+        entity_set_state(self, ENTITY_STATE_NONE);
+        entity_set_sprite(self, SPRITE_ID_PLAYER);
+        self->state_reset_counter = 0.0f;
+    }
+
+    if (self->state != ENTITY_STATE_ROLL) {
+        movement_force = v2_normalize(movement_force);
+        movement_force = v2_mulf(movement_force, self->rigidbody.acceleration);
+        physics_apply_force(self, movement_force);
+    }
 
     common_update(self, delta_time);
 }

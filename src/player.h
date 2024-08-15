@@ -13,21 +13,31 @@ void player_shoot(Vector2 target) {
     entity_setup(bullet, ENTITY_TYPE_BULLET);
     bullet->position = player->position;
 
-    Vector2 direction = v2_sub(target, player->position);
-    direction = v2_normalize(direction);
-    direction = v2_mulf(direction, bullet->rigidbody.max_speed);
+    Vector2 bullet_force = v2_sub(target, player->position);
+    bullet_force = v2_normalize(bullet_force);
+    bullet_force = v2_mulf(bullet_force, bullet->rigidbody.acceleration);
 
     // Apply knockback
-    physics_apply_force(player, v2_mulf(direction, -GUN_KNOCKBACK_FACTOR));
+    physics_apply_force(player, v2_mulf(bullet_force, -GUN_KNOCKBACK_FACTOR));
 
     // Compensate player's velocity
-    direction = v2_add(direction, player->rigidbody.velocity);
+    bullet_force = v2_add(bullet_force, player->rigidbody.velocity);
 
     // Apply force to the bullet
-    physics_apply_force(bullet, direction);
+    physics_apply_force(bullet, bullet_force);
 
     // TODO: Play sound here
     // play_sound(SOUND_PLAYER_SHOOT);
+}
+
+void player_roll(Vector2 direction, float roll_strength) {
+    Entity_t *player = world_get_player();
+    Vector2 roll_force = v2_mulf(direction, roll_strength);
+    entity_set_state(player, ENTITY_STATE_ROLL);
+    entity_set_sprite(player, SPRITE_ID_PLAYER_ROLL);
+    player->state_reset_counter = 0.0f;
+    player->rigidbody.velocity = v2(0.0, 0.0);
+    physics_apply_force(player, roll_force);
 }
 
 #endif

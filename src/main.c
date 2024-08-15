@@ -67,6 +67,7 @@ int entry(int argc, char **argv) {
     {
         /* General */
         load_sprite(fixed_string("src/res/sprites/player.png"), SPRITE_ID_PLAYER);
+        load_sprite(fixed_string("src/res/sprites/player_roll.png"), SPRITE_ID_PLAYER_ROLL);
         load_sprite(fixed_string("src/res/sprites/snail_01.png"), SPRITE_ID_SNAIL_01);
         load_sprite(fixed_string("src/res/sprites/gun_01.png"), SPRITE_ID_GUN_01);
         load_sprite(fixed_string("src/res/sprites/bullet_01.png"), SPRITE_ID_BULLET_01);
@@ -296,16 +297,12 @@ int entry(int argc, char **argv) {
             }
         }
 
-        // if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) { // TODO: Go further with rolling mechanism
-        //     consume_key_just_pressed(MOUSE_BUTTON_RIGHT);
-        //     Entity_t *player_entity = world_get_player();
-
-        //     Vector2 direction = v2_sub(world_frame->world_mouse_pos, player_entity->position);
-        //     direction = v2_normalize(direction);
-        //     Vector2 force = v2_mulf(direction, 500.0f);
-
-        //     physics_apply_force(player_entity, force);
-        // }
+        if (is_key_just_pressed(KEY_SPACEBAR)) {
+            const float ROLL_ACCELERATION = v2_length(player_entity->rigidbody.velocity) * 2.0f;
+            consume_key_just_pressed(KEY_SPACEBAR);
+            Vector2 player_move_direction = v2_normalize(player_entity->rigidbody.velocity);
+            player_roll(player_move_direction, ROLL_ACCELERATION);
+        }
 
         // :debug player's velocity line
         {
@@ -365,6 +362,8 @@ int entry(int argc, char **argv) {
             draw_text(font, sprint(get_temporary_allocator(), STR("Current valid entities: %d"), valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
             draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap valid entities: %d"), hashmap_correct_entries), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 5.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap collisions: %d"), hashmap_collisions), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 10.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Player state: %s"), fixed_string(EntityStateStr[player_entity->state])), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 15.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Player state counter: %.02f"), player_entity->state_reset_counter), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 20.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             set_world_space();
         }
 

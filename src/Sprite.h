@@ -7,6 +7,7 @@ enum SpriteID {
     SPRITE_ID_NONE = 0,
     // Entities
     SPRITE_ID_PLAYER,
+    SPRITE_ID_PLAYER_ROLL,
     SPRITE_ID_SNAIL_01,
     SPRITE_ID_ROCK_01,
     // Items
