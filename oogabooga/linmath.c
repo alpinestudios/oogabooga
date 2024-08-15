@@ -181,15 +181,11 @@ Vector2 v2_rotate_point_around_pivot(Vector2 point, Vector2 pivot, float32 rotat
     float32 s = sin(rotation_radians);
     float32 c = cos(rotation_radians);
 
-    point.x -= pivot.x;
-    point.y -= pivot.y;
     point = v2_sub(point, pivot);
 
     float32 x_new = point.x * c - point.y * s;
     float32 y_new = point.x * s + point.y * c;
 
-    point.x = x_new + pivot.x;
-    point.y = y_new + pivot.y;
     point = v2_add(v2(x_new, y_new), pivot);
 
     return point;
