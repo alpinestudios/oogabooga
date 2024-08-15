@@ -138,6 +138,7 @@ void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID it
     entity->update = template->update;
     entity->lifetime = template->lifetime;
     entity->rigidbody = template->rigidbody;
+    entity->is_walkable = template->is_walkable;
 
     if (type == ENTITY_TYPE_ITEM) {
         assert(item_id >= ITEM_ID_NONE && item_id < ITEM_ID_MAX, "ItemID of %u is in a wrong range!", item_id);
