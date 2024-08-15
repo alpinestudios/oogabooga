@@ -223,12 +223,8 @@ void entity_refresh_path(Entity_t *self, Vector2 target, float update_interval) 
     }
 }
 
-void enemy_update(Entity_t *self, float64 delta_time) {
-
-    if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
-        entity_set_target_astar(self, world_get_player()->position);
-    }
-
+// TODO: There's still bug with static and dynamic entities avoidance; To be fixed
+void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
     if (self->path_data.path != NULL && self->path_data.current_path_index < self->path_data.path_length) {
         // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
         for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
@@ -251,7 +247,15 @@ void enemy_update(Entity_t *self, float64 delta_time) {
     }
 
     self->path_refresh_counter += delta_time;
+}
 
+void enemy_update(Entity_t *self, float64 delta_time) {
+
+    if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
+        entity_set_target_astar(self, world_get_player()->position);
+    }
+
+    enemy_path_movement_update(self, delta_time);
     common_update(self, delta_time);
 }
 
