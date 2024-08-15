@@ -143,7 +143,12 @@ void world_set_ui_state(enum UIState state) {
 
 bool world_tile_is_occupied(Vector2i tile_pos) {
     Entity_t *entity = entity_position_hashmap_get(tile_pos);
-    return entity != NULL && entity->entity_type != ENTITY_TYPE_PLAYER;
+    return entity != NULL && entity->is_valid && entity->is_walkable == false;
+}
+
+bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos) {
+    Entity_t *other = entity_position_hashmap_get(tile_pos);
+    return self != other && other != NULL && other->is_valid && other->is_walkable == false;
 }
 
 bool world_tile_is_occupied_close_distance(Vector2i tile_pos) {

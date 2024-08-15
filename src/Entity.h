@@ -29,6 +29,7 @@ extern void entity_destroy(Entity_t *entity);
 extern Entity_t *world_get_player();
 extern bool world_tile_is_occupied(Vector2i tile_pos);
 extern bool world_tile_is_occupied_close_distance(Vector2i tile_pos);
+extern bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos);
 extern Entity_t *entity_position_hashmap_get(Vector2i pos);
 
 enum EntityType {
@@ -67,6 +68,7 @@ typedef struct Entity {
     bool render_sprite;
     bool selectable;
     bool destroyable;
+    bool is_walkable;
     float lifetime;
     UpdateFunc_t update;
     PathData_t path_data;
@@ -104,6 +106,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .entity_type = ENTITY_TYPE_ITEM,
         .render_sprite = true,
         .selectable = true,
+        .is_walkable = true,
     },
     [ENTITY_TYPE_BULLET] = {
         .entity_type = ENTITY_TYPE_BULLET,
@@ -113,6 +116,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .destroyable = true,
         .update = common_update,
         .lifetime = 1.0f,
+        .is_walkable = true,
         .rigidbody = {
             .friction = 0.9999f,
             .max_speed = 750.0f,
@@ -209,6 +213,16 @@ void player_update(Entity_t *self, float64 delta_time) {
     common_update(self, delta_time);
 }
 
+void entity_refresh_path(Entity_t *self, Vector2 target, float update_interval) {
+    if (self->path_refresh_counter >= update_interval) {
+        if (self->path_data.path == NULL || self->path_data.current_path_index != 0) {
+            entity_set_target_astar(self, target);
+            self->rigidbody.velocity = v2(0.0, 0.0);
+        }
+        self->path_refresh_counter = 0.0f;
+    }
+}
+
 void enemy_update(Entity_t *self, float64 delta_time) {
 
     if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
@@ -217,10 +231,10 @@ void enemy_update(Entity_t *self, float64 delta_time) {
 
     if (self->path_data.path != NULL && self->path_data.current_path_index < self->path_data.path_length) {
         // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
-        // for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
-        //     Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
-        //     draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.4));
-        // }
+        for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
+            Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
+            draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.15));
+        }
 
         Vector2 target_world_pos = tile_pos_to_world_pos(self->path_data.path[self->path_data.current_path_index]);
         Vector2 to_target = v2_sub(target_world_pos, self->position);
@@ -228,13 +242,7 @@ void enemy_update(Entity_t *self, float64 delta_time) {
 
         if (distance_to_target < 1.0f) {
             self->path_data.current_path_index++;
-            if (self->path_refresh_counter >= ENEMY_PATH_UPDATE_INTERVAL) {
-                if (self->path_data.path == NULL || self->path_data.current_path_index != 0) {
-                    entity_set_target_astar(self, world_get_player()->position);
-                    self->rigidbody.velocity = v2(0.0, 0.0);
-                }
-                self->path_refresh_counter = 0.0f;
-            }
+            entity_refresh_path(self, world_get_player()->position, ENEMY_PATH_UPDATE_INTERVAL);
         } else {
             Vector2 direction = v2_normalize(to_target);
             Vector2 acceleration = v2_mulf(direction, self->rigidbody.acceleration);
