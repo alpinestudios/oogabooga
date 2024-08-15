@@ -4,6 +4,8 @@
 #include "entity.h"
 #include "world.h"
 
+const float GUN_KNOCKBACK_FACTOR = 0.15f;
+
 void player_shoot(Vector2 target) {
     Entity_t *player = world_get_player();
 
@@ -16,7 +18,7 @@ void player_shoot(Vector2 target) {
     direction = v2_mulf(direction, bullet->rigidbody.max_speed);
 
     // Apply knockback
-    physics_apply_force(player, v2_mulf(direction, -0.15));
+    physics_apply_force(player, v2_mulf(direction, -GUN_KNOCKBACK_FACTOR));
 
     // Compensate player's velocity
     direction = v2_add(direction, player->rigidbody.velocity);

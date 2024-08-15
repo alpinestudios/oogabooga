@@ -211,10 +211,15 @@ int entry(int argc, char **argv) {
                     int y_pos = (y * TILE_WIDTH);
 
                     Vector2i world_tile_pos_in_tile_pos = world_pos_to_tile_pos(v2(x_pos + TILE_OFFSET, y_pos));
-                    if (world_tile_pos_in_tile_pos.x == world_frame->tile_mouse_pos.x && world_tile_pos_in_tile_pos.y == world_frame->tile_mouse_pos.y) {
-                        draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR_HOVER);
-                    } else if ((x + (y % 2 == 0)) % 2 == 0) {
-                        draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR);
+
+                    if (world_tile_is_occupied(world_tile_pos_in_tile_pos)) {
+                        draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), COLOR_BLUE);
+                    } else {
+                        if (world_tile_pos_in_tile_pos.x == world_frame->tile_mouse_pos.x && world_tile_pos_in_tile_pos.y == world_frame->tile_mouse_pos.y) {
+                            draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR_HOVER);
+                        } else if ((x + (y % 2 == 0)) % 2 == 0) {
+                            draw_rect(v2(x_pos, y_pos), v2(TILE_WIDTH, TILE_WIDTH), TILE_GRID_COLOR);
+                        }
                     }
                 }
             }

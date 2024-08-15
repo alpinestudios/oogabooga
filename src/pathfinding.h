@@ -6,9 +6,10 @@
 
 // Note: Pathfinding algorithm implementation is based on temporary allocator.
 
-typedef struct Node Node_t;
+const int A_STAR_MAX_SET_SIZE = 128;
 
-typedef bool (*IsOccupied_fn)(Vector2i);
+typedef struct Entity Entity_t;
+typedef struct Node Node_t;
 
 typedef struct Node {
     Vector2i position;
@@ -22,6 +23,8 @@ typedef struct NodeHeap {
     int size;
     int capacity;
 } NodeHeap_t;
+
+typedef bool (*IsOccupied_fn)(Vector2i);
 
 void add_to_heap(NodeHeap_t *heap, Node_t *node) {
     if (heap->size >= heap->capacity) {
@@ -96,6 +99,12 @@ void remove_from_heap(NodeHeap_t *heap, Node_t *node) {
     }
 }
 
+void heap_print_nodes(NodeHeap_t *heap) {
+    for (size_t i = 0; i < heap->size; i++) {
+        log("(%d, %d) -> ", v2_expand(heap->nodes[i]->position));
+    }
+}
+
 Node_t *get_lowest_f_cost(NodeHeap_t *heap) {
     if (heap->size == 0)
         return NULL;
@@ -138,7 +147,7 @@ Node_t *a_star(Vector2i start, Vector2i end, IsOccupied_fn is_occupied, NodeHeap
 
     add_to_heap(open_set, start_node);
 
-    while (open_set->size > 0) {
+    while (open_set->size > 0 && open_set->size < A_STAR_MAX_SET_SIZE && closed_set->size < A_STAR_MAX_SET_SIZE) {
         Node_t *current = get_lowest_f_cost(open_set);
         remove_from_heap(open_set, current);
         add_to_heap(closed_set, current);
@@ -154,7 +163,8 @@ Node_t *a_star(Vector2i start, Vector2i end, IsOccupied_fn is_occupied, NodeHeap
             {current->position.x, current->position.y - 1}};
 
         for (int i = 0; i < 4; i++) {
-            if (is_occupied(neighbors[i]) || is_in_heap_v2i(closed_set, neighbors[i])) {
+            if (!(neighbors[i].x == end.x && neighbors[i].y == end.y) &&
+                (is_occupied(neighbors[i]) || is_in_heap_v2i(closed_set, neighbors[i]))) {
                 continue;
             }
 
@@ -176,7 +186,12 @@ Node_t *a_star(Vector2i start, Vector2i end, IsOccupied_fn is_occupied, NodeHeap
             }
         }
     }
-
+    // TODO: Remove in the future
+    // log("Route not found!");
+    // log("[OPEN_SET]");
+    // heap_print_nodes(open_set);
+    // log("[CLOSED_SET]");
+    // heap_print_nodes(closed_set);
     return NULL; // No path found
 }
 

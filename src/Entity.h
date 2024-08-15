@@ -12,25 +12,10 @@ const int PLAYER_DEFAULT_HEALTH = 100;
 const int ENEMY_DEFAULT_HEALTH = 20;
 const int ROCK_DEFAULT_HEALTH = 3;
 const int BULLET_DEFAULT_HEALTH = 1;
-const float ENEMY_PATH_UPDATE_INTERVAL = 0.33f;
+const float ENEMY_PATH_UPDATE_INTERVAL = 2.5f;
 
 typedef struct Entity Entity_t;
-
 typedef void (*UpdateFunc_t)(Entity_t *self, float64 deltaTime);
-
-void common_update(Entity_t *self, float64 delta_time);
-void player_update(Entity_t *self, float64 delta_time);
-void enemy_update(Entity_t *self, float64 delta_time);
-
-// External functions
-extern void physics_apply_force(Entity_t *entity, Vector2 force);
-extern void physics_update_with_friction(Entity_t *entity, float delta_time);
-extern void entity_destroy(Entity_t *entity);
-extern Entity_t *world_get_player();
-extern bool world_tile_is_occupied(Vector2i tile_pos);
-extern bool world_tile_is_occupied_close_distance(Vector2i tile_pos);
-extern bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos);
-extern Entity_t *entity_position_hashmap_get(Vector2i pos);
 
 enum EntityType {
     ENTITY_TYPE_NONE = 0,
@@ -73,7 +58,22 @@ typedef struct Entity {
     UpdateFunc_t update;
     PathData_t path_data;
     float path_refresh_counter;
+    Vector2i target_prev_calc_pos;
 } Entity_t;
+
+void common_update(Entity_t *self, float64 delta_time);
+void player_update(Entity_t *self, float64 delta_time);
+void enemy_update(Entity_t *self, float64 delta_time);
+
+// External functions
+extern void physics_apply_force(Entity_t *entity, Vector2 force);
+extern void physics_update_with_friction(Entity_t *entity, float delta_time);
+extern void entity_destroy(Entity_t *entity);
+extern Entity_t *world_get_player();
+extern bool world_tile_is_occupied(Vector2i tile_pos);
+extern bool world_tile_is_occupied_close_distance(Vector2i tile_pos);
+extern bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos);
+extern Entity_t *entity_position_hashmap_get(Vector2i pos);
 
 const Entity_t ENTITY_TEMPLATES[] = {
     [ENTITY_TYPE_PLAYER] = {
@@ -101,6 +101,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .render_sprite = true,
         .selectable = true,
         .destroyable = true,
+        .is_walkable = false,
     },
     [ENTITY_TYPE_ITEM] = {
         .entity_type = ENTITY_TYPE_ITEM,
@@ -161,12 +162,7 @@ void entity_set_target_astar(Entity_t *entity, Vector2 target) {
     NodeHeap_t open_set = {0};
     NodeHeap_t closed_set = {0};
 
-    // TODO: Fix final approach/attack on the player.
-    int manhattan_distance = v2i_manhattan_distance(start_tile, end_tile);
-    IsOccupied_fn is_occupied = world_tile_is_occupied_close_distance;
-    if (manhattan_distance <= 6) {
-        is_occupied = world_tile_is_occupied_close_distance;
-    }
+    IsOccupied_fn is_occupied = world_tile_is_occupied;
     Node_t *end_node = a_star(start_tile, end_tile, is_occupied, &open_set, &closed_set);
 
     if (end_node != NULL) {
@@ -177,6 +173,7 @@ void entity_set_target_astar(Entity_t *entity, Vector2 target) {
         entity->path_data.current_path_index = 0;
     }
 
+    entity->target_prev_calc_pos = end_tile;
     // NodeHeaps cleanup is not needed since it uses temprorary memory. It may be improved in the future.
 }
 
@@ -214,22 +211,20 @@ void player_update(Entity_t *self, float64 delta_time) {
 }
 
 void entity_refresh_path(Entity_t *self, Vector2 target, float update_interval) {
-    if (self->path_refresh_counter >= update_interval) {
-        if (self->path_data.path == NULL || self->path_data.current_path_index != 0) {
-            entity_set_target_astar(self, target);
-            self->rigidbody.velocity = v2(0.0, 0.0);
-        }
+    bool target_pos_changed = self->path_data.path != NULL && !v2i_equal(self->target_prev_calc_pos, world_pos_to_tile_pos(target));
+    if (self->path_refresh_counter >= update_interval || target_pos_changed) {
+        entity_set_target_astar(self, target);
+        self->rigidbody.velocity = v2(0.0, 0.0);
         self->path_refresh_counter = 0.0f;
     }
 }
 
-// TODO: There's still bug with static and dynamic entities avoidance; To be fixed
 void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
     if (self->path_data.path != NULL && self->path_data.current_path_index < self->path_data.path_length) {
         // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
         for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
             Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
-            draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.15));
+            draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.1));
         }
 
         Vector2 target_world_pos = tile_pos_to_world_pos(self->path_data.path[self->path_data.current_path_index]);
@@ -250,10 +245,24 @@ void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
 }
 
 void enemy_update(Entity_t *self, float64 delta_time) {
+    Entity_t *player = world_get_player();
 
     if (is_key_just_pressed(MOUSE_BUTTON_RIGHT)) {
-        entity_set_target_astar(self, world_get_player()->position);
+        entity_set_target_astar(self, player->position);
     }
+
+    if (self->path_data.path == NULL) {
+        entity_refresh_path(self, world_get_player()->position, ENEMY_PATH_UPDATE_INTERVAL);
+    }
+
+    // TODO: Think how to apply knockback effect.
+    // float distance_to_player = v2_dist(self->position, player->position);
+    // float knockback_strength = 48.0f;
+    // Vector2 force = v2_mulf(v2_normalize(v2_sub(player->position, self->position)), knockback_strength);
+    // if (distance_to_player <= 24.0f) {
+    //     physics_apply_force(player, force);
+    //     // physics_apply_force(self, v2_mulf(force, -1.0f));
+    // }
 
     enemy_path_movement_update(self, delta_time);
     common_update(self, delta_time);
