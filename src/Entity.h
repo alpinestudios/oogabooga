@@ -92,7 +92,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .selectable = true,
         .destroyable = true,
         .update = enemy_update,
-        .rigidbody = {.acceleration = 32.0f, .friction = 0.98f, .max_speed = 120.0f},
+        .rigidbody = {.acceleration = 32.0f, .friction = 0.95f, .max_speed = 64.0f},
     },
     [ENTITY_TYPE_ROCK] = {
         .entity_type = ENTITY_TYPE_ROCK,
@@ -222,10 +222,10 @@ void entity_refresh_path(Entity_t *self, Vector2 target, float update_interval) 
 void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
     if (self->path_data.path != NULL && self->path_data.current_path_index < self->path_data.path_length) {
         // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
-        for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
-            Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
-            draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.1));
-        }
+        // for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
+        //     Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
+        //     draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.1));
+        // }
 
         Vector2 target_world_pos = tile_pos_to_world_pos(self->path_data.path[self->path_data.current_path_index]);
         Vector2 to_target = v2_sub(target_world_pos, self->position);
@@ -239,6 +239,8 @@ void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
             Vector2 acceleration = v2_mulf(direction, self->rigidbody.acceleration);
             physics_apply_force(self, acceleration);
         }
+    } else {
+        self->rigidbody.velocity = v2(0.0, 0.0);
     }
 
     self->path_refresh_counter += delta_time;
