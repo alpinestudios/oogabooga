@@ -96,7 +96,7 @@ void spinlock_acquire_or_wait(Spinlock* l) {
 }
 // Returns true on aquired, false if timeout seconds reached
 bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds) {
-    f64 start = os_get_current_time_in_seconds();
+    f64 start = os_get_elapsed_seconds();
 	while (true) {
         bool expected = false;
         if (compare_and_swap_bool(&l->locked, true, expected)) {
@@ -104,7 +104,7 @@ bool spinlock_acquire_or_wait_timeout(Spinlock* l, f64 timeout_seconds) {
         }
         while (l->locked) {
             // spinny boi
-            if ((os_get_current_time_in_seconds()-start) >= timeout_seconds) return false;
+            if ((os_get_elapsed_seconds()-start) >= timeout_seconds) return false;
         }
     }
     return true;

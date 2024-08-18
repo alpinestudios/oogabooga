@@ -1,3 +1,8 @@
+## v0.01.004
+	- Misc
+		- Reworked os_get_current_time_in_seconds() -> os_get_elapsed_seconds()
+			Now returns seconds sincs app init.
+		- draw_frame.view -> draw_frame.camera_xform (deprecated .view)
 
 ## v0.01.003 - Mouse pointers, Audio improvement & features, bug fixes
 	- Os layer

@@ -163,10 +163,12 @@ os_high_precision_sleep(f64 ms);
 // Time
 ///
 
-DEPRECATED(u64 os_get_current_cycle_count(), "use rdtsc() instead");
+float64 ogb_instance
+DEPRECATED(os_get_current_time_in_seconds(), "Use os_get_elapsed_seconds() instead");
 
 float64 ogb_instance
-os_get_current_time_in_seconds();
+os_get_elapsed_seconds();
+
 
 ///
 ///

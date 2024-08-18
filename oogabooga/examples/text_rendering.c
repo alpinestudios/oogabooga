@@ -29,7 +29,7 @@ int entry(int argc, char **argv) {
 		draw_text(font, STR("I am text"), font_height, v2(-2, 2), v2(1, 1), COLOR_BLACK);
 		draw_text(font, STR("I am text"), font_height, v2(0, 0),  v2(1, 1), COLOR_WHITE);
 		
-		float now = (float)os_get_current_time_in_seconds();
+		float now = (float)os_get_elapsed_seconds();
 		float animated_x = sin(now*0.1)*(window.width*0.5);
 		
 		// UTF-8 !

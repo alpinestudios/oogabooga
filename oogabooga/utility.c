@@ -13,27 +13,25 @@
 void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_size, u64 sort_value_offset_in_item, u64 number_of_bits) {
     local_persist const int RADIX = 256;
     local_persist const int BITS_PER_PASS = 8;
-    local_persist const int MASK = (RADIX - 1);
     
     const int PASS_COUNT = ((number_of_bits + BITS_PER_PASS - 1) / BITS_PER_PASS);
-    const u64 SIGN_SHIFT = 1ULL << (number_of_bits - 1);
+    const u64 HALF_RANGE_OF_VALUE_BITS = 1ULL << (number_of_bits - 1);
 
-    u64* count = (u64*)alloc(get_temporary_allocator(), RADIX * sizeof(u64));
-    u64* prefix_sum = (u64*)alloc(get_temporary_allocator(), RADIX * sizeof(u64));
-    u8* items = (u8*)collection;
-    u8* buffer = (u8*)help_buffer;
+    u64 count[RADIX];
+    u64 prefix_sum[RADIX];
 
     for (u32 pass = 0; pass < PASS_COUNT; ++pass) {
         u32 shift = pass * BITS_PER_PASS;
 
-        for (u32 i = 0; i < RADIX; ++i) {
-            count[i] = 0;
-        }
+        memset(count, 0, sizeof(count));
 
         for (u64 i = 0; i < item_count; ++i) {
-            u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            sort_value += SIGN_SHIFT; 
-            u32 digit = (sort_value >> shift) & MASK;
+        	u8 *item = (u8*)collection + i * item_size;
+        	
+            u64 sort_value = *(u64*)(item + sort_value_offset_in_item);
+            sort_value += HALF_RANGE_OF_VALUE_BITS; // We treat the value as a signed integer
+            
+            u32 digit = (sort_value >> shift) & (RADIX-1);
             ++count[digit];
         }
 
@@ -43,14 +41,17 @@ void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
         }
 
         for (u64 i = 0; i < item_count; ++i) {
-            u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            u64 transformed_value = sort_value + SIGN_SHIFT;
-            u32 digit = (transformed_value >> shift) & MASK;
-            memcpy(buffer + prefix_sum[digit] * item_size, items + i * item_size, item_size);
+        	u8 *item = (u8*)collection + i * item_size;
+        	
+            u64 sort_value = *(u64*)(item + sort_value_offset_in_item);
+            sort_value += HALF_RANGE_OF_VALUE_BITS; // We treat the value as a signed integer
+            
+            u32 digit = (sort_value >> shift) & (RADIX-1);
+            memcpy((u8*)help_buffer + prefix_sum[digit] * item_size, item, item_size);
             ++prefix_sum[digit];
         }
 
-        memcpy(items, buffer, item_count * item_size);
+        memcpy(collection, help_buffer, item_count * item_size);
     }
 }
 

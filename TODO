@@ -1,4 +1,7 @@
+
 - Gamepad
+
+- Compile with msys2, cygwin, mingw64
 
 - Audio
 	- Allow audio programming
