@@ -43,6 +43,14 @@ typedef union Vector4 {
 inline Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
 #define v4_expand(v) (v).x, (v).y, (v).z, (v).w
 
+const Vector2 v2_one = {1, 1};
+const Vector3 v3_one = {1, 1, 1};
+const Vector4 v4_one = {1, 1, 1, 1};
+
+const Vector2 v2_zero = {0, 0};
+const Vector3 v3_zero = {0, 0, 0};
+const Vector4 v4_zero = {0, 0, 0, 0};
+
 inline Vector2 v2_add(Vector2 a, Vector2 b) {
 	return v2(a.x+b.x, a.y+b.y);
 }

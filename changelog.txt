@@ -1,8 +1,48 @@
 ## v0.01.004
+	- Input
+		- Added Gamepad support
+			- Gamepad keycodes for buttons & clicks
+			- input_frame.left_stick .right_stick .left_trigger .right_trigger
+			- event.gamepad_index for key inputs if it's from the gamepad
+			- INPUT_EVENT_GAMEPAD_AXIS for same axes but in events and with the event.gamepad_index set
+			- Deadzone globals:
+				Vector2 deadzone_left_stick
+				Vector2 deadzone_right_stick
+				float32 deadzone_left_trigger
+				float32 deadzone_right_trigger
+			- Vibration
+				set_gamepad_vibration(float32 left, float32 right)
+				set_specific_gamepad_vibration(int gamepad_index, float32 left, float32 right)
+				
+	- Text
+		- Implemented word-wrapping text into lines with
+			split_text_to_lines_with_wrapping()
+		- Added Gfx_Font_Metrics.new_line_offset for an exact value for how much you should decrement the Y on newline
+		
+	- strings
+		- Added some utf8 helpers
+			utf8_index_to_byte_index()
+			utf8_slice()
+		- Added whitespace trimming helpers
+			string_trim() (trim right & left)
+			string_trim_left()
+			string_trim_right()
+			
 	- Misc
+		- input_example.c
 		- Reworked os_get_current_time_in_seconds() -> os_get_elapsed_seconds()
 			Now returns seconds sincs app init.
 		- draw_frame.view -> draw_frame.camera_xform (deprecated .view)
+		- Unecessary refactoring in drawing.c
+		- Fixed temporary storage overflow warning (contributor kacpercwiklinski f9bf7ff)
+		- Added build.sh for building on linux (contributor 0xf0adc 90f00b)
+		- Added linmath constants
+			v2_one
+			v3_one
+			v4_one
+			v2_zero
+			v3_zero
+			v4_zero
 
 ## v0.01.003 - Mouse pointers, Audio improvement & features, bug fixes
 	- Os layer
