@@ -69,7 +69,7 @@ typedef struct Draw_Frame {
 
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
-ogb_instance Draw_Frame draw_frame = {0};
+ogb_instance Draw_Frame draw_frame;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 Draw_Frame draw_frame;

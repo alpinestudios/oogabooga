@@ -1,4 +1,4 @@
-## v0.01.004
+## v0.01.004 - Gamepad input, text wrapping, bug fixes
 	- Input
 		- Added Gamepad support
 			- Gamepad keycodes for buttons & clicks
@@ -34,8 +34,8 @@
 			Now returns seconds sincs app init.
 		- draw_frame.view -> draw_frame.camera_xform (deprecated .view)
 		- Unecessary refactoring in drawing.c
-		- Fixed temporary storage overflow warning (contributor kacpercwiklinski f9bf7ff)
-		- Added build.sh for building on linux (contributor 0xf0adc 90f00b)
+		- Fixed temporary storage overflow warning (contributor @kacpercwiklinski f9bf7ff)
+		- Added build.sh for building on linux (contributor @0xf0adc 90f00b)
 		- Added linmath constants
 			v2_one
 			v3_one
@@ -43,6 +43,7 @@
 			v2_zero
 			v3_zero
 			v4_zero
+		- Refactored get_temporary_allocator() to fallback to get_initialization_allocator() if temp_allocator is not initted
 
 ## v0.01.003 - Mouse pointers, Audio improvement & features, bug fixes
 	- Os layer

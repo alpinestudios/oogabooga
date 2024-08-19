@@ -590,6 +590,7 @@ thread_local Allocator temp_allocator;
 
 ogb_instance Allocator 
 get_temporary_allocator() {
+	if (!temporary_storage) return get_initialization_allocator();
 	return temp_allocator;
 }
 #endif

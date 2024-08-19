@@ -104,7 +104,7 @@ int entry(int argc, char **argv) {
 		}
 
 		seed_for_random = 69;
-		for (u64 i = 0; i < 2; i++) {
+		for (u64 i = 0; i < 10000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;
