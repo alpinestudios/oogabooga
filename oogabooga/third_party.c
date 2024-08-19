@@ -160,3 +160,7 @@ size_t stbtt_strlen(const char* str) {
 #undef C
 #undef L
 
+#if GFX_RENDERER == GFX_RENDERER_VULKAN
+#include "third_party/vulkan/vulkan.h"
+#endif
+

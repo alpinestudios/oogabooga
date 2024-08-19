@@ -358,7 +358,7 @@ typedef u8 bool;
         #if GFX_RENDERER == GFX_RENDERER_D3D11
             #include "gfx_impl_d3d11.c"
         #elif GFX_RENDERER == GFX_RENDERER_VULKAN
-            #error "We only have a D3D11 renderer at the moment"
+            #include "gfx_impl_vk.c"
         #elif GFX_RENDERER == GFX_RENDERER_METAL
             #error "We only have a D3D11 renderer at the moment"
         #else

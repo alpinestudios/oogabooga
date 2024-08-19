@@ -8,7 +8,7 @@
 	typedef ID3D11ShaderResourceView * Gfx_Handle;
 	
 #elif GFX_RENDERER == GFX_RENDERER_VULKAN
-	#error "We only have a D3D11 renderer at the moment"
+	typedef VkInstance * Gfx_Handle;
 #elif GFX_RENDERER == GFX_RENDERER_METAL
 	#error "We only have a D3D11 renderer at the moment"
 #else

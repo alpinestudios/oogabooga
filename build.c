@@ -12,6 +12,9 @@
 // enough temporary storage for your game.
 #define TEMPORARY_STORAGE_SIZE MB(2) 
 
+// very much testing stuff for dev only
+#define GFX_RENDERER 1 // Vulkan
+
 // Enable VERY_DEBUG if you are having memory bugs to detect things like heap corruption earlier.
 // #define VERY_DEBUG 1
 
