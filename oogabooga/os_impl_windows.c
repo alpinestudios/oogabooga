@@ -6,6 +6,7 @@
 #include <mmdeviceapi.h>
 #include <initguid.h>
 #include <avrt.h>
+#include <xinput.h>
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 
@@ -109,22 +110,28 @@ HCURSOR win32_shadowed_mouse_pointer = 0;
 bool win32_did_override_user_mouse_pointer = false;
 SYSTEM_INFO win32_system_info;
 LARGE_INTEGER win32_counter_at_start;
+bool win32_do_handle_raw_input = false;
+HANDLE win32_xinput = 0;
+
+// impl input.c
+const u64 MAX_NUMBER_OF_GAMEPADS = XUSER_MAX_COUNT;
 
 #ifndef OOGABOOGA_HEADLESS
 
 // Persistent
 Input_State_Flags win32_key_states[INPUT_KEY_CODE_COUNT];
 
-void win32_send_key_event(Input_Key_Code code, Input_State_Flags state) {
+void win32_send_key_event(Input_Key_Code code, Input_State_Flags state, s64 gamepad_index) {
 	Input_Event e;
 	e.kind = INPUT_EVENT_KEY;
 	e.key_code = code;
 	e.key_state = state;
+	e.gamepad_index = gamepad_index;
 	input_frame.events[input_frame.number_of_events] = e;
 	input_frame.number_of_events += 1;
 }
 
-void win32_handle_key_up(Input_Key_Code code) {
+void win32_handle_key_up(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	Input_State_Flags last_state = win32_key_states[code];
@@ -134,9 +141,9 @@ void win32_handle_key_up(Input_Key_Code code) {
 	
 	win32_key_states[code] = state;
 	
-	win32_send_key_event(code, state);
+	win32_send_key_event(code, state, gamepad_index);
 }
-void win32_handle_key_down(Input_Key_Code code) {
+void win32_handle_key_down(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	Input_State_Flags last_state = win32_key_states[code];
@@ -146,14 +153,14 @@ void win32_handle_key_down(Input_Key_Code code) {
 	
 	win32_key_states[code] = state;
 	
-	win32_send_key_event(code, state);
+	win32_send_key_event(code, state, gamepad_index);
 }
-void win32_handle_key_repeat(Input_Key_Code code) {
+void win32_handle_key_repeat(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	win32_key_states[code] |= INPUT_STATE_REPEAT;
 	
-	win32_send_key_event(code, win32_key_states[code]);
+	win32_send_key_event(code, win32_key_states[code], gamepad_index);
 }
 
 
@@ -175,29 +182,29 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
         case WM_KEYDOWN:
         	bool is_repeat = (lparam & 0x40000000) != 0;
         	
-        	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam));
-	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam));
+        	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam), -1);
+	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam), -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_KEYUP:
-	        win32_handle_key_up(os_key_to_key_code((void*)wparam));
+	        win32_handle_key_up(os_key_to_key_code((void*)wparam), -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_LBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_LEFT);
+	        win32_handle_key_down(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_RBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_RIGHT);
+	        win32_handle_key_down(MOUSE_BUTTON_RIGHT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_MIDDLE);
+	        win32_handle_key_down(MOUSE_BUTTON_MIDDLE, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_LBUTTONUP:
-	        win32_handle_key_up(MOUSE_BUTTON_LEFT);
+	        win32_handle_key_up(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_RBUTTONUP:
-	        win32_handle_key_up(MOUSE_BUTTON_RIGHT);
+	        win32_handle_key_up(MOUSE_BUTTON_RIGHT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MBUTTONUP:
-			win32_handle_key_up(MOUSE_BUTTON_MIDDLE);
+			win32_handle_key_up(MOUSE_BUTTON_MIDDLE, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MOUSEWHEEL: {
 	        int delta = GET_WHEEL_DELTA_WPARAM(wparam);
@@ -394,7 +401,18 @@ void os_init(u64 program_memory_capacity) {
 	
 	QueryPerformanceCounter(&win32_counter_at_start);
 	
+	
 #ifndef OOGABOOGA_HEADLESS
+
+	RAWINPUTDEVICE rid[1] = {0};
+	
+	rid[0].usUsagePage = 0x01;
+	rid[0].usUsage = 0x05; // HID_USAGE_GENERIC_GAMEPAD
+	
+	BOOL ok = RegisterRawInputDevices(rid, sizeof(rid)/sizeof(RAWINPUTDEVICE), sizeof(RAWINPUTDEVICE));
+	assert(ok, "Failed RegisterRawInputDevices");
+	
+	
     win32_init_window();
     
     // Set a dummy output format before audio init in case it fails.
@@ -412,6 +430,9 @@ void os_init(u64 program_memory_capacity) {
     
     while (!win32_has_audio_thread_started) { os_yield_thread(); }
 #endif /* NOT OOGABOOGA_HEADLESS */
+
+
+	
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -670,6 +691,7 @@ void os_unload_dynamic_library(Dynamic_Library_Handle l) {
 // IO
 ///
 
+// #Global
 const File OS_INVALID_FILE = INVALID_HANDLE_VALUE;
 void os_write_string_to_stdout(string s) {
 	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -1712,8 +1734,47 @@ win32_audio_thread(Thread *t) {
 }
 #endif /* OOGABOOGA_HEADLESS */
 
-void os_update() {
+void win32_lazy_init_xinput() {
+	if (!win32_xinput) {
+		win32_xinput = LoadLibraryW(L"xinput1_4.dll");
+		if (!win32_xinput) win32_xinput = LoadLibraryW(L"xinput1_3.dll");
+		if (!win32_xinput) {
+			log_warning("xinput is missing, gamepads not supported.");
+		}
+	}
+}
 
+void set_gamepad_vibration(float32 left, float32 right) {
+	win32_lazy_init_xinput();
+	local_persist DWORD (*XInputGetState)(DWORD, XINPUT_STATE*) = 0;
+	if (!XInputGetState)XInputGetState = (DWORD (*)(DWORD, XINPUT_STATE*))GetProcAddress(win32_xinput, "XInputGetState");
+	assert(XInputGetState != 0, "xinput dll corrupt");
+	
+	for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
+	    XINPUT_STATE state = ZERO(XINPUT_STATE);
+	    DWORD r = XInputGetState(i, &state);
+	
+	    if(r == ERROR_SUCCESS) {
+	    	set_specific_gamepad_vibration(i, left, right);
+	    }
+    }
+}
+void set_specific_gamepad_vibration(u64 gamepad_index, float32 left, float32 right) {
+	win32_lazy_init_xinput();
+	local_persist DWORD (*XInputSetState)(DWORD, XINPUT_VIBRATION*) = 0;
+	if (!XInputSetState)XInputSetState = (DWORD (*)(DWORD, XINPUT_VIBRATION*))GetProcAddress(win32_xinput, "XInputSetState");
+	assert(XInputSetState != 0, "xinput dll corrupt");
+	XINPUT_VIBRATION vibration = ZERO(XINPUT_VIBRATION);
+	vibration.wLeftMotorSpeed  = (USHORT)(65535.0*clamp(left, 0, 1));
+	vibration.wRightMotorSpeed = (USHORT)(65535.0*clamp(right, 0, 1));
+	DWORD r = XInputSetState(gamepad_index, &vibration);
+	if (r != ERROR_SUCCESS) { log_warning("Could not set gamepad vibration on gamepad %d", gamepad_index); }
+}
+
+
+
+void os_update() {
+	win32_do_handle_raw_input = true;
 #ifndef OOGABOOGA_HEADLESS
 	UINT dpi = GetDpiForWindow(window._os_handle);
     float dpi_scale_factor = dpi / 96.0f;
@@ -1796,17 +1857,142 @@ void os_update() {
 	last_window = window;
 	
 	
-	// Reflect what the backend did to input state before we query for OS inputs
+	// Reflect what the user layer did to input state before we query for OS inputs
 	memcpy(win32_key_states, input_frame.key_states, sizeof(input_frame.key_states));
 	input_frame.number_of_events = 0;
 	
-	// #Simd ?
 	for (u64 i = 0; i < INPUT_KEY_CODE_COUNT; i++) {
 		win32_key_states[i] &= ~(INPUT_STATE_REPEAT);
 		win32_key_states[i] &= ~(INPUT_STATE_JUST_PRESSED);
 		win32_key_states[i] &= ~(INPUT_STATE_JUST_RELEASED);
 	}
 	
+	win32_lazy_init_xinput();
+	
+	
+	if (win32_xinput != 0) {
+		local_persist DWORD (*XInputGetState)(DWORD, XINPUT_STATE*) = 0;
+		if (!XInputGetState)XInputGetState = (DWORD (*)(DWORD, XINPUT_STATE*))GetProcAddress(win32_xinput, "XInputGetState");
+		assert(XInputGetState != 0, "xinput dll corrupt");
+		
+		bool any_gamepad_processed = false;
+		
+		// A windows api that just does what you want it to.
+		// This can't be right...
+		// Poll gamepad
+		local_persist XINPUT_STATE last_states[XUSER_MAX_COUNT];
+		for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
+		    XINPUT_STATE state;
+		    ZeroMemory(&state, sizeof(XINPUT_STATE));
+		
+		    DWORD r = XInputGetState(i, &state);
+		
+		    if(r == ERROR_SUCCESS) {
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) win32_handle_key_down(GAMEPAD_DPAD_UP, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) win32_handle_key_up(GAMEPAD_DPAD_UP, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) win32_handle_key_down(GAMEPAD_DPAD_RIGHT, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) win32_handle_key_up(GAMEPAD_DPAD_RIGHT, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) win32_handle_key_down(GAMEPAD_DPAD_DOWN, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) win32_handle_key_up(GAMEPAD_DPAD_DOWN, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) win32_handle_key_down(GAMEPAD_DPAD_LEFT, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) win32_handle_key_up(GAMEPAD_DPAD_LEFT, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_START) win32_handle_key_down(GAMEPAD_START, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_START) win32_handle_key_up(GAMEPAD_START, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK) win32_handle_key_down(GAMEPAD_BACK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_BACK) win32_handle_key_up(GAMEPAD_BACK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) win32_handle_key_down(GAMEPAD_LEFT_STICK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) win32_handle_key_up(GAMEPAD_LEFT_STICK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) win32_handle_key_down(GAMEPAD_RIGHT_STICK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) win32_handle_key_up(GAMEPAD_RIGHT_STICK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) win32_handle_key_down(GAMEPAD_LEFT_BUMPER, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) win32_handle_key_up(GAMEPAD_LEFT_BUMPER, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) win32_handle_key_down(GAMEPAD_RIGHT_BUMPER, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) win32_handle_key_up(GAMEPAD_RIGHT_BUMPER, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_A) win32_handle_key_down(GAMEPAD_A, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_A) win32_handle_key_up(GAMEPAD_A, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_B) win32_handle_key_down(GAMEPAD_B, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_B) win32_handle_key_up(GAMEPAD_B, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_X) win32_handle_key_down(GAMEPAD_X, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_X) win32_handle_key_up(GAMEPAD_X, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_Y) win32_handle_key_down(GAMEPAD_Y, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_Y) win32_handle_key_up(GAMEPAD_Y, i);
+		    	
+		    	SHORT left_stick_x  = state.Gamepad.sThumbLX;
+		    	SHORT left_stick_y  = state.Gamepad.sThumbLY;
+		    	SHORT right_stick_x = state.Gamepad.sThumbRX;
+		    	SHORT right_stick_y = state.Gamepad.sThumbRY;
+		    	
+		    	if (!any_gamepad_processed) {
+		    		input_frame.left_stick = v2(
+			    		(float32)left_stick_x / (left_stick_x >= 0 ? 32767.0 : 32768.0),
+			    		(float32)left_stick_y / (left_stick_y >= 0 ? 32767.0 : 32768.0)
+		    		);
+		    		input_frame.right_stick = v2(
+			    		(float32)right_stick_x / (right_stick_x >= 0 ? 32767.0 : 32768.0),
+			    		(float32)right_stick_y / (right_stick_y >= 0 ? 32767.0 : 32768.0)
+		    		);
+		    		input_frame.left_trigger  = (float32)state.Gamepad.bLeftTrigger / 255.0;
+		    		input_frame.right_trigger = (float32)state.Gamepad.bRightTrigger / 255.0;
+		    		
+		    	}
+		    	
+		    	if (state.Gamepad.bLeftTrigger >= 230) win32_handle_key_down(GAMEPAD_LEFT_TRIGGER, i);
+		    	else if (last_states[i].Gamepad.bLeftTrigger >= 230) win32_handle_key_up(GAMEPAD_LEFT_TRIGGER, i);
+		    	if (state.Gamepad.bRightTrigger >= 230) win32_handle_key_down(GAMEPAD_RIGHT_TRIGGER, i);
+		    	else if (last_states[i].Gamepad.bRightTrigger >= 230) win32_handle_key_up(GAMEPAD_RIGHT_TRIGGER, i);
+		    	
+		    	if (fabsf(input_frame.left_stick.x)  < deadzone_left_stick.x)  input_frame.left_stick.x  = 0.0;
+		    	if (fabsf(input_frame.left_stick.y)  < deadzone_left_stick.y)  input_frame.left_stick.y  = 0.0;
+		    	if (fabsf(input_frame.right_stick.x) < deadzone_right_stick.x) input_frame.right_stick.x = 0.0;
+		    	if (fabsf(input_frame.right_stick.y) < deadzone_right_stick.y) input_frame.right_stick.y = 0.0;
+		    	if (fabsf(input_frame.left_trigger)  < deadzone_left_trigger)  input_frame.left_trigger  = 0.0;
+		    	if (fabsf(input_frame.right_trigger) < deadzone_right_trigger) input_frame.right_trigger = 0.0;
+		    	
+		    	// Update state to account for deadzone
+		    	state.Gamepad.sThumbLX = (SHORT)(input_frame.left_stick.x*32768.0-1);
+		    	state.Gamepad.sThumbLY = (SHORT)(input_frame.left_stick.y*32768.0-1);
+		    	state.Gamepad.sThumbRX = (SHORT)(input_frame.right_stick.x*32768.0-1);
+		    	state.Gamepad.sThumbRY = (SHORT)(input_frame.right_stick.y*32768.0-1);
+		    	state.Gamepad.bLeftTrigger  = (SHORT)(input_frame.left_trigger*255);
+		    	state.Gamepad.bRightTrigger = (SHORT)(input_frame.right_trigger*255);
+		    	left_stick_x  = state.Gamepad.sThumbLX;
+		    	left_stick_y  = state.Gamepad.sThumbLY;
+		    	right_stick_x = state.Gamepad.sThumbRX;
+		    	right_stick_y = state.Gamepad.sThumbRY;
+		    	
+		    	Input_Event e = ZERO(Input_Event);
+		    	e.kind = INPUT_EVENT_GAMEPAD_AXIS;
+				e.gamepad_index = i;
+		    	
+		    	if (left_stick_x != last_states[i].Gamepad.sThumbLX || left_stick_y != last_states[i].Gamepad.sThumbLY) {
+		    		e.axes_changed |= INPUT_AXIS_LEFT_STICK;
+		    		e.left_stick = input_frame.left_stick;
+		    	}
+		    	if (right_stick_x != last_states[i].Gamepad.sThumbRX || right_stick_y != last_states[i].Gamepad.sThumbRY) {
+		    		e.axes_changed |= INPUT_AXIS_RIGHT_STICK;
+		    		e.right_stick = input_frame.right_stick;
+		    	}
+		    	if (state.Gamepad.bLeftTrigger != last_states[i].Gamepad.bLeftTrigger) {
+		    		e.axes_changed |= INPUT_AXIS_LEFT_TRIGGER;
+		    		e.left_trigger = input_frame.left_trigger;
+		    	}
+		    	if (state.Gamepad.bRightTrigger != last_states[i].Gamepad.bRightTrigger) {
+		    		e.axes_changed |= INPUT_AXIS_RIGHT_TRIGGER;
+		    		e.right_trigger = input_frame.right_trigger;
+		    	}
+		    	
+		    	if (e.axes_changed != 0) {
+					input_frame.events[input_frame.number_of_events] = e;
+					input_frame.number_of_events += 1;
+		    	}
+		    	
+		    	last_states[i] = state;
+		    	any_gamepad_processed = true;
+		    }
+		}
+	}
+	
+	// Poll window events
 	MSG msg;
 	while (input_frame.number_of_events < MAX_EVENTS_PER_FRAME 
 			&& PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -1935,7 +2121,22 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
         case MOUSE_BUTTON_MIDDLE: return (void*)VK_MBUTTON;
         case MOUSE_BUTTON_RIGHT:  return (void*)VK_RBUTTON;
         
-        
+        case GAMEPAD_DPAD_UP:
+		case GAMEPAD_DPAD_RIGHT:
+		case GAMEPAD_DPAD_DOWN:
+		case GAMEPAD_DPAD_LEFT:
+		case GAMEPAD_A:
+		case GAMEPAD_X:
+		case GAMEPAD_Y:
+		case GAMEPAD_B:
+		case GAMEPAD_START:
+		case GAMEPAD_BACK:
+		case GAMEPAD_LEFT_STICK:
+		case GAMEPAD_RIGHT_STICK:
+		case GAMEPAD_LEFT_BUMPER:
+		case GAMEPAD_LEFT_TRIGGER:
+		case GAMEPAD_RIGHT_BUMPER:
+		case GAMEPAD_RIGHT_TRIGGER:
         case INPUT_KEY_CODE_COUNT:
         case KEY_UNKNOWN: 
         	break;

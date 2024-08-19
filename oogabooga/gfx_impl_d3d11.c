@@ -610,6 +610,8 @@ void d3d11_process_draw_frame() {
 	
 	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
+	if (!draw_frame.quad_buffer) return;
+
 	u64 number_of_quads = growing_array_get_valid_count(draw_frame.quad_buffer);
 	
 	///
