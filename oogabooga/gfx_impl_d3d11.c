@@ -610,23 +610,26 @@ void d3d11_process_draw_frame() {
 	
 	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
+	u64 number_of_quads = growing_array_get_valid_count(draw_frame.quad_buffer);
+	
 	///
 	// Maybe grow quad vbo
-	u32 required_size = sizeof(D3D11_Vertex) * allocated_quads*6;
+	u64 required_size = sizeof(D3D11_Vertex) * number_of_quads*6;
 
 	if (required_size > d3d11_quad_vbo_size) {
 		if (d3d11_quad_vbo) {
 			D3D11Release(d3d11_quad_vbo);
 			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
+		u64 new_size = get_next_power_of_two(required_size);
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
 		desc.Usage = D3D11_USAGE_DYNAMIC; 
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.ByteWidth = required_size;
+		desc.ByteWidth = new_size;
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
-		d3d11_quad_vbo_size = required_size;
+		d3d11_quad_vbo_size = new_size;
 		
 		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
 		assert((u64)d3d11_staging_quad_buffer%16 == 0);
@@ -634,7 +637,7 @@ void d3d11_process_draw_frame() {
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
 
-	if (draw_frame.num_quads > 0) {
+	if (number_of_quads > 0) {
 		///
 		// Render geometry from into vbo quad list
 	    
@@ -648,20 +651,22 @@ void d3d11_process_draw_frame() {
 		D3D11_Vertex* pointer = head;
 		u64 number_of_rendered_quads = 0;
 		
+		
+		
 		tm_scope("Quad processing") {
 			if (draw_frame.enable_z_sorting) tm_scope("Z sorting") {
-				if (!sort_quad_buffer || (sort_quad_buffer_size < allocated_quads*sizeof(Draw_Quad))) {
+				if (!sort_quad_buffer || (sort_quad_buffer_size < number_of_quads*sizeof(Draw_Quad))) {
 					// #Memory #Heapalloc
 					if (sort_quad_buffer) dealloc(get_heap_allocator(), sort_quad_buffer);
-					sort_quad_buffer = alloc(get_heap_allocator(), allocated_quads*sizeof(Draw_Quad));
-					sort_quad_buffer_size = allocated_quads*sizeof(Draw_Quad);
+					sort_quad_buffer = alloc(get_heap_allocator(), number_of_quads*sizeof(Draw_Quad));
+					sort_quad_buffer_size = number_of_quads*sizeof(Draw_Quad);
 				}
-				radix_sort(quad_buffer, sort_quad_buffer, draw_frame.num_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
+				radix_sort(draw_frame.quad_buffer, sort_quad_buffer, number_of_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
 			}
 		
-			for (u64 i = 0; i < draw_frame.num_quads; i++)  {
+			for (u64 i = 0; i < number_of_quads; i++)  {
 				
-				Draw_Quad *q = &quad_buffer[i];
+				Draw_Quad *q = &draw_frame.quad_buffer[i];
 				
 				assert(q->z <= MAX_Z, "Z is too high. Z is %d, Max is %d.", q->z, MAX_Z);
 				assert(q->z >= (-MAX_Z+1), "Z is too low. Z is %d, Min is %d.", q->z, -MAX_Z+1);
@@ -705,32 +710,27 @@ void d3d11_process_draw_frame() {
 					last_texture_index = texture_index;
 				}
 				
-				if (q->type == QUAD_TYPE_TEXT) {
-				
-				    // This is meant to fix the annoying artifacts that shows up when sampling text from an atlas
-				    // presumably for floating point precision issues or something.
-				
-				    // #Incomplete
-				    // If we want to animate text with small movements then it will look wonky.
-				    // This should be optional probably.
-				    // Also, we might want to do this on non-text if rendering with linear filtering
-				    // from a large texture atlas.
-				
-					float pixel_width = 2.0/(float)window.width;
-					float pixel_height = 2.0/(float)window.height;
+				// This is meant to fix the annoying artifacts that shows up when sampling from a large atlas
+			    // presumably for floating point precision issues or something.
+			
+			    // #Incomplete
+			    // If we want to animate text with small movements then it will look wonky.
+			    // This should be optional probably.
+			
+				float pixel_width = 2.0/(float)window.width;
+				float pixel_height = 2.0/(float)window.height;
 
-                    bool xeven = window.width % 2 == 0;
-                    bool yeven = window.height % 2 == 0;
-					
-					q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
-				    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
-				    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
-				    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
-				    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
-				    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
-				    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
-				    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
-				}
+                bool xeven = window.width % 2 == 0;
+                bool yeven = window.height % 2 == 0;
+				
+				q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
+			    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
+			    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
+			    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
+			    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
+			    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
+			    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
+			    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
 				
 				// We will write to 6 vertices for the one quad (two tris)
 				 {

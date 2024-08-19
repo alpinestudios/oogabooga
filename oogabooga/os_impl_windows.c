@@ -108,6 +108,7 @@ bool win32_want_override_mouse_pointer = false;
 HCURSOR win32_shadowed_mouse_pointer = 0;
 bool win32_did_override_user_mouse_pointer = false;
 SYSTEM_INFO win32_system_info;
+LARGE_INTEGER win32_counter_at_start;
 
 #ifndef OOGABOOGA_HEADLESS
 
@@ -391,7 +392,7 @@ void os_init(u64 program_memory_capacity) {
 	
 	heap_init();
 	
-	
+	QueryPerformanceCounter(&win32_counter_at_start);
 	
 #ifndef OOGABOOGA_HEADLESS
     win32_init_window();
@@ -604,7 +605,7 @@ void os_high_precision_sleep(f64 ms) {
 	
 	const f64 s = ms/1000.0;
 	
-	f64 start = os_get_current_time_in_seconds();
+	f64 start = os_get_elapsed_seconds();
 	f64 end = start + (f64)s;
 	s32 sleep_time = (s32)((end-start)-1.0);
 	bool do_sleep = sleep_time >= 1;
@@ -613,7 +614,7 @@ void os_high_precision_sleep(f64 ms) {
 	
 	if (do_sleep)  os_sleep(sleep_time);
 	
-	while (os_get_current_time_in_seconds() < end) {
+	while (os_get_elapsed_seconds() < end) {
 		os_yield_thread();
 	}
 	
@@ -627,16 +628,22 @@ void os_high_precision_sleep(f64 ms) {
 ///
 
 
-u64 os_get_current_cycle_count() {
-	return rdtsc();
-}
-
-float64 os_get_current_time_in_seconds() {
+// #Cleanup deprecated
+float64
+os_get_current_time_in_seconds() {
     LARGE_INTEGER frequency, counter;
     if (!QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&counter)) {
         return -1.0;
     }
-    return (double)counter.QuadPart / (double)frequency.QuadPart;
+    return (float64)counter.QuadPart / (float64)frequency.QuadPart;
+}
+
+float64
+os_get_elapsed_seconds() {
+	LARGE_INTEGER freq, counter = (LARGE_INTEGER){0};
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&counter);
+	return (float64)(counter.QuadPart-win32_counter_at_start.QuadPart) / (float64)freq.QuadPart;
 }
 
 

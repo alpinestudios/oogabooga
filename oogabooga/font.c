@@ -388,6 +388,9 @@ bool measure_text_glyph_callback(Gfx_Glyph glyph, Gfx_Font_Atlas *atlas, float g
 	return true;
 }
 Gfx_Text_Metrics measure_text(Gfx_Font *font, string text, u32 raster_height, Vector2 scale) {
+
+	if (text.count <= 0) return ZERO(Gfx_Text_Metrics);
+
 	Measure_Text_Walk_Glyphs_Context c = ZERO(Measure_Text_Walk_Glyphs_Context);
 	
 	c.scale = scale;

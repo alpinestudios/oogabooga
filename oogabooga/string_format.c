@@ -12,15 +12,38 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
         if (*p == '%') {
             p += 1;
             if (*p == 's') {
-            	// We replace %s formatting with our fixed length string
-                p += 1;
-                string s = va_arg(args, string);
-                assert(s.count < (1024ULL*1024ULL*1024ULL*256ULL), "Ypu passed something else than a fixed-length 'string' to %%s. Maybe you passed a char* and should do %%cs instead?");
-                for (u64 i = 0; i < s.count && (bufp - buffer) < count - 1; i++) {
-                	if (buffer) *bufp = s.data[i];
-                    bufp += 1;
+            	p += 1;
+            	// We replace %s formatting with our fixed length string (if it is a valid such, otherwise treat as char*)
+				va_list args2; // C varargs are so good
+				va_copy(args2, args);
+                string s = va_arg(args2, string);
+                va_end(args2);
+            	// Ooga booga moment
+            	bool is_valid_fixed_length_string = s.count < 1024ULL*1024ULL*1024ULL*256ULL && is_pointer_valid(s.data);
+            	if (is_valid_fixed_length_string) {
+            		va_arg(args, string);
+	                for (u64 i = 0; i < s.count && (bufp - buffer) < count - 1; i++) {
+	                	if (buffer) *bufp = s.data[i];
+	                    bufp += 1;
+	                }
+                } else {
+	            	// #Copypaste
+	            	// We extend the standard formatting and add %cs so we can format c strings if we need to
+	                char* s = va_arg(args, char*);
+	                u64 len = 0;
+	                while (*s != '\0' && (bufp - buffer) < count - 1) {
+	                	assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+	                	if (buffer) {
+	                		*bufp = *s;
+	                	}
+	                	s += 1;
+	                    bufp += 1;
+	                    len += 1;
+	                    assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+                    }
                 }
             } else if (*p == 'c' && *(p+1) == 's') {
+            	// #Copypaste
             	// We extend the standard formatting and add %cs so we can format c strings if we need to
                 p += 2;
                 char* s = va_arg(args, char*);
