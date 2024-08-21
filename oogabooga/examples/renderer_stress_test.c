@@ -31,7 +31,10 @@ int entry(int argc, char **argv) {
 	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
 	assert(font, "Failed loading arial.ttf, %d", GetLastError());
 	
-	render_atlas_if_not_yet_rendered(font, 32, 'A');
+	// This makes sure atlas is rendered for ascii.
+	// You might want to do this if your game lags the first time you render text because it renders
+	// the atlas on the fly.
+	render_atlas_if_not_yet_rendered(font, 32, 'A'); 
 	
 	seed_for_random = rdtsc();
 	

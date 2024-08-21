@@ -10,11 +10,11 @@ int entry(int argc, char **argv) {
 
 	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
+		reset_temporary_storage();
+		
 		float64 now = os_get_elapsed_seconds();
 		if ((int)now != (int)last_time) log("%.2f FPS\n%.2fms", 1.0/(now-last_time), (now-last_time)*1000);
 		last_time = now;
-		
-		reset_temporary_storage();
 		
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);

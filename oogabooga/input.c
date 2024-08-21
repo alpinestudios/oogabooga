@@ -26,6 +26,8 @@
 	
 	Gamepad input:
 	
+		(!! Only Xbox gamepads are natively supported. Steam will map playstation controllers to xbox, but you need third party software to map playstation controllers to xbox. See DS4Windows. !!)
+	
 		Vector2 input_frame.left_stick
 		Vector2 input_frame.right_stick
 		float32 input_frame.left_trigger

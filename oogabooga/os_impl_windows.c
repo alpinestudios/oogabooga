@@ -7,6 +7,7 @@
 #include <initguid.h>
 #include <avrt.h>
 #include <xinput.h>
+#include <shellscalingapi.h>
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 
@@ -163,6 +164,7 @@ void win32_handle_key_repeat(Input_Key_Code code, s64 gamepad_index) {
 	win32_send_key_event(code, win32_key_states[code], gamepad_index);
 }
 
+void win32_query_monitors();
 
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
@@ -265,6 +267,12 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
             }
 	       break;
 	    }
+	    case WM_DISPLAYCHANGE: {
+	    	
+	    	win32_query_monitors();
+	    	
+	    	goto DEFAULT_HANDLE;
+	    }
         default:
         
         DEFAULT_HANDLE:
@@ -360,7 +368,6 @@ void os_init(u64 program_memory_capacity) {
 	context.thread_id = GetCurrentThreadId();
 
 
-
 #if CONFIGURATION == RELEASE
 	// #Configurable #Copypaste
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
@@ -379,8 +386,8 @@ void os_init(u64 program_memory_capacity) {
 	os.static_memory_start = 0;
 	os.static_memory_end = 0;
 	
+	
 	MEMORY_BASIC_INFORMATION mbi;
-    
     
     unsigned char* addr = 0;
     while (VirtualQuery(addr, &mbi, sizeof(mbi))) {
@@ -433,6 +440,57 @@ void os_init(u64 program_memory_capacity) {
 
 
 	
+	win32_query_monitors();
+}
+
+BOOL win32_query_monitors_callback(HMONITOR monitor_handle, HDC dc, LPRECT rect, LPARAM param) {
+	MONITORINFOEX info = ZERO(MONITORINFOEX);
+    info.cbSize = sizeof(MONITORINFOEX);
+    BOOL ok = GetMonitorInfo(monitor_handle, (MONITORINFO*)&info);
+    assert(ok, "GetMonitorInfo failed");
+    
+    string monitor_id;
+    monitor_id.count = strlen(info.szDevice);
+    monitor_id.data = (u8*)info.szDevice;
+    
+    u16 *monitor_id_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    
+    DEVMODEW more_info = ZERO(DEVMODEW);
+    u16 *name_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    ok = EnumDisplaySettingsW(name_wide, ENUM_CURRENT_SETTINGS, &more_info);
+    assert(ok, "EnumDisplaySettingsW failed");
+    
+    DISPLAY_DEVICEW even_more_info = ZERO(DISPLAY_DEVICEW);
+	even_more_info.cb = sizeof(DISPLAY_DEVICE);
+    bool display_device_found = false;
+    for (DWORD i = 0; EnumDisplayDevicesW(NULL, i, &even_more_info, 0); ++i) {
+        if (wcscmp(even_more_info.DeviceName, monitor_id_wide) == 0) {
+            display_device_found = TRUE;
+            break;
+        }
+    }
+    assert(display_device_found, "DISPLAY_DEVICE not found");
+    
+    Os_Monitor *monitor = (Os_Monitor*)growing_array_add_empty((void**)&os.monitors);
+    memset(monitor, 0, sizeof(Os_Monitor));
+    if (info.dwFlags & MONITORINFOF_PRIMARY) os.primary_monitor = monitor;
+    
+    monitor->name = temp_win32_null_terminated_wide_to_fixed_utf8(even_more_info.DeviceString);
+    monitor->refresh_rate = more_info.dmDisplayFrequency;
+    monitor->resolution_x = info.rcMonitor.right  - info.rcMonitor.left;
+    monitor->resolution_y = info.rcMonitor.bottom - info.rcMonitor.top;
+    
+    GetDpiForMonitor(monitor_handle, MDT_EFFECTIVE_DPI, (UINT*)&monitor->dpi, (UINT*)&monitor->dpi_y);
+    
+    return TRUE;
+}
+void win32_query_monitors() {
+	if (os.monitors) growing_array_clear((void**)&os.monitors);
+	else growing_array_init((void**)&os.monitors, sizeof(Os_Monitor), get_heap_allocator());
+	
+	EnumDisplayMonitors(0, 0, win32_query_monitors_callback, 0);
+	
+	os.number_of_connected_monitors = growing_array_get_valid_count(os.monitors);
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -1043,6 +1101,8 @@ bool os_do_paths_match(string a, string b) {
     return false;
 }
 
+// #Cleanup
+// These are not os-specific, why are they here?
 void fprints(File f, string fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -1059,7 +1119,20 @@ void fprintf(File f, const char* fmt, ...) {
 	va_end(args);
 }
 
+void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator) {
+	char *buffer = talloc(max_count);
+	
+	DWORD read;
+	BOOL ok = ReadConsole(GetStdHandle(STD_INPUT_HANDLE), buffer, max_count, &read, 0);
+	
+	if (!ok) {
+		*result = string_copy(STR("STDIN is not available"), allocator);
+	} else {		
+		*result = alloc_string(allocator, read);
+		memcpy(result->data, buffer, read);
+	}
 
+}
 
 
 

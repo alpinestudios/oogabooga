@@ -173,6 +173,10 @@ string_builder_init(String_Builder *b, Allocator allocator) {
 	string_builder_init_reserve(b, 128, allocator);
 }
 void 
+string_builder_deinit(String_Builder *b) {
+	dealloc(b->allocator, b->buffer);
+}
+void 
 string_builder_append(String_Builder *b, string s) {
 	assert(b->allocator.proc, "String_Builder is missing allocator");
 	string_builder_reserve(b, b->count+s.count);

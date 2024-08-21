@@ -1,4 +1,33 @@
 
+/*
+
+	Format a string and print to stdout:
+		print(string fmt, ...)
+		
+	Allocate a new string and format into it:
+		sprint(Allocator allocator, string fmt, ...)
+
+	Allocate a new string with the temporary allocator and format into it:
+		tprint(string fmt, ...)
+		
+	Example:
+		print("Int: %d, Float: %f, String: %s", my_int, my_float, my_string);
+		
+	Format specifiers:
+		%d, %i: Any SIGNED integer
+		%u    : Any UNSIGNED integer
+		%f    : Float32 or float64
+		%s    : string
+		%b    : bool
+		%c    : Character
+		%v2   : Vector2
+		%v3   : Vector3
+		%v4   : Vector4
+		
+	Also includes all of the standard C printf-like format specifiers:
+	https://www.geeksforgeeks.org/format-specifiers-in-c/
+*/
+
 ogb_instance void os_write_string_to_stdout(string s);
 inline int crt_sprintf(char *str, const char *format, ...);
 int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args);
@@ -69,6 +98,18 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
                     len += 1;
                     assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
                 }
+            } else if (*p == 'b') {
+            	p += 1;
+            	int data = va_arg(args, int);
+            	bool val = !(data == 0);
+            	
+            	char *result = (val ? "true" : "false");
+            	
+            	if (buffer) {
+            		memcpy(bufp, result, strlen(result));
+            	}
+        		bufp += strlen(result);
+            	
             } else if (*p == 'v' && *(p+1) == '2') {
             	p += 2;
             	
@@ -131,7 +172,7 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
                     case 'n': va_arg(args, int*); break;
                     default: break;
                 }
-
+                
                 if (temp_len < 0) {
                     return -1; // Error in formatting
                 }
