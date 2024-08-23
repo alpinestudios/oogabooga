@@ -7,7 +7,8 @@ int entry(int argc, char **argv) {
 	window.x = 200;
 	window.y = 90;
 	window.clear_color = hex_to_rgba(0x6495EDff);
-
+	window.allow_resize = true;
+	
 	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
 		reset_temporary_storage();
@@ -28,6 +29,10 @@ int entry(int argc, char **argv) {
 		float my = input_frame.mouse_y/(f32)window.height * 2.0 - 1.0;
 		
 		draw_line(v2(-.75, -.75), v2(mx, my), 0.005, COLOR_WHITE);
+		
+		if (is_key_just_pressed('F')) {
+			window.fullscreen = !window.fullscreen;
+		}
 		
 		os_update(); 
 		gfx_update();

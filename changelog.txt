@@ -1,5 +1,12 @@
 ## v0.01.005
 
+	- Window
+		- Added bool window.fullscreen
+		- Added bool window.allow_resize
+		- Reworked window initialization
+			Window now starts of invisible and is made visible on first os_update().
+			This also gets rid of the weird window resize and reposition at startup.
+
 
 ## v0.01.004 - Gamepad input, text wrapping, bug fixes
 	- Input

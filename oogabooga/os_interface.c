@@ -75,12 +75,16 @@ typedef struct Os_Window {
 	s32 y;
 	Vector4 clear_color;
 	bool enable_vsync;
+	bool fullscreen;
+	bool allow_resize;
 	
 	bool should_close;
 	
 	// readonly
 	bool _initialized;
 	Window_Handle _os_handle;
+	
+	Os_Monitor *monitor;
 	
 } Os_Window;
 
@@ -90,8 +94,8 @@ ogb_instance Os_Context os;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
-Os_Context os;
-Os_Window window;
+Os_Context os = ZERO(Os_Context);
+Os_Window window = ZERO(Os_Window);
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 

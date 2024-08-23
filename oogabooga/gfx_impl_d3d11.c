@@ -231,28 +231,18 @@ void d3d11_update_swapchain() {
 		if (d3d11_window_render_target_view) D3D11Release(d3d11_window_render_target_view);
 		if (d3d11_back_buffer) D3D11Release(d3d11_back_buffer);
 		
-		RECT client_rect;
-		bool ok = GetClientRect(window._os_handle, &client_rect);
-		assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-		
-		u32 window_width  = client_rect.right-client_rect.left;
-		u32 window_height = client_rect.bottom-client_rect.top;
-		
-		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window_width, window_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
+		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window.pixel_width, window.pixel_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
 		d3d11_check_hr(hr);
 		
 		// update swap chain description
 		hr = IDXGISwapChain1_GetDesc1(d3d11_swap_chain, &d3d11_swap_chain_desc);
 		d3d11_check_hr(hr);
 		
-		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window_width, window_height);
+		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window.pixel_width, window.pixel_height);
 		
-		d3d11_swap_chain_width  = window_width;
-		d3d11_swap_chain_height = window_height;
+		d3d11_swap_chain_width  = window.pixel_width;
+		d3d11_swap_chain_height = window.pixel_height;
 	}
-	
-	
-	
 	
 	hr = IDXGISwapChain1_GetBuffer(d3d11_swap_chain, 0, &IID_ID3D11Texture2D, (void**)&d3d11_back_buffer);
 	d3d11_check_hr(hr);
@@ -858,12 +848,7 @@ void gfx_update() {
 	HRESULT hr;
 	///
 	// Maybe resize swap chain
-	RECT client_rect;
-	bool ok = GetClientRect(window._os_handle, &client_rect);
-	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-	u32 window_width  = client_rect.right-client_rect.left;
-	u32 window_height = client_rect.bottom-client_rect.top;
-	if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
+	if (window.pixel_width != d3d11_swap_chain_width || window.pixel_height != d3d11_swap_chain_height) {
 		d3d11_update_swapchain();
 	}
 

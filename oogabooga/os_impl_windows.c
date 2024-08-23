@@ -113,6 +113,15 @@ SYSTEM_INFO win32_system_info;
 LARGE_INTEGER win32_counter_at_start;
 bool win32_do_handle_raw_input = false;
 HANDLE win32_xinput = 0;
+bool has_os_update_been_called_at_all = false;
+
+// Used to save windowed state when in fullscreen mode.
+DWORD win32_windowed_style = 0;
+DWORD win32_windowed_style_ex = 0;
+s32 win32_windowed_x = 0;
+s32 win32_windowed_y = 0;
+s32 win32_windowed_width = 0;
+s32 win32_windowed_height = 0;
 
 // impl input.c
 const u64 MAX_NUMBER_OF_GAMEPADS = XUSER_MAX_COUNT;
@@ -319,15 +328,15 @@ win32_init_window() {
 	
 	RECT rect = {0, 0, window.width, window.height};
 	DWORD style = WS_OVERLAPPEDWINDOW;
-	DWORD ex_style = WS_EX_CLIENTEDGE;
-	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+	DWORD style_ex = WS_EX_CLIENTEDGE;
+	ok = AdjustWindowRectEx(&rect, style, FALSE, style_ex);
 	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
 	
 	u32 actual_window_width = rect.right - rect.left;
 	u32 actual_window_height = rect.bottom - rect.top;
     // Create the window
     window._os_handle = CreateWindowEx(
-        ex_style,
+        style_ex,
         "sigma balls",
         temp_convert_to_null_terminated_string(window.title),
         style,
@@ -335,8 +344,14 @@ win32_init_window() {
         0, 0, instance, 0);
     assert(window._os_handle != 0, "Window creation failed, error: %lu", GetLastError());
 	window._initialized = true;
-    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
+	window.allow_resize = true;
     UpdateWindow(window._os_handle);
+    
+    ShowWindow(window._os_handle, SW_HIDE);
+    style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+    style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
+    style |= WS_EX_TOOLWINDOW;  // Make it a tool window
+    SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 }
 
 void 
@@ -482,15 +497,26 @@ BOOL win32_query_monitors_callback(HMONITOR monitor_handle, HDC dc, LPRECT rect,
     
     GetDpiForMonitor(monitor_handle, MDT_EFFECTIVE_DPI, (UINT*)&monitor->dpi, (UINT*)&monitor->dpi_y);
     
+    if (monitor_handle == MonitorFromWindow(window._os_handle, MONITOR_DEFAULTTONEAREST)) {
+    	window.monitor = monitor;
+    }
+    
     return TRUE;
 }
 void win32_query_monitors() {
+
+	window.monitor = 0;
+
 	if (os.monitors) growing_array_clear((void**)&os.monitors);
 	else growing_array_init((void**)&os.monitors, sizeof(Os_Monitor), get_heap_allocator());
 	
 	EnumDisplayMonitors(0, 0, win32_query_monitors_callback, 0);
 	
 	os.number_of_connected_monitors = growing_array_get_valid_count(os.monitors);
+	
+	if (!window.monitor) {
+		window.monitor = os.primary_monitor;
+	}
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -1847,26 +1873,51 @@ void set_specific_gamepad_vibration(u64 gamepad_index, float32 left, float32 rig
 
 
 void os_update() {
+
+	// Only show window after first call to os_update
+	if (!has_os_update_been_called_at_all) {
+		ShowWindow(window._os_handle, SW_SHOW);
+	    DWORD style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	    style &= ~WS_EX_TOOLWINDOW;
+	    style |= WS_EX_APPWINDOW;
+	    SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
+	}
+
+	has_os_update_been_called_at_all = true;
+
 	win32_do_handle_raw_input = true;
 #ifndef OOGABOOGA_HEADLESS
 	UINT dpi = GetDpiForWindow(window._os_handle);
     float dpi_scale_factor = dpi / 96.0f;
 
 	local_persist Os_Window last_window;
-
+	
+	//
+	// Window title
 	if (!strings_match(last_window.title, window.title)) {
 		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
 	}
+
+	//
+	// Window sizing & position
+
+	if (window.fullscreen && last_window.fullscreen) {
+		window.pixel_width = window.monitor->resolution_x;
+		window.pixel_height = window.monitor->resolution_y;
+		window.x = 0;
+		window.y = 0;
+	}
+
+	BOOL ok;
+	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
+	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	int screen_height = os.primary_monitor->resolution_y;
 
 	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
 		window.width = window.scaled_width*dpi_scale_factor;
 		window.height = window.scaled_height*dpi_scale_factor;
 	}
 	
-	BOOL ok;
-	int screen_height = GetSystemMetrics(SM_CYSCREEN);
-	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
-	DWORD ex_style = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
 	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
 	    RECT update_rect;
 	    update_rect.left = window.x;
@@ -1874,7 +1925,7 @@ void os_update() {
 	    update_rect.top = window.y;
 	    update_rect.bottom = window.y + window.height; 
 	
-	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
+	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, style_ex);
 	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
 	
 	    u32 actual_width = update_rect.right - update_rect.left;
@@ -1884,13 +1935,12 @@ void os_update() {
 	    
 	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
-	
 	RECT client_rect;
 	ok = GetClientRect(window._os_handle, &client_rect);
 	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
 	
 	RECT adjusted_rect = client_rect;
-	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, ex_style);
+	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, style_ex);
     assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
     
     RECT window_rect;
@@ -1927,7 +1977,50 @@ void os_update() {
     window.scaled_width = (u32)((bottom_right.x - top_left.x) * dpi_scale_factor);
     window.scaled_height = (u32)((bottom_right.y - top_left.y) * dpi_scale_factor);
 	
+	if (last_window.allow_resize != window.allow_resize) {
+		if (window.allow_resize) style |= WS_SIZEBOX;
+		else                     style &= ~(WS_SIZEBOX);
+		SetWindowLongW(window._os_handle, GWL_STYLE, style);
+	}
+	
+	bool last_fullscreen = last_window.fullscreen;
 	last_window = window;
+	
+	//
+	// Fullscreen
+	
+	if (last_fullscreen != window.fullscreen) {
+		
+		if (window.fullscreen) {
+		
+			// Save windowed state
+			win32_windowed_style = style;
+		    win32_windowed_style_ex = style_ex;
+		    win32_windowed_x = window.x;
+		    win32_windowed_y = window.y;
+		    win32_windowed_width = window.width;
+		    win32_windowed_height = window.height;
+		    
+		    SetWindowLongW(window._os_handle, GWL_STYLE, style & ~(WS_CAPTION | WS_THICKFRAME));
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, 
+				style_ex & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)
+			);
+		    
+		} else {
+			
+			// Restore windowed_state
+			style = win32_windowed_style;
+			style_ex = win32_windowed_style_ex;
+			window.x = win32_windowed_x;
+			window.y = win32_windowed_y;
+			window.width = win32_windowed_width;
+			window.height = win32_windowed_height;
+			
+			SetWindowLongW(window._os_handle, GWL_STYLE, win32_windowed_style);
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, win32_windowed_style_ex);
+		}
+	}
+	
 	
 	
 	// Reflect what the user layer did to input state before we query for OS inputs
