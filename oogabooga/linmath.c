@@ -319,6 +319,10 @@ Matrix4 m4_scalar(float32 scalar) {
     return m;
 }
 
+inline Matrix4 m4_identity() {
+	return m4_scalar(1.0);
+}
+
 Matrix4 m4_make_translation(Vector3 translation) {
     Matrix4 m = m4_scalar(1.0);
     m.m[0][0] = 1.0f; m.m[1][1] = 1.0f; m.m[2][2] = 1.0f; m.m[3][3] = 1.0f;

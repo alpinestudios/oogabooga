@@ -297,10 +297,10 @@ win32_init_window() {
 	memset(&window, 0, sizeof(window));
 	
 	window.title = STR("Unnamed Window");
-	window.width = 1280;
-	window.height = 720;
-	window.x = 0;
-	window.y = 0;
+	window.scaled_width = 1280;
+	window.scaled_height = 720;
+	window.x = 200;
+	window.y = 150;
 	window.should_close = false;
 	window._initialized = false;
 	window.clear_color.r = 0.392f; 
@@ -348,10 +348,10 @@ win32_init_window() {
     UpdateWindow(window._os_handle);
     
     ShowWindow(window._os_handle, SW_HIDE);
-    style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
-    style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
-    style |= WS_EX_TOOLWINDOW;  // Make it a tool window
-    SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
+    //style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+    //style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
+    //style |= WS_EX_TOOLWINDOW;  // Make it a tool window
+    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 }
 
 void 
@@ -1877,10 +1877,10 @@ void os_update() {
 	// Only show window after first call to os_update
 	if (!has_os_update_been_called_at_all) {
 		ShowWindow(window._os_handle, SW_SHOW);
-	    DWORD style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
-	    style &= ~WS_EX_TOOLWINDOW;
-	    style |= WS_EX_APPWINDOW;
-	    SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
+	    //DWORD style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	    //style &= ~(WS_EX_TOOLWINDOW);
+	    //style |= WS_EX_APPWINDOW;
+	    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 	}
 
 	has_os_update_been_called_at_all = true;
