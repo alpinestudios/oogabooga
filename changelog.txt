@@ -1,4 +1,4 @@
-## v0.01.005
+## v0.01.005 - Arenas, Monitor query, fullscreen
 
 	- Window
 		- Added bool window.fullscreen
@@ -8,9 +8,34 @@
 			This also gets rid of the weird window resize and reposition at startup.
 	- Renderer
 		- Added gfx_read_image_data() to read pixels from a Gfx_Image*
+	- Os
+		- Implemented access to monitor information
+			Os_Monitor *os.monitors
+			Os_Monitor *os.primary_monitor
+			Os_Monitor *window.monitor
+			
+			u64 Os_Monitor.refresh_rate
+			u64 Os_Monitor.resolution_x
+			u64 Os_Monitor.resolution_y
+			u64 Os_Monitor.dpi
+			u64 Os_Monitor.dpi_y
+			string Os_Monitor.name
+	
+	- Memory
+		- Added arenas & the arena allocator
+			Arena make_arena(size)
+			
+			Allocator make_arena_allocator(size)
+			Allocator make_arena_allocator_with_memory(size, *memory)
 	
 	- Misc
 		- Added examples/sprite_animation.c
+		- Removed Herobrine.
+		- Modified build scripts to not remove the build/ directory and instead check if it exists and if not, create it.
+		- Added os_wait_and_read_stdin(*result, max_count, allocator)
+		- Added %b format specifier for printing bools (true/false)
+		- Added/Improved some documentation
+		- Fixed some woopsies, goofs, and bugs
 
 ## v0.01.004 - Gamepad input, text wrapping, bug fixes
 	- Input
