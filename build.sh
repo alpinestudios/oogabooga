@@ -1,9 +1,5 @@
 #!/bin/sh
 
-if [ -d build ]; then
-    rm -r build
-fi
-
 CC=x86_64-w64-mingw32-gcc
 CFLAGS="-g -O0 -std=c11 --static -D_CRT_SECURE_NO_WARNINGS
         -Wextra -Wno-sign-compare -Wno-unused-parameter
