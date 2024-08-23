@@ -882,6 +882,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	desc.Height = image->height;
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
+	// #Hdr
 	switch (image->channels) {
 		case 1: desc.Format = DXGI_FORMAT_R8_UNORM; break;
 		case 2: desc.Format = DXGI_FORMAT_R8G8_UNORM; break;
@@ -897,7 +898,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	
 	D3D11_SUBRESOURCE_DATA data_desc = ZERO(D3D11_SUBRESOURCE_DATA);
 	data_desc.pSysMem = data;
-	data_desc.SysMemPitch  = image->width * image->channels;
+	data_desc.SysMemPitch  = image->width * image->channels; // #Hdr
 	
 	ID3D11Texture2D* texture = 0;
 	HRESULT hr = ID3D11Device_CreateTexture2D(d3d11_device, &desc, &data_desc, &texture);
@@ -927,16 +928,72 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
     assert(SUCCEEDED(hr), "Expected gfx resource to be a texture but it wasn't");
 
-    D3D11_BOX destBox;
-    destBox.left = x;
-    destBox.right = x + w;
-    destBox.top = y;
-    destBox.bottom = y + h;
-    destBox.front = 0;
-    destBox.back = 1;
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
 
+	// #Hdr
 	// #Incomplete bit-width 8 assumed
-    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
+    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &region, data, w * image->channels, 0);
+    
+    ID3D11Resource_Release(resource);
+}
+void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output) {
+	
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
+    
+	ID3D11Resource *resource = 0;
+	ID3D11View_GetResource(image->gfx_handle, &resource);
+	
+	ID3D11Texture2D *texture = 0;
+	HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
+	d3d11_check_hr(hr);
+	
+	D3D11_TEXTURE2D_DESC desc;
+    texture->lpVtbl->GetDesc(texture, &desc);
+    
+    D3D11_TEXTURE2D_DESC staging_desc = desc;
+    staging_desc.Usage = D3D11_USAGE_STAGING;
+    staging_desc.BindFlags = 0;
+    staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    staging_desc.MiscFlags = 0;
+    
+    ID3D11Texture2D *staging_texture = 0;
+    hr = ID3D11Device_CreateTexture2D(d3d11_device, &staging_desc, 0, &staging_texture);
+	d3d11_check_hr(hr);
+	
+	ID3D11DeviceContext_CopySubresourceRegion(
+		d3d11_context, 
+		(ID3D11Resource *)staging_texture, 
+		0, 0, 0, 0, 
+		(ID3D11Resource *)texture, 0, 
+		&region
+	);
+	
+	D3D11_MAPPED_SUBRESOURCE mapped_texture;
+    hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource *)staging_texture, 0, D3D11_MAP_READ, 0, &mapped_texture);
+	d3d11_check_hr(hr);
+	
+	// #Hdr
+	assert(mapped_texture.RowPitch == image->width * image->channels, "Unexpected row pitch in d3d11 texture");
+	
+	// #Hdr
+	memcpy(output, mapped_texture.pData, image->width*image->height*image->channels);
+	
+	ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource *)staging_texture, 0);
+	
+	ID3D11Resource_Release(resource);
+	ID3D11Texture2D_Release(staging_texture);
 }
 void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11ShaderResourceView *view = image->gfx_handle;
@@ -952,6 +1009,8 @@ void gfx_deinit_image(Gfx_Image *image) {
 	} else {
 		panic("Unhandled D3D11 resource deletion");
 	}
+	
+	ID3D11Resource_Release(resource);
 }
 
 bool 

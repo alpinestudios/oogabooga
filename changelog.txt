@@ -6,6 +6,8 @@
 		- Reworked window initialization
 			Window now starts of invisible and is made visible on first os_update().
 			This also gets rid of the weird window resize and reposition at startup.
+	- Renderer
+		- Added gfx_read_image_data() to read pixels from a Gfx_Image*
 
 
 ## v0.01.004 - Gamepad input, text wrapping, bug fixes
