@@ -6,12 +6,8 @@
 #define RAD_PER_DEG (PI64 / 180.0)
 #define DEG_PER_RAD (180.0 / PI64)
 
-#define to_radians  (degrees) (((float)degrees)*(float)RAD_PER_DEG)
-#define to_degrees  (radians) (((float)radians)*(float)DEG_PER_RAD)
-#define to_radians64(degrees) (((float64)degrees)*(float64)RAD_PER_DEG)
-#define to_degrees64(radians) (((float64)radians)*(float64)DEG_PER_RAD)
-#define to_radians32 to_radians
-#define to_degrees32 to_degrees
+#define to_radians(degrees) ((degrees)*RAD_PER_DEG)
+#define to_degrees(radians) ((radians)*DEG_PER_RAD)
 
 typedef union Vector2 {
 	float data[2];
@@ -42,6 +38,14 @@ typedef union Vector4 {
 } Vector4;
 inline Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
 #define v4_expand(v) (v).x, (v).y, (v).z, (v).w
+
+const Vector2 v2_one = {1, 1};
+const Vector3 v3_one = {1, 1, 1};
+const Vector4 v4_one = {1, 1, 1, 1};
+
+const Vector2 v2_zero = {0, 0};
+const Vector3 v3_zero = {0, 0, 0};
+const Vector4 v4_zero = {0, 0, 0, 0};
 
 inline Vector2 v2_add(Vector2 a, Vector2 b) {
 	return v2(a.x+b.x, a.y+b.y);

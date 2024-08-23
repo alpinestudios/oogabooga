@@ -442,8 +442,6 @@ void test_strings() {
     assert(memcmp(multi_append_builder.buffer, expected_result, multi_append_builder.count) == 0, "Failed: multiple appends");
     dealloc(heap, multi_append_builder.buffer);
     
-    
-    
     string cheese_hello = STR("HeCHEESElloCHEESE, WorCHEESEld!");
     string hello = string_replace_all(cheese_hello, STR("CHEESE"), STR(""), heap);
     assert(strings_match(hello, STR("Hello, World!")), "Failed: string_replace");

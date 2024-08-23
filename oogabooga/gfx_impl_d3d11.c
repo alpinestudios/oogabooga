@@ -231,28 +231,18 @@ void d3d11_update_swapchain() {
 		if (d3d11_window_render_target_view) D3D11Release(d3d11_window_render_target_view);
 		if (d3d11_back_buffer) D3D11Release(d3d11_back_buffer);
 		
-		RECT client_rect;
-		bool ok = GetClientRect(window._os_handle, &client_rect);
-		assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-		
-		u32 window_width  = client_rect.right-client_rect.left;
-		u32 window_height = client_rect.bottom-client_rect.top;
-		
-		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window_width, window_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
+		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window.pixel_width, window.pixel_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
 		d3d11_check_hr(hr);
 		
 		// update swap chain description
 		hr = IDXGISwapChain1_GetDesc1(d3d11_swap_chain, &d3d11_swap_chain_desc);
 		d3d11_check_hr(hr);
 		
-		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window_width, window_height);
+		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window.pixel_width, window.pixel_height);
 		
-		d3d11_swap_chain_width  = window_width;
-		d3d11_swap_chain_height = window_height;
+		d3d11_swap_chain_width  = window.pixel_width;
+		d3d11_swap_chain_height = window.pixel_height;
 	}
-	
-	
-	
 	
 	hr = IDXGISwapChain1_GetBuffer(d3d11_swap_chain, 0, &IID_ID3D11Texture2D, (void**)&d3d11_back_buffer);
 	d3d11_check_hr(hr);
@@ -610,6 +600,8 @@ void d3d11_process_draw_frame() {
 	
 	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
+	if (!draw_frame.quad_buffer) return;
+
 	u64 number_of_quads = growing_array_get_valid_count(draw_frame.quad_buffer);
 	
 	///
@@ -856,12 +848,7 @@ void gfx_update() {
 	HRESULT hr;
 	///
 	// Maybe resize swap chain
-	RECT client_rect;
-	bool ok = GetClientRect(window._os_handle, &client_rect);
-	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-	u32 window_width  = client_rect.right-client_rect.left;
-	u32 window_height = client_rect.bottom-client_rect.top;
-	if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
+	if (window.pixel_width != d3d11_swap_chain_width || window.pixel_height != d3d11_swap_chain_height) {
 		d3d11_update_swapchain();
 	}
 
@@ -895,6 +882,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	desc.Height = image->height;
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
+	// #Hdr
 	switch (image->channels) {
 		case 1: desc.Format = DXGI_FORMAT_R8_UNORM; break;
 		case 2: desc.Format = DXGI_FORMAT_R8G8_UNORM; break;
@@ -910,7 +898,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	
 	D3D11_SUBRESOURCE_DATA data_desc = ZERO(D3D11_SUBRESOURCE_DATA);
 	data_desc.pSysMem = data;
-	data_desc.SysMemPitch  = image->width * image->channels;
+	data_desc.SysMemPitch  = image->width * image->channels; // #Hdr
 	
 	ID3D11Texture2D* texture = 0;
 	HRESULT hr = ID3D11Device_CreateTexture2D(d3d11_device, &desc, &data_desc, &texture);
@@ -940,16 +928,72 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
     assert(SUCCEEDED(hr), "Expected gfx resource to be a texture but it wasn't");
 
-    D3D11_BOX destBox;
-    destBox.left = x;
-    destBox.right = x + w;
-    destBox.top = y;
-    destBox.bottom = y + h;
-    destBox.front = 0;
-    destBox.back = 1;
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
 
+	// #Hdr
 	// #Incomplete bit-width 8 assumed
-    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
+    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &region, data, w * image->channels, 0);
+    
+    ID3D11Resource_Release(resource);
+}
+void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output) {
+	
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
+    
+	ID3D11Resource *resource = 0;
+	ID3D11View_GetResource(image->gfx_handle, &resource);
+	
+	ID3D11Texture2D *texture = 0;
+	HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
+	d3d11_check_hr(hr);
+	
+	D3D11_TEXTURE2D_DESC desc;
+    texture->lpVtbl->GetDesc(texture, &desc);
+    
+    D3D11_TEXTURE2D_DESC staging_desc = desc;
+    staging_desc.Usage = D3D11_USAGE_STAGING;
+    staging_desc.BindFlags = 0;
+    staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    staging_desc.MiscFlags = 0;
+    
+    ID3D11Texture2D *staging_texture = 0;
+    hr = ID3D11Device_CreateTexture2D(d3d11_device, &staging_desc, 0, &staging_texture);
+	d3d11_check_hr(hr);
+	
+	ID3D11DeviceContext_CopySubresourceRegion(
+		d3d11_context, 
+		(ID3D11Resource *)staging_texture, 
+		0, 0, 0, 0, 
+		(ID3D11Resource *)texture, 0, 
+		&region
+	);
+	
+	D3D11_MAPPED_SUBRESOURCE mapped_texture;
+    hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource *)staging_texture, 0, D3D11_MAP_READ, 0, &mapped_texture);
+	d3d11_check_hr(hr);
+	
+	// #Hdr
+	assert(mapped_texture.RowPitch == image->width * image->channels, "Unexpected row pitch in d3d11 texture");
+	
+	// #Hdr
+	memcpy(output, mapped_texture.pData, image->width*image->height*image->channels);
+	
+	ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource *)staging_texture, 0);
+	
+	ID3D11Resource_Release(resource);
+	ID3D11Texture2D_Release(staging_texture);
 }
 void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11ShaderResourceView *view = image->gfx_handle;
@@ -965,6 +1009,8 @@ void gfx_deinit_image(Gfx_Image *image) {
 	} else {
 		panic("Unhandled D3D11 resource deletion");
 	}
+	
+	ID3D11Resource_Release(resource);
 }
 
 bool 

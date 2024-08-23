@@ -70,8 +70,37 @@ int fseek(File f, s64 offset, s64 origin) {
 }
 
 File fopen(const char *filename, const char *mode) {
-    // Handling modes
-    File f = os_file_open_s(STR(filename), O_READ);
+    Os_Io_Open_Flags flags = 0;
+
+    while (*mode) {
+      switch (*mode) {
+         case 'r': 
+            if (*(mode + 1) == '+') {
+               flags = O_READ | O_WRITE;
+            } else {
+               flags = O_READ;
+            }
+            break;
+
+         case 'w': 
+            if (*(mode + 1) == '+') {
+               flags = O_READ | O_WRITE | O_CREATE;
+            } else {
+               flags = O_WRITE | O_CREATE;
+            }
+            break;
+
+         case 'b':
+            // Do nothing.
+            break;
+
+         default: 
+            assert(0, "Unknown/unsupported fopen mode: %c", *mode);
+      }
+      mode++;
+    }
+
+    File f = os_file_open_s(STR(filename), flags);
     return f;
 }
 
