@@ -246,7 +246,7 @@ void player_update(Entity_t *self, float64 delta_time) {
         self->state_reset_counter += delta_time;
     }
 
-    const float PLAYER_ROLL_TIME = 0.10f;
+    const float PLAYER_ROLL_TIME = 0.15f;
     if (self->state_reset_counter >= PLAYER_ROLL_TIME) {
         entity_set_state(self, ENTITY_STATE_NONE);
         entity_set_sprite(self, SPRITE_ID_PLAYER);
