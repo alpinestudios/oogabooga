@@ -3,6 +3,7 @@
 
 #include "item.h"
 #include "pathfinding.h"
+#include "rigidbody.h"
 #include "sprite.h"
 #include "tile.h"
 
@@ -13,6 +14,10 @@ const int ENEMY_DEFAULT_HEALTH = 20;
 const int ROCK_DEFAULT_HEALTH = 3;
 const int BULLET_DEFAULT_HEALTH = 1;
 const float ENEMY_PATH_UPDATE_INTERVAL = 2.5f;
+
+const float AIR_FRICTION = 0.9999f;
+const float ROLL_FRICTION = 0.999f;
+const float GROUND_FRICTION = 0.80f;
 
 typedef struct Entity Entity_t;
 typedef void (*UpdateFunc_t)(Entity_t *self, float64 deltaTime);
@@ -45,12 +50,6 @@ typedef struct PathData {
     int current_path_index;
 } PathData_t;
 
-typedef struct Rigidbody {
-    Vector2 velocity;
-    float acceleration;
-    float friction;
-} Rigidbody_t;
-
 typedef struct Entity {
     enum EntityType entity_type;
     union {
@@ -68,7 +67,7 @@ typedef struct Entity {
     float lifetime;
     UpdateFunc_t update;
     PathData_t path_data;
-    float path_refresh_counter;
+    float path_refresh_counter; // TODO: Refactor counters/timers arch
     Vector2i target_prev_calc_pos;
     enum EntityState state;
     float state_reset_counter;
@@ -89,8 +88,8 @@ extern bool world_tile_is_occupied_self(Entity_t *self, Vector2i tile_pos);
 extern Entity_t *entity_position_hashmap_get(Vector2i pos);
 
 const float ENTITY_STATE_FRICTION_TABLE[] = {
-    [ENTITY_STATE_NONE] = 0.97f,
-    [ENTITY_STATE_ROLL] = 1.0f,
+    [ENTITY_STATE_NONE] = GROUND_FRICTION,
+    [ENTITY_STATE_ROLL] = ROLL_FRICTION,
     [ENTITY_STATE_MAX] = 0.0f,
 };
 
@@ -102,8 +101,8 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .render_sprite = true,
         .update = player_update,
         .rigidbody = {
-            .acceleration = 8.0f,
-            .friction = 0.97f,
+            .acceleration = 48.0f,
+            .friction = GROUND_FRICTION,
         },
     },
     [ENTITY_TYPE_SNAIL] = {
@@ -115,8 +114,8 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .destroyable = true,
         .update = enemy_update,
         .rigidbody = {
-            .acceleration = 4.0f,
-            .friction = 0.97f,
+            .acceleration = 64.0f,
+            .friction = GROUND_FRICTION,
         },
     },
     [ENTITY_TYPE_ROCK] = {
@@ -145,7 +144,7 @@ const Entity_t ENTITY_TEMPLATES[] = {
         .is_walkable = true,
         .rigidbody = {
             .acceleration = 960.0f,
-            .friction = 0.9999f,
+            .friction = AIR_FRICTION,
         },
     },
 };
@@ -154,6 +153,8 @@ void entity_setup_general(Entity_t *entity, enum EntityType type, enum ItemID it
     assert(type > ENTITY_TYPE_NONE && type < ENTITY_TYPE_MAX, "Entity type of %u is in a wrong range!", type);
     const Entity_t *template = &ENTITY_TEMPLATES[type];
 
+    // TODO: Why simple assignment is not working?
+    // *entity = *template;
     entity->entity_type = template->entity_type;
     entity->spriteID = template->spriteID;
     entity->health = template->health;
@@ -275,7 +276,12 @@ void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
         // Draw debug path; Keep it for now, there will be changes in pathfinding mechanism
         // for (int i = self->path_data.current_path_index; i < self->path_data.path_length; i++) {
         //     Vector2 world_tile_pos = tile_pos_to_world_pos(self->path_data.path[i]);
-        //     draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), v4(1.0, 0.0, 0.0, 0.1));
+        //     Vector4 current_tile_color = v4(1.0, 0.0, 0.0, 0.1);
+        //     if (i == self->path_data.current_path_index) {
+        //         current_tile_color = v4(1.0, 0.0, 1.0, 0.5);
+        //     }
+
+        //     draw_rect(v2(world_tile_pos.x - TILE_OFFSET, world_tile_pos.y), v2(TILE_WIDTH, TILE_WIDTH), current_tile_color);
         // }
 
         Vector2 target_world_pos = tile_pos_to_world_pos(self->path_data.path[self->path_data.current_path_index]);
@@ -286,12 +292,12 @@ void enemy_path_movement_update(Entity_t *self, float64 delta_time) {
             self->path_data.current_path_index++;
             entity_refresh_path(self, world_get_player()->position, ENEMY_PATH_UPDATE_INTERVAL);
         } else {
+            // TODO: Should this be done here? It fixes snail's movement, but breaks whole acceleration idea.
+            self->rigidbody.velocity = v2(0.0, 0.0);
             Vector2 direction = v2_normalize(to_target);
             Vector2 acceleration = v2_mulf(direction, self->rigidbody.acceleration);
             physics_apply_force(self, acceleration);
         }
-    } else {
-        self->rigidbody.velocity = v2(0.0, 0.0);
     }
 
     self->path_refresh_counter += delta_time;
@@ -308,16 +314,16 @@ void enemy_update(Entity_t *self, float64 delta_time) {
         entity_refresh_path(self, world_get_player()->position, ENEMY_PATH_UPDATE_INTERVAL);
     }
 
-    // TODO: Think how to apply knockback effect.
-    // float distance_to_player = v2_dist(self->position, player->position);
-    // float knockback_strength = 48.0f;
-    // Vector2 force = v2_mulf(v2_normalize(v2_sub(player->position, self->position)), knockback_strength);
-    // if (distance_to_player <= 24.0f) {
-    //     physics_apply_force(player, force);
-    //     // physics_apply_force(self, v2_mulf(force, -1.0f));
-    // }
-
     enemy_path_movement_update(self, delta_time);
+
+    // TODO: Think how to apply knockback effect. Not very effective now.
+    float distance_to_player = v2_dist(self->position, player->position);
+    float knockback_strength = 512.0f;
+    Vector2 force = v2_mulf(v2_normalize(v2_sub(player->position, self->position)), knockback_strength);
+    if (distance_to_player <= 24.0f) {
+        physics_apply_force(player, force);
+    }
+
     common_update(self, delta_time);
 }
 

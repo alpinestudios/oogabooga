@@ -1,10 +1,13 @@
 #include "animate.h"
 #include "entity.h"
+#include "particle.h"
 #include "pathfinding.h"
 #include "physics.h"
 #include "player.h"
 #include "range.h"
+#include "sound.h"
 #include "sprite.h"
+#include "statistics.h"
 #include "tile.h"
 #include "vector_ext.h"
 #include "world.h"
@@ -49,6 +52,8 @@ float sin_breathe(float time, float rate) {
 }
 
 int entry(int argc, char **argv) {
+    DebugStatistics_t *debug_statistics = get_debug_statistics();
+
     window.title = STR("Duck's revenge");
     window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
     window.scaled_height = 720;
@@ -70,13 +75,18 @@ int entry(int argc, char **argv) {
         load_sprite(fixed_string("src/res/sprites/player_roll.png"), SPRITE_ID_PLAYER_ROLL);
         load_sprite(fixed_string("src/res/sprites/snail_01.png"), SPRITE_ID_SNAIL_01);
         load_sprite(fixed_string("src/res/sprites/gun_01.png"), SPRITE_ID_GUN_01);
-        load_sprite(fixed_string("src/res/sprites/bullet_01.png"), SPRITE_ID_BULLET_01);
+        load_sprite(fixed_string("src/res/sprites/bullet_03.png"), SPRITE_ID_BULLET_01);
         /* Map */
         load_sprite(fixed_string("src/res/sprites/rock_01.png"), SPRITE_ID_ROCK_01);
         /* Items */
         load_sprite(fixed_string("src/res/sprites/rock_item.png"), SPRITE_ID_ITEM_ROCK);
         /* UI */
         load_sprite(fixed_string("src/res/sprites/ui_item_frame.png"), SPRITE_ID_UI_ITEM_FRAME);
+    }
+
+    // :sounds load
+    {
+        assert(load_audio(fixed_string("src/res/sound/pistol.wav"), SOUND_ID_SHOT_01), "SOUND_ID_SHOT_01 sound could not be loaded!");
     }
 
     world = alloc(get_heap_allocator(), sizeof(World_t));
@@ -90,7 +100,7 @@ int entry(int argc, char **argv) {
         world_init_inventory_item_data();
 
         /* Create an enemy snails */
-        for (size_t i = 0; i < 10; i++) {
+        for (size_t i = 0; i < 1; i++) {
             Entity_t *snail = entity_create();
             entity_setup(snail, ENTITY_TYPE_SNAIL);
             snail->position = v2(get_random_float32_in_range(window.pixel_width * -0.5, window.pixel_width * 0.5), get_random_float32_in_range(window.pixel_height * -0.5, window.pixel_height * 0.5));
@@ -126,6 +136,7 @@ int entry(int argc, char **argv) {
     while (!window.should_close) {
         reset_temporary_storage();
         world_frame_reset();
+        reset_debug_statistics();
         os_update();
 
         float64 now = os_get_current_time_in_seconds();
@@ -166,9 +177,7 @@ int entry(int argc, char **argv) {
             draw_text(font, sprint(get_temporary_allocator(), STR("%d %d"), world_frame->tile_mouse_pos.x, world_frame->tile_mouse_pos.y), font_height, v2(world_frame->world_mouse_pos.x, world_frame->world_mouse_pos.y - 16.0f), v2(0.1, 0.1), COLOR_RED);
         }
 
-        // :entity selection && hashmap filling
-        int hashmap_correct_entries = 0;
-        int hashmap_collisions = 0;
+        // :entity selection && hashmap filling && particle staitstics filling
         {
             float min_mouse_entity_dist = PLAYER_SELECT_RANGE;
             for (int i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
@@ -186,16 +195,24 @@ int entry(int argc, char **argv) {
                     }
                 }
             }
-            // Debug hashmap stats collection
+            // :debug hashmap stats
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 EntityHashEntry_t *entry = world_frame->entity_position_hashmap[i];
                 if (entry != NULL) {
-                    hashmap_correct_entries++;
+                    debug_statistics->hashmap_correct_entries++;
                     entry = entry->next;
                     while (entry != NULL) {
-                        hashmap_collisions++;
+                        debug_statistics->hashmap_collisions++;
                         entry = entry->next;
                     }
+                }
+            }
+
+            // :particles debug information
+            for (int i = 0; i < MAX_PARTICLES; i++) {
+                Particle_t *particle = &particles[i];
+                if (particle->is_valid) {
+                    debug_statistics->valid_particles++;
                 }
             }
         }
@@ -312,17 +329,19 @@ int entry(int argc, char **argv) {
             draw_line(player->position, v2_add(player->position, v2_mulf(player_move_direction, length)), 2, COLOR_BLUE);
         }
 
-        int valid_entities = 0;
-        // Entity rendering & update
+        // :rendering & update scope
         {
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
                 if (entity->is_valid) {
-                    valid_entities++;
+                    debug_statistics->valid_entities++;
                     /* Update */
                     if (entity->update != NULL) {
                         entity->update(entity, delta_time);
                     }
+
+                    update_bullet_trail(entity, delta_time);
+
                     /* Render */
                     if (entity->render_sprite == true) {
                         // Sprite_t *gun_sprite = get_sprite(SPRITE_ID_GUN_01);
@@ -354,16 +373,21 @@ int entry(int argc, char **argv) {
                     }
                 }
             }
+
+            particles_draw();
+            particle_update(delta_time);
         }
 
         // :debug info
         {
             set_screen_space();
-            draw_text(font, sprint(get_temporary_allocator(), STR("Current valid entities: %d"), valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
-            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap valid entities: %d"), hashmap_correct_entries), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 5.0f), v2(0.1f, 0.1f), COLOR_WHITE);
-            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap collisions: %d"), hashmap_collisions), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 10.0f), v2(0.1f, 0.1f), COLOR_WHITE);
-            draw_text(font, sprint(get_temporary_allocator(), STR("Player state: %s"), fixed_string(EntityStateStr[player_entity->state])), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 15.0f), v2(0.1f, 0.1f), COLOR_WHITE);
-            draw_text(font, sprint(get_temporary_allocator(), STR("Player state counter: %.02f"), player_entity->state_reset_counter), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 20.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Valid entities: %d"), debug_statistics->valid_entities), font_height, v2(0.0f, 135.0f - (font_height * 0.1f)), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Valid particles: %d"), debug_statistics->valid_particles), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 5.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap valid entities: %d"), debug_statistics->hashmap_correct_entries), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 10.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Hashmap collisions: %d"), debug_statistics->hashmap_collisions), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 15.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Player state: %s"), fixed_string(EntityStateStr[player_entity->state])), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 20.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Player state counter: %.02f"), player_entity->state_reset_counter), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 25.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Player's velocity: %.02f, %.02f"), v2_expand(player_entity->rigidbody.velocity)), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 30.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             set_world_space();
         }
 
