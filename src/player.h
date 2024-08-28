@@ -4,10 +4,12 @@
 #include "entity.h"
 #include "particle.h"
 #include "sound.h"
+#include "timer.h"
 #include "world.h"
 
 const float GUN_KNOCKBACK_FACTOR = 0.25f;
 const float BULLET_SPREAD_ANGLE = 0.1f;
+const float PLAYER_ROLL_TIME = 0.15f;
 
 void update_bullet_trail(Entity_t *bullet, float delta_time) {
     if (bullet->entity_type != ENTITY_TYPE_BULLET)
@@ -53,14 +55,25 @@ void player_shoot(Vector2 target) {
     play_one_audio_clip_source_with_config(*player_shot_sound->audio_src, player_shot_playback_config);
 }
 
+void player_roll_callback(void *data) {
+    // log("Roll timer callback invoked with data(%p)", data);
+    Entity_t *player = world_get_player();
+    entity_set_state(player, ENTITY_STATE_NONE);
+    entity_set_sprite(player, SPRITE_ID_PLAYER);
+}
+
 void player_roll(Vector2 direction, float roll_strength) {
     Entity_t *player = world_get_player();
+    if (player->state == ENTITY_STATE_ROLL)
+        return;
+
     Vector2 roll_force = v2_mulf(direction, roll_strength);
     entity_set_state(player, ENTITY_STATE_ROLL);
     entity_set_sprite(player, SPRITE_ID_PLAYER_ROLL);
     player->state_reset_counter = 0.0f;
     player->rigidbody.velocity = v2(0.0, 0.0);
     physics_apply_force(player, roll_force);
+    Timer_t *roll_timer = timer_create(PLAYER_ROLL_TIME, player_roll_callback, NULL);
 }
 
 #endif

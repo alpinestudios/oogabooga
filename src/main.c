@@ -9,6 +9,7 @@
 #include "sprite.h"
 #include "statistics.h"
 #include "tile.h"
+#include "timer.h"
 #include "vector_ext.h"
 #include "world.h"
 
@@ -331,6 +332,7 @@ int entry(int argc, char **argv) {
 
         // :rendering & update scope
         {
+            timer_update(delta_time);
             for (size_t i = 0; i < WORLD_MAX_ENTITY_COUNT; i++) {
                 Entity_t *entity = &world->entities[i];
                 if (entity->is_valid) {
@@ -388,6 +390,7 @@ int entry(int argc, char **argv) {
             draw_text(font, sprint(get_temporary_allocator(), STR("Player state: %s"), fixed_string(EntityStateStr[player_entity->state])), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 20.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             draw_text(font, sprint(get_temporary_allocator(), STR("Player state counter: %.02f"), player_entity->state_reset_counter), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 25.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             draw_text(font, sprint(get_temporary_allocator(), STR("Player's velocity: %.02f, %.02f"), v2_expand(player_entity->rigidbody.velocity)), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 30.0f), v2(0.1f, 0.1f), COLOR_WHITE);
+            draw_text(font, sprint(get_temporary_allocator(), STR("Active timers: %d"), timer_statistics.active_timers), font_height, v2(0.0f, 135.0f - (font_height * 0.1f) - 35.0f), v2(0.1f, 0.1f), COLOR_WHITE);
             set_world_space();
         }
 
