@@ -44,10 +44,13 @@ Timer_t *timer_create(float duration, void (*callback)(void *), void *user_data)
 
 void timer_destroy(Timer_t *timer) {
     assert(timer, "Timer is not valid");
+    if (timer->user_data) {
+        dealloc(get_heap_allocator(), timer->user_data);
+    }
     memset(timer, 0x00, sizeof(Timer_t));
 }
 
-void update_timers(float delta_time) {
+void timer_update(float delta_time) {
     timer_statistics.active_timers = 0;
     for (int i = 0; i < MAX_TIMERS; i++) {
         Timer_t *timer = &timers[i];
