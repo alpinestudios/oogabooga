@@ -8,7 +8,9 @@
 		void growing_array_deinit(void **array);
 		
 		void *growing_array_add_empty(void **array);
+		void *growing_array_add_multiple_empty(void **array);
 		void growing_array_add(void **array, void *item);
+		void growing_array_add_multiple(void **array, void *items, u64 count);
 		
 		void growing_array_reserve(void **array, u64 count_to_reserve);
 		void growing_array_resize(void **array, u64 new_count);
@@ -145,6 +147,21 @@ growing_array_add_empty(void **array) {
     
     return item;
 }
+void*
+growing_array_add_multiple_empty(void **array, u64 count) {
+	assert(check_growing_array_signature(array), "Not a valid growing array");
+    Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
+    growing_array_reserve(array, header->valid_count+count);
+    
+    // Pointer might have been invalidated after reserve
+    header = ((Growing_Array_Header*)*array) - 1; 
+    
+    void *start = (u8*)*array + header->valid_count*header->block_size_in_bytes;
+    
+    header->valid_count += count;
+    
+    return start;
+}
 void
 growing_array_add(void **array, void *item) {
 
@@ -153,6 +170,15 @@ growing_array_add(void **array, void *item) {
     Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
     
     memcpy(new, item, header->block_size_in_bytes);
+}
+void
+growing_array_add_multiple(void **array, void *items, u64 count) {
+
+    void *start = growing_array_add_multiple_empty(array, count);
+
+    Growing_Array_Header *header = ((Growing_Array_Header*)*array) - 1;
+    
+    memcpy(start, items, header->block_size_in_bytes*count);
 }
 
 void growing_array_resize(void **array, u64 new_count) {

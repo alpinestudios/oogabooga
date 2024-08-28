@@ -289,6 +289,8 @@ typedef struct {
 } Walk_Glyphs_Spec;
 void walk_glyphs(Walk_Glyphs_Spec spec, Walk_Glyphs_Callback_Proc proc) {
 	
+	if (spec.text.data == 0 || spec.text.count <= 0) return;
+	
 	Gfx_Font_Variation *variation = &spec.font->variations[spec.raster_height];
 	
 	float x = 0;
@@ -394,8 +396,6 @@ bool measure_text_glyph_callback(Gfx_Glyph glyph, Gfx_Font_Atlas *atlas, float g
 	return true;
 }
 Gfx_Text_Metrics measure_text(Gfx_Font *font, string text, u32 raster_height, Vector2 scale) {
-
-	if (text.count <= 0) return ZERO(Gfx_Text_Metrics);
 
 	Measure_Text_Walk_Glyphs_Context c = ZERO(Measure_Text_Walk_Glyphs_Context);
 	

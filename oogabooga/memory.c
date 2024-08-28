@@ -672,26 +672,7 @@ typedef struct Arena {
 	u64 size;
 } Arena;
 
-void* arena_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
-	if (size > 8) size = align_next(size, 8);
-	Arena *arena = (Arena*)data;
-	switch (message) {
-		case ALLOCATOR_ALLOCATE: {
-			void *p = arena->next;
-			
-			arena->next = (u8*)arena->next + size;
-			break;
-		}
-		case ALLOCATOR_DEALLOCATE: {
-			return 0;
-		}
-		case ALLOCATOR_REALLOCATE: {
-			panic("Arena allocator cannot 'reallocate'");
-			return 0;
-		}
-	}
-	return 0;
-}
+
 
 // Allocates arena from heap
 Arena make_arena(u64 size) {
@@ -703,6 +684,31 @@ Arena make_arena(u64 size) {
 	arena.size = size;
 	
 	return arena;
+}
+
+void *arena_push(Arena *arena, u64 size) {
+	void *p = arena->next;
+	arena->next = (u8*)arena->next + size;
+	return p;
+}
+#define arena_push_struct(parena, type) arena_push((parena), sizeof(type))
+
+void* arena_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
+	if (size > 8) size = align_next(size, 8);
+	Arena *arena = (Arena*)data;
+	switch (message) {
+		case ALLOCATOR_ALLOCATE: {
+			return arena_push(arena, size);
+		}
+		case ALLOCATOR_DEALLOCATE: {
+			return 0;
+		}
+		case ALLOCATOR_REALLOCATE: {
+			panic("Arena allocator cannot 'reallocate'");
+			return 0;
+		}
+	}
+	return 0;
 }
 
 // Allocates arena from heap
@@ -730,6 +736,13 @@ Allocator make_arena_allocator_with_memory(u64 size, void *p) {
 	arena->next = arena->start;
 	arena->size = size;
 	
+	Allocator allocator;
+	allocator.data = arena;
+	allocator.proc = arena_allocator_proc;
+	
+	return allocator;
+}
+Allocator make_arena_allocator_from_arena(Arena *arena) {
 	Allocator allocator;
 	allocator.data = arena;
 	allocator.proc = arena_allocator_proc;

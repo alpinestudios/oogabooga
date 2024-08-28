@@ -102,3 +102,28 @@ void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
 inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
 
 #define swap(a, b, type) { type t = a; a = b; b = t;  }
+
+
+// This isn't really linmath but just putting it here for now
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
+
+f64 lerpf(f64 from, f64 to, f64 x) {
+	return (to-from)*x+from;
+}
+s64 lerpi(s64 from, s64 to, f64 x) {
+	return (s64)((round((f64)to-(f64)from)*x)+from);
+}
+
+f64 smerpf(f64 from, f64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpf(from, to, smooth);
+}
+s64 smerpi(s64 from, s64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpi(from, to, smooth);
+}
+// I don't know how to describe this one I just made this in desmos and it has been useful for cool stuff:
+// https://www.desmos.com/calculator/r2etlhi2ej
+float32 sine_oscillate_n_waves_normalized(float32 v, float32 n) {
+	return (sin((n*2*PI32*((v)-(1/(n*4))))+1))/2;
+}

@@ -190,15 +190,19 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
+        	
+        case WM_SYSKEYDOWN:
         case WM_KEYDOWN:
         	bool is_repeat = (lparam & 0x40000000) != 0;
-        	
         	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam), -1);
 	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam), -1);
-	        goto DEFAULT_HANDLE;
+	        //goto DEFAULT_HANDLE;
+	        break;
+        case WM_SYSKEYUP:
 	    case WM_KEYUP:
 	        win32_handle_key_up(os_key_to_key_code((void*)wparam), -1);
-	        goto DEFAULT_HANDLE;
+	        //goto DEFAULT_HANDLE;
+	        break;
 	    case WM_LBUTTONDOWN:
 	        win32_handle_key_down(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;

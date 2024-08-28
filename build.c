@@ -3,6 +3,10 @@
 ///
 // Build config stuff
 
+// To enable extensions:
+// #define OOGABOOGA_ENABLE_EXTENSIONS   1
+// #define OOGABOOGA_EXTENSION_PARTICLES 1
+
 #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
 
 // You might want to increase this if you get a log warning saying the temporary storage was overflown.
@@ -22,7 +26,7 @@ typedef struct Context_Extra {
 #define CONTEXT_EXTRA Context_Extra
 
 // This defaults to "entry", but we can set it to anything (except "main" or other existing proc names"
-	#define ENTRY_PROC entry
+#define ENTRY_PROC entry
 
 // Ooga booga needs to be included AFTER configuration and BEFORE the program code
 #include "oogabooga/oogabooga.c"
@@ -33,7 +37,7 @@ typedef struct Context_Extra {
 //
 
 // This is a minimal starting point for new projects. Copy & rename to get started
-// #include "oogabooga/examples/minimal_game_loop.c"
+#include "oogabooga/examples/minimal_game_loop.c"
 
 // #include "oogabooga/examples/text_rendering.c"
 // #include "oogabooga/examples/custom_logger.c"
@@ -43,7 +47,10 @@ typedef struct Context_Extra {
 // #include "oogabooga/examples/custom_shader.c"
 // #include "oogabooga/examples/growing_array_example.c"
 // #include "oogabooga/examples/input_example.c"
-#include "oogabooga/examples/sprite_animation.c"
+// #include "oogabooga/examples/sprite_animation.c"
+
+// These examples require some extensions to be enabled. See top respective files for more info.
+// #include "oogabooga/examples/particles_example.c" // Requires OOGABOOGA_EXTENSION_PARTICLES
 
 // #include "oogabooga/examples/sanity_tests.c"
 

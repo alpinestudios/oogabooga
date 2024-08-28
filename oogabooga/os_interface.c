@@ -214,6 +214,18 @@ ogb_instance const File OS_INVALID_FILE;
 void ogb_instance
 os_write_string_to_stdout(string s);
 
+bool ogb_instance
+os_write_entire_file_handle(File f, string data);
+
+bool ogb_instance
+os_write_entire_file_s(string path, string data);
+
+bool ogb_instance
+os_read_entire_file_handle(File f, string *result, Allocator allocator);
+
+bool ogb_instance
+os_read_entire_file_s(string path, string *result, Allocator allocator);
+
 typedef enum Os_Io_Open_Flags {
 	O_READ   = 0,
 	O_CREATE = 1<<0, // Will replace existing file and start writing from 0 (if writing)
@@ -266,19 +278,6 @@ os_file_get_size(File f);
 
 s64 ogb_instance
 os_file_get_size_from_path(string path);
-
-
-bool ogb_instance
-os_write_entire_file_handle(File f, string data);
-
-bool ogb_instance
-os_write_entire_file_s(string path, string data);
-
-bool ogb_instance
-os_read_entire_file_handle(File f, string *result, Allocator allocator);
-
-bool ogb_instance
-os_read_entire_file_s(string path, string *result, Allocator allocator);
 
 
 bool ogb_instance

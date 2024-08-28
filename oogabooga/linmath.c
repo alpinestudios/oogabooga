@@ -13,7 +13,8 @@ typedef union Vector2 {
 	float data[2];
 	struct {float32  x, y;};
 } Vector2;
-inline Vector2 v2(float32 x, float32 y) { return (Vector2){x, y}; }
+inline 
+Vector2 v2(float32 x, float32 y) { return (Vector2){x, y}; }
 #define v2_expand(v) (v).x, (v).y
 
 typedef union Vector3 {
@@ -23,7 +24,8 @@ typedef union Vector3 {
 	struct  {Vector2  xy;};
 	struct  {float32  _x; Vector2 yz;};
 } Vector3;
-inline Vector3 v3(float32 x, float32 y, float32 z) { return (Vector3){x, y, z}; }
+inline 
+Vector3 v3(float32 x, float32 y, float32 z) { return (Vector3){x, y, z}; }
 #define v3_expand(v) (v).x, (v).y, (v).z
 
 typedef union Vector4 {
@@ -36,7 +38,8 @@ typedef union Vector4 {
 	struct {Vector3  xyz;};
 	struct {float32  _x; Vector3 yzw;};
 } Vector4;
-inline Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
+inline 
+Vector4 v4(float32 x, float32 y, float32 z, float32 w) { return (Vector4){x, y, z, w}; }
 #define v4_expand(v) (v).x, (v).y, (v).z, (v).w
 
 const Vector2 v2_one = {1, 1};
@@ -47,91 +50,117 @@ const Vector2 v2_zero = {0, 0};
 const Vector3 v3_zero = {0, 0, 0};
 const Vector4 v4_zero = {0, 0, 0, 0};
 
-inline Vector2 v2_add(Vector2 a, Vector2 b) {
+inline 
+Vector2 v2_add(Vector2 a, Vector2 b) {
 	return v2(a.x+b.x, a.y+b.y);
 }
-inline Vector2 v2_sub(Vector2 a, Vector2 b) {
+inline 
+Vector2 v2_sub(Vector2 a, Vector2 b) {
 	return v2(a.x-b.x, a.y-b.y);
 }
-inline Vector2 v2_mul(Vector2 a, Vector2 b) {
+inline 
+Vector2 v2_mul(Vector2 a, Vector2 b) {
 	return v2(a.x*b.x, a.y*b.y);
 }
-inline Vector2 v2_mulf(Vector2 a, float32 s) {
+inline 
+Vector2 v2_mulf(Vector2 a, float32 s) {
 	return v2_mul(a, v2(s, s));
 }
-inline Vector2 v2_div(Vector2 a, Vector2 b) {
+inline 
+Vector2 v2_div(Vector2 a, Vector2 b) {
 	return v2(a.x/b.x, a.y/b.y);
 }
-inline Vector2 v2_divf(Vector2 a, float32 s) {
+inline 
+Vector2 v2_divf(Vector2 a, float32 s) {
 	return v2_div(a, v2(s, s));
 }
 
-inline Vector3 v3_add(Vector3 a, Vector3 b) {
+inline 
+Vector3 v3_add(Vector3 a, Vector3 b) {
 	return v3(a.x+b.x, a.y+b.y, a.z+b.z);
 }
-inline Vector3 v3_sub(Vector3 a, Vector3 b) {
+inline 
+Vector3 v3_sub(Vector3 a, Vector3 b) {
 	return v3(a.x-b.x, a.y-b.y, a.z-b.z);
 }
-inline Vector3 v3_mul(Vector3 a, Vector3 b) {
+inline 
+Vector3 v3_mul(Vector3 a, Vector3 b) {
 	return v3(a.x*b.x, a.y*b.y, a.z*b.z);
 }
-inline Vector3 v3_div(Vector3 a, Vector3 b) {
+inline 
+Vector3 v3_div(Vector3 a, Vector3 b) {
 	return v3(a.x/b.x, a.y/b.y, a.z/b.z);
 }
-inline Vector3 v3_mulf(Vector3 a, float32 s) {
+inline 
+Vector3 v3_mulf(Vector3 a, float32 s) {
 	return v3_mul(a, v3(s, s, s));
 }
-inline Vector3 v3_divf(Vector3 a, float32 s) {
+inline 
+Vector3 v3_divf(Vector3 a, float32 s) {
 	return v3_div(a, v3(s, s, s));
 }
 
-inline Vector4 v4_add(Vector4 a, Vector4 b) {
+inline 
+Vector4 v4_add(Vector4 a, Vector4 b) {
 	return v4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
 }
-inline Vector4 v4_sub(Vector4 a, Vector4 b) {
+inline 
+Vector4 v4_sub(Vector4 a, Vector4 b) {
 	return v4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
 }
-inline Vector4 v4_mul(Vector4 a, Vector4 b) {
+inline 
+Vector4 v4_mul(Vector4 a, Vector4 b) {
 	return v4(a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w);
 }
-inline Vector4 v4_mulf(Vector4 a, float32 s) {
+inline 
+Vector4 v4_mulf(Vector4 a, float32 s) {
 	return v4_mul(a, v4(s, s, s, s));
 }
-inline Vector4 v4_div(Vector4 a, Vector4 b) {
+inline 
+Vector4 v4_div(Vector4 a, Vector4 b) {
 	return v4(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w);
 }
-inline Vector4 v4_divf(Vector4 a, float32 s) {
+inline 
+Vector4 v4_divf(Vector4 a, float32 s) {
 	return v4_div(a, v4(s, s, s, s));
 }
 
-inline float32 v2_length(Vector2 a) {
+inline 
+float32 v2_length(Vector2 a) {
 	return sqrt(a.x*a.x + a.y*a.y);
 }
-inline Vector2 v2_normalize(Vector2 a) {
+inline 
+Vector2 v2_normalize(Vector2 a) {
     float32 length = v2_length(a);
     if (length == 0) {
         return (Vector2){0, 0};
     }
     return v2_divf(a, length);
 }
-inline float32 v2_average(Vector2 a) {
+inline 
+float32 v2_average(Vector2 a) {
 	return (a.x+a.y)/2.0;
 }
-inline Vector2 v2_abs(Vector2 a) {
+inline 
+Vector2 v2_abs(Vector2 a) {
 	return v2(fabsf(a.x), fabsf(a.y));
 }
-inline float32 v2_cross(Vector2 a, Vector2 b) {
+inline 
+float32 v2_cross(Vector2 a, Vector2 b) {
     return (a.x * b.y) - (a.y * b.x);
 }
-inline float v2_dot(Vector2 a, Vector2 b) {
+inline 
+float v2_dot(Vector2 a, Vector2 b) {
 	return simd_dot_product_float32_64((float*)&a, (float*)&b);
 }
 
-inline float32 v3_length(Vector3 a) {
+inline 
+float32 v3_length(Vector3 a) {
     return sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }
 
-inline Vector3 v3_normalize(Vector3 a) {
+inline 
+Vector3 v3_normalize(Vector3 a) {
     float32 length = v3_length(a);
     if (length == 0) {
         return (Vector3){0, 0, 0};
@@ -139,30 +168,36 @@ inline Vector3 v3_normalize(Vector3 a) {
     return v3_divf(a, length);
 }
 
-inline float32 v3_average(Vector3 a) {
+inline 
+float32 v3_average(Vector3 a) {
     return (a.x + a.y + a.z) / 3.0;
 }
 
-inline Vector3 v3_abs(Vector3 a) {
+inline 
+Vector3 v3_abs(Vector3 a) {
     return v3(fabsf(a.x), fabsf(a.y), fabsf(a.z));
 }
 
 
-inline Vector3 v3_cross(Vector3 a, Vector3 b) {
+inline 
+Vector3 v3_cross(Vector3 a, Vector3 b) {
     return (Vector3){
         (a.y * b.z) - (a.z * b.y),
         (a.z * b.x) - (a.x * b.z),
         (a.x * b.y) - (a.y * b.x)
     };
 }
-inline float v3_dot(Vector3 a, Vector3 b) {
+inline 
+float v3_dot(Vector3 a, Vector3 b) {
 	return simd_dot_product_float32_96((float*)&a, (float*)&b);
 }
-inline float32 v4_length(Vector4 a) {
+inline 
+float32 v4_length(Vector4 a) {
     return sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
 }
 
-inline Vector4 v4_normalize(Vector4 a) {
+inline 
+Vector4 v4_normalize(Vector4 a) {
     float32 length = v4_length(a);
     if (length == 0) {
         return (Vector4){0, 0, 0, 0};
@@ -170,14 +205,17 @@ inline Vector4 v4_normalize(Vector4 a) {
     return v4_divf(a, length);
 }
 
-inline float32 v4_average(Vector4 a) {
+inline 
+float32 v4_average(Vector4 a) {
     return (a.x + a.y + a.z + a.w) / 4.0;
 }
 
-inline Vector4 v4_abs(Vector4 a) {
+inline 
+Vector4 v4_abs(Vector4 a) {
     return v4(fabsf(a.x), fabsf(a.y), fabsf(a.z), fabsf(a.w));
 }
-inline float v4_dot(Vector4 a, Vector4 b) {
+inline 
+float v4_dot(Vector4 a, Vector4 b) {
 	return simd_dot_product_float32_128_aligned((float*)&a, (float*)&b);
 }
 
@@ -202,8 +240,10 @@ typedef union Vector2i {
     struct {s32  x, y;};
 } Vector2i;
 
-inline Vector2i v2i(s32 x, s32 y) { return (Vector2i){x, y}; }
-inline Vector2 v2i_to_v2(Vector2i a) { return v2((f32)a.x, (f32)a.y); };
+inline 
+Vector2i v2i(s32 x, s32 y) { return (Vector2i){x, y}; }
+inline 
+Vector2 v2i_to_v2(Vector2i a) { return v2((f32)a.x, (f32)a.y); };
 #define v2i_expand(v) (v).x, (v).y
 
 typedef union Vector3i {
@@ -214,11 +254,13 @@ typedef union Vector3i {
     struct  {s32  _x; Vector2i yz;};
 } Vector3i;
 
-inline Vector3i v3i(s32 x, s32 y, s32 z) { return (Vector3i){x, y, z}; }
-inline Vector3 v3i_to_v3(Vector3i a) { return v3((f32)a.x, (f32)a.y, (f32)a.z); };
+inline 
+Vector3i v3i(s32 x, s32 y, s32 z) { return (Vector3i){x, y, z}; }
+inline 
+Vector3 v3i_to_v3(Vector3i a) { return v3((f32)a.x, (f32)a.y, (f32)a.z); };
 #define v3i_expand(v) (v).x, (v).y, (v).z
 
-typedef union alignat(16) Vector4i {
+typedef union Vector4i {
     s32 data[4];
     struct {s32 x, y, z, w;};
     struct {Vector2i  xy; Vector2i zw;};
@@ -229,81 +271,104 @@ typedef union alignat(16) Vector4i {
     struct {s32  _x; s32 yzw;};
 } Vector4i;
 
-inline Vector4i v4i(s32 x, s32 y, s32 z, s32 w) { return (Vector4i){x, y, z, w}; }
-inline Vector4 v4i_to_v4(Vector4i a) { return v4((f32)a.x, (f32)a.y, (f32)a.z, (f32)a.w); };
+inline 
+Vector4i v4i(s32 x, s32 y, s32 z, s32 w) { return (Vector4i){x, y, z, w}; }
+inline 
+Vector4 v4i_to_v4(Vector4i a) { return v4((f32)a.x, (f32)a.y, (f32)a.z, (f32)a.w); };
 #define v4i_expand(v) (v).x, (v).y, (v).z, (v).w
 
-inline Vector2i v2i_add(Vector2i a, Vector2i b) {
+inline 
+Vector2i v2i_add(Vector2i a, Vector2i b) {
 	return v2i(a.x+b.x, a.y+b.y);
 }
-inline Vector2i v2i_sub(Vector2i a, Vector2i b) {
+inline 
+Vector2i v2i_sub(Vector2i a, Vector2i b) {
 	return v2i(a.x-b.x, a.y-b.y);
 }
-inline Vector2i v2i_mul(Vector2i a, Vector2i b) {
+inline 
+Vector2i v2i_mul(Vector2i a, Vector2i b) {
 	return v2i(a.x*b.x, a.y*b.y);
 }
-inline Vector2i v2i_muli(Vector2i a, int s) {
+inline 
+Vector2i v2i_muli(Vector2i a, int s) {
 	return v2i_mul(a, v2i(s, s));
 }
-inline Vector2i v2i_div(Vector2i a, Vector2i b) {
+inline 
+Vector2i v2i_div(Vector2i a, Vector2i b) {
 	return v2i(a.x/b.x, a.y/b.y);
 }
-inline Vector2i v2i_divi(Vector2i a, int s) {
+inline 
+Vector2i v2i_divi(Vector2i a, int s) {
 	return v2i_div(a, v2i(s, s));
 }
 
-inline Vector3i v3i_add(Vector3i a, Vector3i b) {
+inline 
+Vector3i v3i_add(Vector3i a, Vector3i b) {
 	return v3i(a.x+b.x, a.y+b.y, a.z+b.z);
 }
-inline Vector3i v3i_sub(Vector3i a, Vector3i b) {
+inline 
+Vector3i v3i_sub(Vector3i a, Vector3i b) {
 	return v3i(a.x-b.x, a.y-b.y, a.z-b.z);
 }
-inline Vector3i v3i_mul(Vector3i a, Vector3i b) {
+inline 
+Vector3i v3i_mul(Vector3i a, Vector3i b) {
 	return v3i(a.x*b.x, a.y*b.y, a.z*b.z);
 }
-inline Vector3i v3i_div(Vector3i a, Vector3i b) {
+inline 
+Vector3i v3i_div(Vector3i a, Vector3i b) {
 	return v3i(a.x/b.x, a.y/b.y, a.z/b.z);
 }
-inline Vector3i v3i_muli(Vector3i a, int s) {
+inline 
+Vector3i v3i_muli(Vector3i a, int s) {
 	return v3i_mul(a, v3i(s, s, s));
 }
-inline Vector3i v3i_divi(Vector3i a, int s) {
+inline 
+Vector3i v3i_divi(Vector3i a, int s) {
 	return v3i_div(a, v3i(s, s, s));
 }
 
-inline Vector4i v4i_add(Vector4i a, Vector4i b) {
+inline 
+Vector4i v4i_add(Vector4i a, Vector4i b) {
 	return v4i(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
 }
-inline Vector4i v4i_sub(Vector4i a, Vector4i b) {
+inline 
+Vector4i v4i_sub(Vector4i a, Vector4i b) {
 	return v4i(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
 }
-inline Vector4i v4i_mul(Vector4i a, Vector4i b) {
+inline 
+Vector4i v4i_mul(Vector4i a, Vector4i b) {
 	return v4i(a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w);
 }
-inline Vector4i v4i_muli(Vector4i a, int s) {
+inline 
+Vector4i v4i_muli(Vector4i a, int s) {
 	return v4i_mul(a, v4i(s, s, s, s));
 }
-inline Vector4i v4i_div(Vector4i a, Vector4i b) {
+inline 
+Vector4i v4i_div(Vector4i a, Vector4i b) {
 	return v4i(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w);
 }
-inline Vector4i v4i_divi(Vector4i a, int s) {
+inline 
+Vector4i v4i_divi(Vector4i a, int s) {
 	return v4i_div(a, v4i(s, s, s, s));
 }
 #define absi(x) ((x) > 0 ? (x) : -(x))
 
-inline Vector2i v2i_abs(Vector2i a) {
+inline 
+Vector2i v2i_abs(Vector2i a) {
     return v2i(absi(a.x), absi(a.y));
 }
 
-inline Vector3i v3i_abs(Vector3i a) {
+inline 
+Vector3i v3i_abs(Vector3i a) {
     return v3i(absi(a.x), absi(a.y), absi(a.z));
 }
 
-inline Vector4i v4i_abs(Vector4i a) {
+inline 
+Vector4i v4i_abs(Vector4i a) {
     return v4i(absi(a.x), absi(a.y), absi(a.z), absi(a.w));
 }
 
-typedef struct alignat(16) Matrix4 {
+typedef struct Matrix4 {
     union {float32 m[4][4]; float32 data[16]; };
 } Matrix4;
 
@@ -319,7 +384,8 @@ Matrix4 m4_scalar(float32 scalar) {
     return m;
 }
 
-inline Matrix4 m4_identity() {
+inline 
+Matrix4 m4_identity() {
 	return m4_scalar(1.0);
 }
 
@@ -354,7 +420,8 @@ Matrix4 m4_make_rotation(Vector3 axis, float32 radians) {
     return m;
 }
 
-inline Matrix4 m4_make_rotation_z(float32 radians) {
+inline 
+Matrix4 m4_make_rotation_z(float32 radians) {
 	return m4_make_rotation(v3(0, 0, 1), radians);
 }
 
@@ -382,21 +449,25 @@ Matrix4 m4_mul(Matrix4 a, Matrix4 b) {
     return result;
 }
 
-inline Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
+inline 
+Matrix4 m4_translate(Matrix4 m, Vector3 translation) {
     Matrix4 translation_matrix = m4_make_translation(translation);
     return m4_mul(m, translation_matrix);
 }
 
-inline Matrix4 m4_rotate(Matrix4 m, Vector3 axis, float32 radians) {
+inline 
+Matrix4 m4_rotate(Matrix4 m, Vector3 axis, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(axis, radians);
     return m4_mul(m, rotation_matrix);
 }
-inline Matrix4 m4_rotate_z(Matrix4 m, float32 radians) {
+inline 
+Matrix4 m4_rotate_z(Matrix4 m, float32 radians) {
     Matrix4 rotation_matrix = m4_make_rotation(v3(0, 0, 1), radians);
     return m4_mul(m, rotation_matrix);
 }
 
-inline Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
+inline 
+Matrix4 m4_scale(Matrix4 m, Vector3 scale) {
     Matrix4 scale_matrix = m4_make_scale(scale);
     return m4_mul(m, scale_matrix);
 }
@@ -555,21 +626,146 @@ Matrix4 m4_inverse(Matrix4 m) {
     return inv;
 }
 
-// This isn't really linmath but just putting it here for now
-#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
+typedef struct Matrix3 {
+    union {
+        float32 m[3][3]; 
+        float32 data[9]; 
+    };
+} Matrix3;
 
-f64 lerpf(f64 from, f64 to, f64 x) {
-	return (to-from)*x+from;
-}
-s64 lerpi(s64 from, s64 to, f64 x) {
-	return (s64)((round((f64)to-(f64)from)*x)+from);
+// Sets m3 part of an identity m4
+Matrix4 m3_to_m4(Matrix3 mat3) {
+    Matrix4 mat4 = m4_identity();
+
+	// Row 0    
+    mat4.m[0][0] = mat3.m[0][0];
+    mat4.m[0][1] = mat3.m[0][1];
+    mat4.m[0][3] = mat3.m[0][2];
+    
+    // Row 1
+    mat4.m[1][0] = mat3.m[1][0];
+    mat4.m[1][1] = mat3.m[1][1];
+    mat4.m[1][3] = mat3.m[1][2];
+    
+    // Leave row 2 as identity
+    
+    // Row 3
+    mat4.m[3][0] = mat3.m[2][0];
+    mat4.m[3][1] = mat3.m[2][1];
+    mat4.m[3][3] = mat3.m[2][2];
+
+    return mat4;
 }
 
-f64 smerpf(f64 from, f64 to, f64 t) {
-	float64 smooth = t * t * (3.0 - 2.0 * t);
-	return lerpf(from, to, smooth);
+Matrix3 m3_scalar(float32 scalar) {
+    Matrix3 m;
+    for (int i = 0; i < 9; i++) {
+        m.data[i] = 0.0f;
+    }
+    m.data[0] = scalar; 
+    m.data[4] = scalar; 
+    m.data[8] = scalar;
+    return m;
 }
-s64 smerpi(s64 from, s64 to, f64 t) {
-	float64 smooth = t * t * (3.0 - 2.0 * t);
-	return lerpi(from, to, smooth);
+
+inline 
+Matrix3 m3_identity() {
+    return m3_scalar(1.0f);
+}
+
+Matrix3 m3_make_translation(Vector2 translation) {
+    Matrix3 m = m3_scalar(1.0f);
+    m.m[0][2] = translation.x;
+    m.m[1][2] = translation.y;
+    return m;
+}
+
+Matrix3 m3_make_rotation(float32 radians) {
+    Matrix3 m = m3_scalar(1.0f);
+    float32 c = cosf(radians);
+    float32 s = sinf(radians);
+
+    m.m[0][0] = c;
+    m.m[0][1] = -s;
+    m.m[1][0] = s;
+    m.m[1][1] = c;
+    return m;
+}
+
+Matrix3 m3_make_scale(Vector2 scale) {
+    Matrix3 m = m3_scalar(1.0f);
+    m.m[0][0] = scale.x;
+    m.m[1][1] = scale.y;
+    return m;
+}
+
+Matrix3 m3_mul(Matrix3 a, Matrix3 b) {
+    Matrix3 result;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            result.m[i][j] = a.m[i][0] * b.m[0][j] +
+                             a.m[i][1] * b.m[1][j] +
+                             a.m[i][2] * b.m[2][j];
+        }
+    }
+    return result;
+}
+
+inline 
+Matrix3 m3_translate(Matrix3 m, Vector2 translation) {
+    Matrix3 translation_matrix = m3_make_translation(translation);
+    return m3_mul(m, translation_matrix);
+}
+
+inline 
+Matrix3 m3_rotate(Matrix3 m, float32 radians) {
+    Matrix3 rotation_matrix = m3_make_rotation(radians);
+    return m3_mul(m, rotation_matrix);
+}
+
+inline 
+Matrix3 m3_scale(Matrix3 m, Vector2 scale) {
+    Matrix3 scale_matrix = m3_make_scale(scale);
+    return m3_mul(m, scale_matrix);
+}
+
+Matrix3 m3_inverse(Matrix3 m) {
+    Matrix3 inv;
+    float32 det;
+
+    inv.m[0][0] = m.m[1][1] * m.m[2][2] - m.m[1][2] * m.m[2][1];
+    inv.m[0][1] = m.m[0][2] * m.m[2][1] - m.m[0][1] * m.m[2][2];
+    inv.m[0][2] = m.m[0][1] * m.m[1][2] - m.m[0][2] * m.m[1][1];
+
+    inv.m[1][0] = m.m[1][2] * m.m[2][0] - m.m[1][0] * m.m[2][2];
+    inv.m[1][1] = m.m[0][0] * m.m[2][2] - m.m[0][2] * m.m[2][0];
+    inv.m[1][2] = m.m[0][2] * m.m[1][0] - m.m[0][0] * m.m[1][2];
+
+    inv.m[2][0] = m.m[1][0] * m.m[2][1] - m.m[1][1] * m.m[2][0];
+    inv.m[2][1] = m.m[0][1] * m.m[2][0] - m.m[0][0] * m.m[2][1];
+    inv.m[2][2] = m.m[0][0] * m.m[1][1] - m.m[0][1] * m.m[1][0];
+
+    det = m.m[0][0] * inv.m[0][0] + m.m[0][1] * inv.m[1][0] + m.m[0][2] * inv.m[2][0];
+
+    if (det == 0.0f) {
+        return m3_scalar(0.0f);
+    }
+
+    det = 1.0f / det;
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            inv.m[i][j] *= det;
+        }
+    }
+
+    return inv;
+}
+
+Vector3 m3_transform(Matrix3 m, Vector3 v) {
+    Vector3 result;
+    result.x = m.m[0][0] * v.x + m.m[0][1] * v.y + m.m[0][2] * v.z;
+    result.y = m.m[1][0] * v.x + m.m[1][1] * v.y + m.m[1][2] * v.z;
+    result.z = m.m[2][0] * v.x + m.m[2][1] * v.y + m.m[2][2] * v.z;
+    return result;
 }

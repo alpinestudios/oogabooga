@@ -7,10 +7,10 @@
 
 // #Global
 // set this to something like rtdsc() for very randomized seed
-ogb_instance u64 seed_for_random;
+ogb_instance thread_local u64 seed_for_random;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
-u64 seed_for_random = 1;
+thread_local u64 seed_for_random = 1;
 #endif
 
 // Like get_random but it doesn't advance the seed

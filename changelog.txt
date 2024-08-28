@@ -1,3 +1,42 @@
+## v0.01.006
+
+	- Build configuration
+		- Introduced an "extensions" system to be able to compile some extensions that might help with your game.
+			- To enable extensions, do #define OOGABOOGA_ENABLE_EXTENSIONS 1, then #define OOGABOOGA_EXTENSION_XXXXX 1
+				Also call ext_update(delta_time) and ext_draw() each frame.
+	
+	- Implemented a Particles extension for particle emissions
+		- struct Emission_Config
+		- Emission_Handle emit_particles(config, position)
+		
+	
+	- Misc
+		- Added void *growing_array_add_multiple_empty(void **array, u64 count)
+		- Added void growing_array_add_multiple(void **array, void *items, u64 count)
+		- Added Matrix3 with:
+			- Matrix4 m3_to_m4(Matrix3 mat3)
+			- Matrix3 m3_scalar(float32 scalar)
+			- Matrix3 m3_identity()
+			- Matrix3 m3_make_translation(Vector2 translation)
+			- Matrix3 m3_make_rotation(float32 radians)
+			- Matrix3 m3_make_scale(Vector2 scale)
+			- Matrix3 m3_mul(Matrix3 a, Matrix3 b)
+			- Matrix3 m3_translate(Matrix3 m, Vector2 translation)
+			- Matrix3 m3_rotate(Matrix3 m, float32 radians)
+			- Matrix3 m3_scale(Matrix3 m, Vector2 scale)
+			- Matrix3 m3_inverse(Matrix3 m)
+			- Vector3 m3_transform(Matrix3 m, Vector3 v)
+		- Fixed Arena so it actually works
+		- Fixed sys keys not being handled as expected (such as LALT)
+		- Added some arena procedures:
+			- void *arena_push(Arena *arena, u64 size)
+			- #define arena_push_struct(parena, type)
+			- Allocator make_arena_allocator_from_arena(Arena *arena)
+		- Cleaned up some example stuff
+		- Fixed build.sh
+		- Made seed_for_random thread_local
+		- Added utility function float32 sine_oscillate_n_waves_normalized(float32 v, float32 n)
+
 ## v0.01.005 - Arenas, Monitor query, fullscreen
 
 	- Window

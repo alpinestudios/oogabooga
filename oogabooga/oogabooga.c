@@ -6,6 +6,30 @@
 		
 		All configuration properties has default values if you do not explicitly #define them.
 	
+		- OOGABOOGA_ENABLE_EXTENSIONS
+			Enable oogabooga extensions.
+		
+			0: Disable
+			1: Enable
+			
+			Example:
+			
+				#define OOGABOOGA_ENABLE_EXTENSIONS 1
+				
+			Note:
+				Your program needs to call ext_update_and_draw() each frame.
+				
+		- OOGABOOGA_EXTENSION_PARTICLES
+			Enable the 'particles' oogabooga extension to use particle emitters in your game.
+		
+			0: Disable
+			1: Enable
+			
+			Example:
+			
+				#define OOGABOOGA_EXTENSION_PARTICLES 1
+				
+	
 		- ENTRY_PROC
 			Define this as whatever the entry procedure of your program should be.
 				
@@ -112,13 +136,11 @@
             Example:
             
                 #define OOGABOOGA_HEADLESS 1
-		
-
 */
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 1
-#define OGB_VERSION_PATCH 5
+#define OGB_VERSION_PATCH 6
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -323,6 +345,11 @@ typedef u8 bool;
     #include "audio.c"
 #endif
 
+#if OOGABOOGA_ENABLE_EXTENSIONS
+
+	#include "extensions.c"
+#endif
+
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
     #if TARGET_OS == WINDOWS
@@ -391,6 +418,11 @@ void oogabooga_init(u64 program_memory_size) {
 #else
     log_info("Headless mode on");
 #endif
+
+#if OOGABOOGA_ENABLE_EXTENSIONS
+	ext_init();
+#endif
+
 	log_verbose("CPU has sse1:   %cs", features.sse1   ? "true" : "false");
 	log_verbose("CPU has sse2:   %cs", features.sse2   ? "true" : "false");
 	log_verbose("CPU has sse3:   %cs", features.sse3   ? "true" : "false");
