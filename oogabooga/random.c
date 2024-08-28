@@ -6,7 +6,7 @@
 #define INCREMENT 1442695040888963407ull
 
 // #Global
-// set this to something like os_get_current_cycle_count() for very randomized seed
+// set this to something like rtdsc() for very randomized seed
 ogb_instance u64 seed_for_random;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE

@@ -231,28 +231,18 @@ void d3d11_update_swapchain() {
 		if (d3d11_window_render_target_view) D3D11Release(d3d11_window_render_target_view);
 		if (d3d11_back_buffer) D3D11Release(d3d11_back_buffer);
 		
-		RECT client_rect;
-		bool ok = GetClientRect(window._os_handle, &client_rect);
-		assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-		
-		u32 window_width  = client_rect.right-client_rect.left;
-		u32 window_height = client_rect.bottom-client_rect.top;
-		
-		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window_width, window_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
+		hr = IDXGISwapChain1_ResizeBuffers(d3d11_swap_chain, d3d11_swap_chain_desc.BufferCount, window.pixel_width, window.pixel_height, d3d11_swap_chain_desc.Format, d3d11_swap_chain_desc.Flags);
 		d3d11_check_hr(hr);
 		
 		// update swap chain description
 		hr = IDXGISwapChain1_GetDesc1(d3d11_swap_chain, &d3d11_swap_chain_desc);
 		d3d11_check_hr(hr);
 		
-		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window_width, window_height);
+		log("Resized swap chain from %dx%d to %dx%d", d3d11_swap_chain_width, d3d11_swap_chain_height, window.pixel_width, window.pixel_height);
 		
-		d3d11_swap_chain_width  = window_width;
-		d3d11_swap_chain_height = window_height;
+		d3d11_swap_chain_width  = window.pixel_width;
+		d3d11_swap_chain_height = window.pixel_height;
 	}
-	
-	
-	
 	
 	hr = IDXGISwapChain1_GetBuffer(d3d11_swap_chain, 0, &IID_ID3D11Texture2D, (void**)&d3d11_back_buffer);
 	d3d11_check_hr(hr);
@@ -610,23 +600,28 @@ void d3d11_process_draw_frame() {
 	
 	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
+	if (!draw_frame.quad_buffer) return;
+
+	u64 number_of_quads = growing_array_get_valid_count(draw_frame.quad_buffer);
+	
 	///
 	// Maybe grow quad vbo
-	u32 required_size = sizeof(D3D11_Vertex) * allocated_quads*6;
+	u64 required_size = sizeof(D3D11_Vertex) * number_of_quads*6;
 
 	if (required_size > d3d11_quad_vbo_size) {
 		if (d3d11_quad_vbo) {
 			D3D11Release(d3d11_quad_vbo);
 			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
+		u64 new_size = get_next_power_of_two(required_size);
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
 		desc.Usage = D3D11_USAGE_DYNAMIC; 
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.ByteWidth = required_size;
+		desc.ByteWidth = new_size;
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
-		d3d11_quad_vbo_size = required_size;
+		d3d11_quad_vbo_size = new_size;
 		
 		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
 		assert((u64)d3d11_staging_quad_buffer%16 == 0);
@@ -634,7 +629,7 @@ void d3d11_process_draw_frame() {
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
 
-	if (draw_frame.num_quads > 0) {
+	if (number_of_quads > 0) {
 		///
 		// Render geometry from into vbo quad list
 	    
@@ -648,20 +643,22 @@ void d3d11_process_draw_frame() {
 		D3D11_Vertex* pointer = head;
 		u64 number_of_rendered_quads = 0;
 		
+		
+		
 		tm_scope("Quad processing") {
 			if (draw_frame.enable_z_sorting) tm_scope("Z sorting") {
-				if (!sort_quad_buffer || (sort_quad_buffer_size < allocated_quads*sizeof(Draw_Quad))) {
+				if (!sort_quad_buffer || (sort_quad_buffer_size < number_of_quads*sizeof(Draw_Quad))) {
 					// #Memory #Heapalloc
 					if (sort_quad_buffer) dealloc(get_heap_allocator(), sort_quad_buffer);
-					sort_quad_buffer = alloc(get_heap_allocator(), allocated_quads*sizeof(Draw_Quad));
-					sort_quad_buffer_size = allocated_quads*sizeof(Draw_Quad);
+					sort_quad_buffer = alloc(get_heap_allocator(), number_of_quads*sizeof(Draw_Quad));
+					sort_quad_buffer_size = number_of_quads*sizeof(Draw_Quad);
 				}
-				radix_sort(quad_buffer, sort_quad_buffer, draw_frame.num_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
+				radix_sort(draw_frame.quad_buffer, sort_quad_buffer, number_of_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
 			}
 		
-			for (u64 i = 0; i < draw_frame.num_quads; i++)  {
+			for (u64 i = 0; i < number_of_quads; i++)  {
 				
-				Draw_Quad *q = &quad_buffer[i];
+				Draw_Quad *q = &draw_frame.quad_buffer[i];
 				
 				assert(q->z <= MAX_Z, "Z is too high. Z is %d, Max is %d.", q->z, MAX_Z);
 				assert(q->z >= (-MAX_Z+1), "Z is too low. Z is %d, Min is %d.", q->z, -MAX_Z+1);
@@ -705,32 +702,27 @@ void d3d11_process_draw_frame() {
 					last_texture_index = texture_index;
 				}
 				
-				if (q->type == QUAD_TYPE_TEXT) {
-				
-				    // This is meant to fix the annoying artifacts that shows up when sampling text from an atlas
-				    // presumably for floating point precision issues or something.
-				
-				    // #Incomplete
-				    // If we want to animate text with small movements then it will look wonky.
-				    // This should be optional probably.
-				    // Also, we might want to do this on non-text if rendering with linear filtering
-				    // from a large texture atlas.
-				
-					float pixel_width = 2.0/(float)window.width;
-					float pixel_height = 2.0/(float)window.height;
+				// This is meant to fix the annoying artifacts that shows up when sampling from a large atlas
+			    // presumably for floating point precision issues or something.
+			
+			    // #Incomplete
+			    // If we want to animate text with small movements then it will look wonky.
+			    // This should be optional probably.
+			
+				float pixel_width = 2.0/(float)window.width;
+				float pixel_height = 2.0/(float)window.height;
 
-                    bool xeven = window.width % 2 == 0;
-                    bool yeven = window.height % 2 == 0;
-					
-					q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
-				    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
-				    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
-				    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
-				    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
-				    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
-				    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
-				    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
-				}
+                bool xeven = window.width % 2 == 0;
+                bool yeven = window.height % 2 == 0;
+				
+				q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
+			    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
+			    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
+			    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
+			    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
+			    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
+			    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
+			    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
 				
 				// We will write to 6 vertices for the one quad (two tris)
 				 {
@@ -856,12 +848,7 @@ void gfx_update() {
 	HRESULT hr;
 	///
 	// Maybe resize swap chain
-	RECT client_rect;
-	bool ok = GetClientRect(window._os_handle, &client_rect);
-	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
-	u32 window_width  = client_rect.right-client_rect.left;
-	u32 window_height = client_rect.bottom-client_rect.top;
-	if (window_width != d3d11_swap_chain_width || window_height != d3d11_swap_chain_height) {
+	if (window.pixel_width != d3d11_swap_chain_width || window.pixel_height != d3d11_swap_chain_height) {
 		d3d11_update_swapchain();
 	}
 
@@ -895,6 +882,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	desc.Height = image->height;
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
+	// #Hdr
 	switch (image->channels) {
 		case 1: desc.Format = DXGI_FORMAT_R8_UNORM; break;
 		case 2: desc.Format = DXGI_FORMAT_R8G8_UNORM; break;
@@ -910,7 +898,7 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	
 	D3D11_SUBRESOURCE_DATA data_desc = ZERO(D3D11_SUBRESOURCE_DATA);
 	data_desc.pSysMem = data;
-	data_desc.SysMemPitch  = image->width * image->channels;
+	data_desc.SysMemPitch  = image->width * image->channels; // #Hdr
 	
 	ID3D11Texture2D* texture = 0;
 	HRESULT hr = ID3D11Device_CreateTexture2D(d3d11_device, &desc, &data_desc, &texture);
@@ -940,16 +928,72 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
     assert(SUCCEEDED(hr), "Expected gfx resource to be a texture but it wasn't");
 
-    D3D11_BOX destBox;
-    destBox.left = x;
-    destBox.right = x + w;
-    destBox.top = y;
-    destBox.bottom = y + h;
-    destBox.front = 0;
-    destBox.back = 1;
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
 
+	// #Hdr
 	// #Incomplete bit-width 8 assumed
-    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &destBox, data, w * image->channels, 0);
+    ID3D11DeviceContext_UpdateSubresource(d3d11_context, (ID3D11Resource*)texture, 0, &region, data, w * image->channels, 0);
+    
+    ID3D11Resource_Release(resource);
+}
+void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output) {
+	
+    D3D11_BOX region;
+    region.left = x;
+    region.right = x + w;
+    region.top = y;
+    region.bottom = y + h;
+    region.front = 0;
+    region.back = 1;
+    
+	ID3D11Resource *resource = 0;
+	ID3D11View_GetResource(image->gfx_handle, &resource);
+	
+	ID3D11Texture2D *texture = 0;
+	HRESULT hr = ID3D11Resource_QueryInterface(resource, &IID_ID3D11Texture2D, (void**)&texture);
+	d3d11_check_hr(hr);
+	
+	D3D11_TEXTURE2D_DESC desc;
+    texture->lpVtbl->GetDesc(texture, &desc);
+    
+    D3D11_TEXTURE2D_DESC staging_desc = desc;
+    staging_desc.Usage = D3D11_USAGE_STAGING;
+    staging_desc.BindFlags = 0;
+    staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    staging_desc.MiscFlags = 0;
+    
+    ID3D11Texture2D *staging_texture = 0;
+    hr = ID3D11Device_CreateTexture2D(d3d11_device, &staging_desc, 0, &staging_texture);
+	d3d11_check_hr(hr);
+	
+	ID3D11DeviceContext_CopySubresourceRegion(
+		d3d11_context, 
+		(ID3D11Resource *)staging_texture, 
+		0, 0, 0, 0, 
+		(ID3D11Resource *)texture, 0, 
+		&region
+	);
+	
+	D3D11_MAPPED_SUBRESOURCE mapped_texture;
+    hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource *)staging_texture, 0, D3D11_MAP_READ, 0, &mapped_texture);
+	d3d11_check_hr(hr);
+	
+	// #Hdr
+	assert(mapped_texture.RowPitch == image->width * image->channels, "Unexpected row pitch in d3d11 texture");
+	
+	// #Hdr
+	memcpy(output, mapped_texture.pData, image->width*image->height*image->channels);
+	
+	ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource *)staging_texture, 0);
+	
+	ID3D11Resource_Release(resource);
+	ID3D11Texture2D_Release(staging_texture);
 }
 void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11ShaderResourceView *view = image->gfx_handle;
@@ -965,6 +1009,8 @@ void gfx_deinit_image(Gfx_Image *image) {
 	} else {
 		panic("Unhandled D3D11 resource deletion");
 	}
+	
+	ID3D11Resource_Release(resource);
 }
 
 bool 

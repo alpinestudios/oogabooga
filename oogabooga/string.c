@@ -173,6 +173,10 @@ string_builder_init(String_Builder *b, Allocator allocator) {
 	string_builder_init_reserve(b, 128, allocator);
 }
 void 
+string_builder_deinit(String_Builder *b) {
+	dealloc(b->allocator, b->buffer);
+}
+void 
 string_builder_append(String_Builder *b, string s) {
 	assert(b->allocator.proc, "String_Builder is missing allocator");
 	string_builder_reserve(b, b->count+s.count);
@@ -209,3 +213,24 @@ string_replace_all(string s, string old, string new, Allocator allocator) {
 	return string_builder_get_string(builder);
 }
 	
+string
+string_trim_left(string s) {
+	while (s.count > 0 && *s.data == ' ') {
+		s.data += 1;
+		s.count -= 1;
+	}
+	return s;
+}
+string
+string_trim_right(string s) {
+
+	while (s.count > 0 && s.data[s.count-1] == ' ') {
+		s.count -= 1;
+	}
+	return s;
+}
+string
+string_trim(string s) {
+	s = string_trim_left(s);
+	return string_trim_right(s);
+}

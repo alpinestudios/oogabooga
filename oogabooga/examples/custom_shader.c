@@ -44,10 +44,10 @@ int entry(int argc, char **argv) {
 	// memory from an invalid address.
 	My_Cbuffer cbuffer;
 
-	float64 last_time = os_get_current_time_in_seconds();
+	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
 		
-		float64 now = os_get_current_time_in_seconds();
+		float64 now = os_get_elapsed_seconds();
 		if ((int)now != (int)last_time) {
 			log("%.2f FPS\n%.2fms", 1.0/(now-last_time), (now-last_time)*1000);
 		}
@@ -88,8 +88,8 @@ int entry(int argc, char **argv) {
 }
 
 Vector2 world_to_screen(Vector2 p) {
-    Vector4 in_view_space = m4_transform(draw_frame.view, v4(p.x, p.y, 0.0, 1.0));
-    Vector4 in_clip_space = m4_transform(draw_frame.projection, in_view_space);
+    Vector4 in_cam_space  = m4_transform(draw_frame.camera_xform, v4(p.x, p.y, 0.0, 1.0));
+    Vector4 in_clip_space = m4_transform(draw_frame.projection, in_cam_space);
     
     Vector4 ndc = {
         .x = in_clip_space.x / in_clip_space.w,

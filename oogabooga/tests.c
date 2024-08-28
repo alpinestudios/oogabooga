@@ -442,8 +442,6 @@ void test_strings() {
     assert(memcmp(multi_append_builder.buffer, expected_result, multi_append_builder.count) == 0, "Failed: multiple appends");
     dealloc(heap, multi_append_builder.buffer);
     
-    
-    
     string cheese_hello = STR("HeCHEESElloCHEESE, WorCHEESEld!");
     string hello = string_replace_all(cheese_hello, STR("CHEESE"), STR(""), heap);
     assert(strings_match(hello, STR("Hello, World!")), "Failed: string_replace");
@@ -1208,7 +1206,7 @@ void test_mutex() {
 
     Allocator allocator = get_heap_allocator();
 
-	const int num_threads = 1000;
+	const int num_threads = 100;
 
 	Thread *threads = alloc(allocator, sizeof(Thread)*num_threads);
 	for (u64 i = 0; i < num_threads; i++) {
@@ -1233,9 +1231,9 @@ int compare_draw_quads(const void *a, const void *b) {
 }
 void test_sort() {
     
-    int num_samples = 100;
+    int num_samples = 500;
     u64 id_bits = 21;
-    u64 item_count = 5000;
+    u64 item_count = 50000;
     
     f64 seconds = 0;
     u64 cycles = 0;
@@ -1253,11 +1251,11 @@ void test_sort() {
         u64 item_size = sizeof(Draw_Quad);
         u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
     
-        float64 start_seconds = os_get_current_time_in_seconds();
+        float64 start_seconds = os_get_elapsed_seconds();
         u64 start_cycles = rdtsc();
         radix_sort(items, buffer, item_count, item_size, sort_value_offset_in_item, id_bits);
         u64 end_cycles = rdtsc();
-        float64 end_seconds = os_get_current_time_in_seconds();
+        float64 end_seconds = os_get_elapsed_seconds();
     
         for (u64 i = 1; i < item_count; i++) {
             assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");
@@ -1281,11 +1279,11 @@ void test_sort() {
         u64 item_size = sizeof(Draw_Quad);
         u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
     
-        float64 start_seconds = os_get_current_time_in_seconds();
+        float64 start_seconds = os_get_elapsed_seconds();
         u64 start_cycles = rdtsc();
         merge_sort(items, buffer, item_count, item_size, compare_draw_quads);
         u64 end_cycles = rdtsc();
-        float64 end_seconds = os_get_current_time_in_seconds();
+        float64 end_seconds = os_get_elapsed_seconds();
     
         for (u64 i = 1; i < item_count; i++) {
             assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");

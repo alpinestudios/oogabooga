@@ -49,6 +49,8 @@ ogb_instance void
 gfx_init_image(Gfx_Image *image, void *data);
 ogb_instance void 
 gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
+ogb_instance void
+gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output);
 ogb_instance void 
 gfx_deinit_image(Gfx_Image *image);
 

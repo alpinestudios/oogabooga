@@ -48,43 +48,52 @@ typedef struct Draw_Quad {
 
 
 typedef struct Draw_Frame {
-	u64 num_quads;
-	
 	Matrix4 projection;
-	Matrix4 view;
-	
-	bool enable_z_sorting;
-	s32 z_stack[Z_STACK_MAX];
-	u64 z_count;
-
-	Vector4 scissor_stack[SCISSOR_STACK_MAX];
-	u64 scissor_count;
+	union {
+		DEPRECATED(Matrix4 view, "Use draw_frame.camera_xform instead");
+		Matrix4 camera_xform;
+	};
 	
 	void *cbuffer;
 	
+	u64 scissor_count;
+	Vector4 scissor_stack[SCISSOR_STACK_MAX];
+	
+	Draw_Quad *quad_buffer;
+	
+	u64 z_count;
+	s32 z_stack[Z_STACK_MAX];
+	bool enable_z_sorting;
+	
 } Draw_Frame;
 
-// #Cleanup this should be in Draw_Frame
-// #Global
-ogb_instance Draw_Quad *quad_buffer;
-ogb_instance u64 allocated_quads;
 // This frame is passed to the platform layer and rendered in os_update.
 // Resets every frame.
 ogb_instance Draw_Frame draw_frame;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
-Draw_Quad *quad_buffer;
-u64 allocated_quads;
-Draw_Frame draw_frame = ZERO(Draw_Frame);
+Draw_Frame draw_frame;
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void reset_draw_frame(Draw_Frame *frame) {
+
+	// #Memory
+	// I would like to try to have the quad buffer to be allocated in a growing arena
+	// which is reset every frames, like temp allocator but large enough to fit the
+	// highest number of quads the program submits in a frame.
+	// For now, we just reset the count in the heap allocated buffer
+
+	Draw_Quad *quad_buffer = frame->quad_buffer;
+	if (quad_buffer) growing_array_clear((void**)&quad_buffer);
+
 	*frame = (Draw_Frame){0};
+	
+	frame->quad_buffer = quad_buffer;
 	
 	float32 aspect = (float32)window.width/(float32)window.height;
 	
 	frame->projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
-	frame->view = m4_scalar(1.0);	
+	frame->camera_xform = m4_scalar(1.0);
 }
 
 void push_z_layer(s32 z) {
@@ -141,35 +150,26 @@ Draw_Quad *draw_quad_projected(Draw_Quad quad, Matrix4 world_to_clip) {
 	
 	memset(quad.userdata, 0, sizeof(quad.userdata));
 	
-	if (draw_frame.num_quads >= allocated_quads) {
+	if (!draw_frame.quad_buffer) {
 		// #Memory
-		
-		u64 new_count = max(get_next_power_of_two(draw_frame.num_quads+1), 128);
-		
-		Draw_Quad *new_buffer = alloc(get_heap_allocator(), new_count*sizeof(Draw_Quad));
-		
-		if (quad_buffer) {
-			memcpy(new_buffer, quad_buffer, draw_frame.num_quads*sizeof(Draw_Quad));
-			dealloc(get_heap_allocator(), quad_buffer);
-		}
-		
-		quad_buffer = new_buffer;
-		allocated_quads = new_count;
+		// Use an arena
+		growing_array_init((void**)&draw_frame.quad_buffer, sizeof(Draw_Quad), get_heap_allocator());
 	}
 	
-	quad_buffer[draw_frame.num_quads] = quad;
-	draw_frame.num_quads += 1;
+	Draw_Quad **target_buffer = &draw_frame.quad_buffer;
 	
-	return &quad_buffer[draw_frame.num_quads-1];
+	growing_array_add((void**)target_buffer, &quad);
+	
+	return &(*target_buffer)[growing_array_get_valid_count(*target_buffer)-1];
 }
 Draw_Quad *draw_quad(Draw_Quad quad) {
-	return draw_quad_projected(quad, m4_mul(draw_frame.projection, m4_inverse(draw_frame.view)));
+	return draw_quad_projected(quad, m4_mul(draw_frame.projection, m4_inverse(draw_frame.camera_xform)));
 }
 
 Draw_Quad *draw_quad_xform(Draw_Quad quad, Matrix4 xform) {
 	Matrix4 world_to_clip = m4_scalar(1.0);
 	world_to_clip         = m4_mul(world_to_clip, draw_frame.projection);
-	world_to_clip         = m4_mul(world_to_clip, m4_inverse(draw_frame.view));
+	world_to_clip         = m4_mul(world_to_clip, m4_inverse(draw_frame.camera_xform));
 	world_to_clip         = m4_mul(world_to_clip, xform);
 	return draw_quad_projected(quad, world_to_clip);
 }

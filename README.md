@@ -95,9 +95,10 @@ Simply add `#include "oogabooga/examples/some_example.c"` to build.c and compile
 
 Other than examples, a great way to learn is to delve into the code of whatever module you're using. The codebase is written with this in mind.
 
-## Known bugs
+## Known bugs & issues
 - Window positioning & sizing is fucky wucky
 - Converting 24-bit audio files doesn't really work
+- Compiling with msys, cygwin, mingw etc fails
 
 ## Licensing
 By default, the repository has an educational license that makes the engine free to use for personal projects.

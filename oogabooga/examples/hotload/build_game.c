@@ -13,7 +13,7 @@
 void SHARED_EXPORT
 game_update(f64 delta_time) {
 
-    float64 now = os_get_current_time_in_seconds();
+    float64 now = os_get_elapsed_seconds();
 
 	Matrix4 rect_xform = m4_scalar(1.0);
 	rect_xform         = m4_rotate_z(rect_xform, (f32)now);

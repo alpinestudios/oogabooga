@@ -118,7 +118,7 @@
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 1
-#define OGB_VERSION_PATCH 3
+#define OGB_VERSION_PATCH 5
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -229,7 +229,7 @@ typedef u8 bool;
 #ifdef _WIN32
 	#define COBJMACROS
 	#undef noreturn
-	#include <Windows.h>
+	#include <windows.h>
     #if CONFIGURATION == DEBUG
     	#include <dbghelp.h>
     #endif
@@ -286,7 +286,6 @@ typedef u8 bool;
 #include "hash.c"
 #include "path_utils.c"
 #include "linmath.c"
-#include "range.c"
 #include "utility.c"
 
 #include "hash_table.c"
@@ -392,15 +391,18 @@ void oogabooga_init(u64 program_memory_size) {
 #else
     log_info("Headless mode on");
 #endif
-	log_verbose("CPU has sse1:   %cs", features.sse1 ? "true" : "false");
-	log_verbose("CPU has sse2:   %cs", features.sse2 ? "true" : "false");
-	log_verbose("CPU has sse3:   %cs", features.sse3 ? "true" : "false");
-	log_verbose("CPU has ssse3:  %cs", features.ssse3 ? "true" : "false");
-	log_verbose("CPU has sse41:  %cs", features.sse41 ? "true" : "false");
-	log_verbose("CPU has sse42:  %cs", features.sse42 ? "true" : "false");
-	log_verbose("CPU has avx:    %cs", features.avx ? "true" : "false");
-	log_verbose("CPU has avx2:   %cs", features.avx2 ? "true" : "false");
+	log_verbose("CPU has sse1:   %cs", features.sse1   ? "true" : "false");
+	log_verbose("CPU has sse2:   %cs", features.sse2   ? "true" : "false");
+	log_verbose("CPU has sse3:   %cs", features.sse3   ? "true" : "false");
+	log_verbose("CPU has ssse3:  %cs", features.ssse3  ? "true" : "false");
+	log_verbose("CPU has sse41:  %cs", features.sse41  ? "true" : "false");
+	log_verbose("CPU has sse42:  %cs", features.sse42  ? "true" : "false");
+	log_verbose("CPU has avx:    %cs", features.avx    ? "true" : "false");
+	log_verbose("CPU has avx2:   %cs", features.avx2   ? "true" : "false");
 	log_verbose("CPU has avx512: %cs", features.avx512 ? "true" : "false");
+	
+	Os_Monitor *m = os.primary_monitor;
+	log_verbose("Primary Monitor:\n\t%s\n\t%dhz\n\t%dx%d\n\tdpi: %d", m->name, m->refresh_rate, m->resolution_x, m->resolution_y, m->dpi);
 }
 #endif
 

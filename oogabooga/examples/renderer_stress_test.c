@@ -31,24 +31,27 @@ int entry(int argc, char **argv) {
 	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
 	assert(font, "Failed loading arial.ttf, %d", GetLastError());
 	
-	render_atlas_if_not_yet_rendered(font, 32, 'A');
+	// This makes sure atlas is rendered for ascii.
+	// You might want to do this if your game lags the first time you render text because it renders
+	// the atlas on the fly.
+	render_atlas_if_not_yet_rendered(font, 32, 'A'); 
 	
 	seed_for_random = rdtsc();
 	
 	const float64 fps_limit = 69000;
 	const float64 min_frametime = 1.0 / fps_limit;
 	
-	Matrix4 camera_view = m4_scalar(1.0);
+	Matrix4 camera_xform = m4_scalar(1.0);
 	
-	float64 last_time = os_get_current_time_in_seconds();
+	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) tm_scope("Frame") {
 		reset_temporary_storage();
 		
-		float64 now = os_get_current_time_in_seconds();
+		float64 now = os_get_elapsed_seconds();
 		float64 delta = now - last_time;
 		if (delta < min_frametime) {
 			os_high_precision_sleep((min_frametime-delta)*1000.0);
-			now = os_get_current_time_in_seconds();
+			now = os_get_elapsed_seconds();
 			delta = now - last_time;
 		}
 		last_time = now;
@@ -89,8 +92,8 @@ int entry(int argc, char **argv) {
 		}
 		
 		Vector2 cam_move = v2_mulf(cam_move_axis, delta * cam_move_speed);
-		camera_view = m4_translate(camera_view, v3(v2_expand(cam_move), 0));
-		draw_frame.view = camera_view;
+		camera_xform = m4_translate(camera_xform, v3(v2_expand(cam_move), 0));
+		draw_frame.camera_xform = camera_xform;
 		
 		local_persist bool do_enable_z_sorting = false;
 		draw_frame.enable_z_sorting = do_enable_z_sorting;
@@ -104,7 +107,7 @@ int entry(int argc, char **argv) {
 		}
 
 		seed_for_random = 69;
-		for (u64 i = 0; i < 30000; i++) {
+		for (u64 i = 0; i < 10000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;
@@ -120,6 +123,16 @@ int entry(int argc, char **argv) {
 		}
 		seed_for_random = rdtsc();
 		
+		
+		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
+		
+		u32 atlas_index = 0;
+		Gfx_Font_Atlas *atlas = (Gfx_Font_Atlas*)hash_table_find(&font->variations[32].atlases, atlas_index);
+		
+		draw_text(font, STR("I am text"), 128, v2(sin(now), -0.61), v2(0.001, 0.001), COLOR_BLACK);
+		draw_text(font, STR("I am text"), 128, v2(sin(now)-0.01, -0.6), v2(0.001, 0.001), COLOR_WHITE);
+		
+		draw_text(font, STR("Hello jje\nnew line"), 128, v2(-1, 0.5), v2(0.001, 0.001), COLOR_WHITE);
 		Matrix4 hammer_xform = m4_scalar(1.0);
 		hammer_xform         = m4_rotate_z(hammer_xform, (f32)now);
 		hammer_xform         = m4_translate(hammer_xform, v3(-.25f, -.25f, 0));
@@ -131,16 +144,6 @@ int entry(int argc, char **argv) {
 		Vector2 hover_position = v2_rotate_point_around_pivot(v2(-.5, -.5), v2(0, 0), (f32)now);
 		Vector2 local_pivot = v2(.125f, .125f);
 		draw_circle(v2_sub(hover_position, local_pivot), v2(.25f, .25f), v4((sin(now)+1.0)/2.0, 1.0, 0.0, 1.0));
-		
-		draw_image(bush_image, v2(0.65, 0.65), v2(0.2*sin(now), 0.2*sin(now)), COLOR_WHITE);
-		
-		u32 atlas_index = 0;
-		Gfx_Font_Atlas *atlas = (Gfx_Font_Atlas*)hash_table_find(&font->variations[32].atlases, atlas_index);
-		
-		draw_text(font, STR("I am text"), 128, v2(sin(now), -0.61), v2(0.001, 0.001), COLOR_BLACK);
-		draw_text(font, STR("I am text"), 128, v2(sin(now)-0.01, -0.6), v2(0.001, 0.001), COLOR_WHITE);
-		
-		draw_text(font, STR("Hello jje\nnew line"), 128, v2(-1, 0.5), v2(0.001, 0.001), COLOR_WHITE);
 		
 		local_persist bool show = false;
 		if (is_key_just_pressed('T')) show = !show;

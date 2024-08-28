@@ -37,17 +37,31 @@
 
 typedef int   (__cdecl *Crt_Vsnprintf_Proc) (char*, size_t, const char*, va_list);
 
-typedef struct Os_Info {
+typedef struct Os_Monitor {
+	u64 refresh_rate;
+	u64 resolution_x;
+	u64 resolution_y;
+	u64 dpi;
+	u64 dpi_y;
+	string name;
+} Os_Monitor;
+
+typedef struct Os_Context {
 	u64 page_size;
 	u64 granularity;
 	
 	Dynamic_Library_Handle crt;
 	
 	Crt_Vsnprintf_Proc crt_vsnprintf;
+	
+	u64 number_of_connected_monitors;
+	Os_Monitor *monitors;
+	Os_Monitor *primary_monitor;
     
+    // These are not correct, but they probably do include static memory
     void *static_memory_start, *static_memory_end;
     
-} Os_Info;
+} Os_Context;
 
 typedef struct Os_Window {
 
@@ -61,6 +75,8 @@ typedef struct Os_Window {
 	s32 y;
 	Vector4 clear_color;
 	bool enable_vsync;
+	bool fullscreen;
+	bool allow_resize;
 	
 	bool should_close;
 	
@@ -68,16 +84,18 @@ typedef struct Os_Window {
 	bool _initialized;
 	Window_Handle _os_handle;
 	
+	Os_Monitor *monitor;
+	
 } Os_Window;
 
 // #Global
 ogb_instance Os_Window window;
-ogb_instance Os_Info os;
+ogb_instance Os_Context os;
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
-Os_Info os;
-Os_Window window;
+Os_Context os = ZERO(Os_Context);
+Os_Window window = ZERO(Os_Window);
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
@@ -163,10 +181,12 @@ os_high_precision_sleep(f64 ms);
 // Time
 ///
 
-DEPRECATED(u64 os_get_current_cycle_count(), "use rdtsc() instead");
+float64 ogb_instance
+DEPRECATED(os_get_current_time_in_seconds(), "Use os_get_elapsed_seconds() instead");
 
 float64 ogb_instance
-os_get_current_time_in_seconds();
+os_get_elapsed_seconds();
+
 
 ///
 ///
@@ -376,6 +396,7 @@ void fprint_va_list_buffered(File f, const string fmt, va_list args) {
 	}
 }
 
+void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator);
 
 ///
 ///

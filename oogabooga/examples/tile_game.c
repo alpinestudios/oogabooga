@@ -42,7 +42,7 @@ App_State app_state = APP_STATE_EDITING;
 
 s64 current_tile_layer = 0;
 
-Matrix4 camera_view;
+Matrix4 camera_xform;
 
 void update_editor();
 void update_game();
@@ -56,16 +56,16 @@ int entry(int argc, char **argv) {
 	window.y = 90;
 	window.clear_color = hex_to_rgba(0x6495EDff);
 	
-	camera_view = m4_scalar(1.0);
+	camera_xform = m4_scalar(1.0);
 
-	float64 last_time = os_get_current_time_in_seconds();
+	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
 		reset_temporary_storage();
 		
 		draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 		draw_frame.enable_z_sorting = true;
 		
-		float64 now = os_get_current_time_in_seconds();
+		float64 now = os_get_elapsed_seconds();
 		delta_time = (float32)(now - last_time);
 		last_time = now;
 		
@@ -84,7 +84,7 @@ int entry(int argc, char **argv) {
 
 Vector2 screen_to_world(Vector2 screen) {
 	Matrix4 proj = draw_frame.projection;
-	Matrix4 view = draw_frame.view;
+	Matrix4 cam = draw_frame.camera_xform;
 	float window_w = window.width;
 	float window_h = window.height;
 
@@ -95,7 +95,7 @@ Vector2 screen_to_world(Vector2 screen) {
 	// Transform to world coordinates
 	Vector4 world_pos = v4(ndc_x, ndc_y, 0, 1);
 	world_pos = m4_transform(m4_inverse(proj), world_pos);
-	world_pos = m4_transform(view, world_pos);
+	world_pos = m4_transform(cam, world_pos);
 	
 	return world_pos.xy;
 }
@@ -122,8 +122,8 @@ void update_editor() {
 	}
 	
 	Vector2 cam_move = v2_mulf(cam_move_axis, delta_time * cam_move_speed);
-	camera_view = m4_translate(camera_view, v3(v2_expand(cam_move), 0));
-	draw_frame.view = camera_view;
+	camera_xform = m4_translate(camera_xform, v3(v2_expand(cam_move), 0));
+	draw_frame.camera_xform = camera_xform;
 	
 	Vector2 bottom_left = screen_to_world(v2(-window.width/2, -window.height/2));
 	Vector2 top_right   = screen_to_world(v2( window.width/2,  window.height/2));

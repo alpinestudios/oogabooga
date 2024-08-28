@@ -1,9 +1,49 @@
 
+/*
+
+	Format a string and print to stdout:
+		print(string fmt, ...)
+		
+	Allocate a new string and format into it:
+		sprint(Allocator allocator, string fmt, ...)
+
+	Allocate a new string with the temporary allocator and format into it:
+		tprint(string fmt, ...)
+		
+	Example:
+		print("Int: %d, Float: %f, String: %s", my_int, my_float, my_string);
+		
+	Format specifiers:
+		%d, %i: Any SIGNED integer
+		%u    : Any UNSIGNED integer
+		%f    : Float32 or float64
+		%s    : string
+		%b    : bool
+		%c    : Character
+		%v2   : Vector2
+		%v3   : Vector3
+		%v4   : Vector4
+		
+	Also includes all of the standard C printf-like format specifiers:
+	https://www.geeksforgeeks.org/format-specifiers-in-c/
+*/
+
 ogb_instance void os_write_string_to_stdout(string s);
 inline int crt_sprintf(char *str, const char *format, ...);
 int vsnprintf(char* buffer, size_t n, const char* fmt, va_list args);
 bool is_pointer_valid(void *p);
 
+u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list args);
+u64 format_string_to_buffer_vararg(char* buffer, u64 count, const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	u64 n = format_string_to_buffer(buffer, count, fmt, args);
+	va_end(args);
+	return n;
+}
+typedef struct _8_Bytes {u8 _[8];} _8_Bytes;
+typedef struct _12_Bytes {u8 _[12];} _12_Bytes;
+typedef struct _16_Bytes {u8 _[16];} _16_Bytes;
 u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list args) {
 	if (!buffer) count = UINT64_MAX;
     const char* p = fmt;
@@ -12,15 +52,38 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
         if (*p == '%') {
             p += 1;
             if (*p == 's') {
-            	// We replace %s formatting with our fixed length string
-                p += 1;
-                string s = va_arg(args, string);
-                assert(s.count < (1024ULL*1024ULL*1024ULL*256ULL), "Ypu passed something else than a fixed-length 'string' to %%s. Maybe you passed a char* and should do %%cs instead?");
-                for (u64 i = 0; i < s.count && (bufp - buffer) < count - 1; i++) {
-                	if (buffer) *bufp = s.data[i];
-                    bufp += 1;
+            	p += 1;
+            	// We replace %s formatting with our fixed length string (if it is a valid such, otherwise treat as char*)
+				va_list args2; // C varargs are so good
+				va_copy(args2, args);
+                string s = va_arg(args2, string);
+                va_end(args2);
+            	// Ooga booga moment
+            	bool is_valid_fixed_length_string = s.count < 1024ULL*1024ULL*1024ULL*256ULL && is_pointer_valid(s.data);
+            	if (is_valid_fixed_length_string) {
+            		va_arg(args, string);
+	                for (u64 i = 0; i < s.count && (bufp - buffer) < count - 1; i++) {
+	                	if (buffer) *bufp = s.data[i];
+	                    bufp += 1;
+	                }
+                } else {
+	            	// #Copypaste
+	            	// We extend the standard formatting and add %cs so we can format c strings if we need to
+	                char* s = va_arg(args, char*);
+	                u64 len = 0;
+	                while (*s != '\0' && (bufp - buffer) < count - 1) {
+	                	assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+	                	if (buffer) {
+	                		*bufp = *s;
+	                	}
+	                	s += 1;
+	                    bufp += 1;
+	                    len += 1;
+	                    assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
+                    }
                 }
             } else if (*p == 'c' && *(p+1) == 's') {
+            	// #Copypaste
             	// We extend the standard formatting and add %cs so we can format c strings if we need to
                 p += 2;
                 char* s = va_arg(args, char*);
@@ -35,6 +98,54 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
                     len += 1;
                     assert(len < (1024ULL*1024ULL*1024ULL*1ULL), "The argument passed to %%cs is either way too big, missing null-termination or simply not a char*.");
                 }
+            } else if (*p == 'b') {
+            	p += 1;
+            	int data = va_arg(args, int);
+            	bool val = !(data == 0);
+            	
+            	char *result = (val ? "true" : "false");
+            	
+            	if (buffer) {
+            		memcpy(bufp, result, strlen(result));
+            	}
+        		bufp += strlen(result);
+            	
+            } else if (*p == 'v' && *(p+1) == '2') {
+            	p += 2;
+            	
+            	_8_Bytes data = va_arg(args, _8_Bytes);
+            	
+            	f32 x = *(((f32*)(&data))+0);
+            	f32 y = *(((f32*)(&data))+1);
+            	
+                u64 n = format_string_to_buffer_vararg(buffer ? bufp : 0, 128, "{ X: %f, Y: %f }", x, y);
+                
+                bufp += n;
+            } else if (*p == 'v' && *(p+1) == '3') {
+            	p += 2;
+            	
+            	_12_Bytes data = va_arg(args, _12_Bytes);
+            	
+            	f32 x = *(((f32*)(&data))+0);
+            	f32 y = *(((f32*)(&data))+1);
+            	f32 z = *(((f32*)(&data))+2);
+            	
+                u64 n = format_string_to_buffer_vararg(buffer ? bufp : 0, 196, "{ X: %f, Y: %f, Z: %f }", x, y, z);
+                
+                bufp += n;
+            } else if (*p == 'v' && *(p+1) == '4') {
+            	p += 2;
+            	
+            	_16_Bytes data = va_arg(args, _16_Bytes);
+            	
+            	f32 x = *(((f32*)(&data))+0);
+            	f32 y = *(((f32*)(&data))+1);
+            	f32 z = *(((f32*)(&data))+2);
+            	f32 w = *(((f32*)(&data))+3);
+            	
+                u64 n = format_string_to_buffer_vararg(buffer ? bufp : 0, 256, "{ X: %f, Y: %f, Z: %f, W: %f }", x, y, z, w);
+                
+                bufp += n;
             } else {
                 // Fallback to standard vsnprintf
                 char temp_buffer[512];
@@ -61,7 +172,7 @@ u64 format_string_to_buffer(char* buffer, u64 count, const char* fmt, va_list ar
                     case 'n': va_arg(args, int*); break;
                     default: break;
                 }
-
+                
                 if (temp_len < 0) {
                     return -1; // Error in formatting
                 }

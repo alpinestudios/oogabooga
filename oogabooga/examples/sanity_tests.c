@@ -1,19 +1,40 @@
 
 int entry(int argc, char **argv) {
 	
-	// This is how we (optionally) configure the window.
-	// You can set this at any point in the runtime and it will
-	// be applied in os_update().
-	// If you don't care, you can ignore all of this as it all
-	// has reasonable default values.
-	window.title = STR("Minimal Game Example");
-	window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
-	window.scaled_height = 720; 
-	window.x = 200;
-	window.y = 90;
-	window.clear_color = hex_to_rgba(0x6495EDff);
-	window.allow_resize = true;
-	window.fullscreen = false;
+	
+	u32 w = 128;
+	u32 h = 128;
+	u32 tile_w = w/4;
+	u32 tile_h = w/4;
+	
+	u8 *pixels = (u8*)alloc(get_heap_allocator(), w * h * 4);
+
+	for (u32 y = 0; y < h; y += 1) {
+	    for (u32 x = 0; x < w; x += 1) {
+	        u32 tile_x = x / tile_w;
+	        u32 tile_y = y / tile_h;
+	
+	        bool is_black_tile = (tile_x % 2 == tile_y % 2);
+	
+	        for (u32 c = 0; c < 4; c += 1) {
+	            if (is_black_tile) {
+	                pixels[(y * w + x) * 4 + c] = 127;
+	            } else {
+	                pixels[(y * w + x) * 4 + c] = 255;
+	            }
+	        }
+	    }
+	}
+	
+	Gfx_Image *img = make_image(w, h, 4, pixels, get_heap_allocator());
+	
+	u8 *read_pixels = (u8*)alloc(get_heap_allocator(), w*h*4);
+	
+	gfx_read_image_data(img, 0, 0, w, h, read_pixels);
+	
+	gfx_set_image_data(img, 0, 0, w, h, read_pixels);
+	
+	assert(memcmp(read_pixels, pixels, w*h*4) == 0);
 	
 	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
@@ -26,7 +47,7 @@ int entry(int argc, char **argv) {
 		Matrix4 rect_xform = m4_scalar(1.0);
 		rect_xform         = m4_rotate_z(rect_xform, (f32)now);
 		rect_xform         = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
-		draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_GREEN);
+		draw_image_xform(img, rect_xform, v2(.5f, .5f), COLOR_GREEN);
 		
 		draw_rect(v2(sin(now), -.8), v2(.5, .25), COLOR_RED);
 		

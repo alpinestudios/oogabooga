@@ -590,6 +590,7 @@ thread_local Allocator temp_allocator;
 
 ogb_instance Allocator 
 get_temporary_allocator() {
+	if (!temporary_storage) return get_initialization_allocator();
 	return temp_allocator;
 }
 #endif
@@ -618,6 +619,7 @@ void* temp_allocator_proc(u64 size, void *p, Allocator_Message message, void* da
 			return 0;
 		}
 		case ALLOCATOR_REALLOCATE: {
+			panic("Temporary allocator cannot 'reallocate'");
 			return 0;
 		}
 	}
@@ -647,6 +649,7 @@ void* talloc(u64 size) {
 	if ((u8*)temporary_storage_pointer >= (u8*)temporary_storage+TEMPORARY_STORAGE_SIZE) {
 		if (!has_warned_temporary_storage_overflow) {
 			os_write_string_to_stdout(STR("WARNING: temporary storage was overflown, we wrap around at the start.\n"));
+			has_warned_temporary_storage_overflow = true;
 		}
 		temporary_storage_pointer = temporary_storage;
 		return talloc(size);;
@@ -657,7 +660,79 @@ void* talloc(u64 size) {
 
 void reset_temporary_storage() {
 	temporary_storage_pointer = temporary_storage;	
-	has_warned_temporary_storage_overflow = true;
+	has_warned_temporary_storage_overflow = false;
 }
 
 #endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
+
+typedef struct Arena {
+	void *start;
+	void *next;
+	u64 size;
+} Arena;
+
+void* arena_allocator_proc(u64 size, void *p, Allocator_Message message, void* data) {
+	if (size > 8) size = align_next(size, 8);
+	Arena *arena = (Arena*)data;
+	switch (message) {
+		case ALLOCATOR_ALLOCATE: {
+			void *p = arena->next;
+			
+			arena->next = (u8*)arena->next + size;
+			break;
+		}
+		case ALLOCATOR_DEALLOCATE: {
+			return 0;
+		}
+		case ALLOCATOR_REALLOCATE: {
+			panic("Arena allocator cannot 'reallocate'");
+			return 0;
+		}
+	}
+	return 0;
+}
+
+// Allocates arena from heap
+Arena make_arena(u64 size) {
+	size = align_next(size, 8);
+	Arena arena;
+	
+	arena.start = alloc(get_heap_allocator(), size);
+	arena.next = arena.start;
+	arena.size = size;
+	
+	return arena;
+}
+
+// Allocates arena from heap
+Allocator make_arena_allocator(u64 size) {
+	void *mem = alloc(get_heap_allocator(), size + sizeof(Arena));
+	
+	Arena *arena = (Arena*)mem;
+	
+	arena->start = (u8*)mem + sizeof(Arena);
+	arena->next = arena->start;
+	arena->size = size;
+	
+	Allocator allocator;
+	allocator.data = arena;
+	allocator.proc = arena_allocator_proc;
+	
+	return allocator;
+}
+Allocator make_arena_allocator_with_memory(u64 size, void *p) {
+	void *mem = alloc(get_heap_allocator(), size + sizeof(Arena));
+	
+	Arena *arena = (Arena*)alloc(get_heap_allocator(), sizeof(Arena));
+	
+	arena->start = p;
+	arena->next = arena->start;
+	arena->size = size;
+	
+	Allocator allocator;
+	allocator.data = arena;
+	allocator.proc = arena_allocator_proc;
+	
+	return allocator;
+}
