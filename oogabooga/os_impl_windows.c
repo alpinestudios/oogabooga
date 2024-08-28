@@ -1160,6 +1160,7 @@ void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator) 
 	} else {		
 		*result = alloc_string(allocator, read);
 		memcpy(result->data, buffer, read);
+		if (result->count >= 2 && result->data[result->count-1] == '\n') result->count -= 2;
 	}
 
 }

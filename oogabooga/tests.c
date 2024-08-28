@@ -872,35 +872,38 @@ void test_linmath() {
     v2_result = v2_divf(v2_a, 2.0f);
     assert(v2_result.x == 1.5f && v2_result.y == 2.0f, "v2_divf incorrect");
 
-    // Test matrix operations
-    Matrix4 m1 = m4_scalar(2.0f);
-    assert(m1.data[0] == 2.0f && m1.data[5] == 2.0f && m1.data[10] == 2.0f && m1.data[15] == 2.0f, "m4_scalar incorrect");
 
-    Vector3 translation = v3(1.0f, 2.0f, 3.0f);
-    Matrix4 m2 = m4_make_translation(translation);
-    assert(m2.m[0][3] == 1.0f && m2.m[1][3] == 2.0f && m2.m[2][3] == 3.0f, "m4_make_translation incorrect");
-
-    Vector3 scale = v3(2.0f, 3.0f, 4.0f);
-    Matrix4 m4 = m4_make_scale(scale);
-    assert(m4.m[0][0] == 2.0f && m4.m[1][1] == 3.0f && m4.m[2][2] == 4.0f, "m4_make_scale incorrect");
-
-    // Test orthographic projection matrix
-    Matrix4 ortho = m4_make_orthographic_projection(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f);
-    assert(ortho.m[0][0] == 1.0f && ortho.m[1][1] == 1.0f && ortho.m[2][2] == 1.0f, "m4_make_orthographic_projection incorrect");
-
-    // Test matrix multiplication
-    Matrix4 m5 = m4_scalar(1.0f);
-    m5.m[0][3] = 1.0f; m5.m[1][3] = 2.0f; m5.m[2][3] = 3.0f;
-    Matrix4 result_matrix = m4_mul(m2, m5);
-    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_mul incorrect");
-
-    // Test matrix inverse
-    Matrix4 identity = m4_scalar(1.0f);
-    Matrix4 inverse_matrix = m4_inverse(identity);
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            assert(inverse_matrix.m[i][j] == identity.m[i][j], "m4_inverse incorrect for identity matrix");
-        }
+	{
+	    // Test matrix operations
+	    Matrix4 m1 = m4_scalar(2.0f);
+	    assert(m1.data[0] == 2.0f && m1.data[5] == 2.0f && m1.data[10] == 2.0f && m1.data[15] == 2.0f, "m4_scalar incorrect");
+	
+	    Vector3 translation = v3(1.0f, 2.0f, 3.0f);
+	    Matrix4 m2 = m4_make_translation(translation);
+	    assert(m2.m[0][3] == 1.0f && m2.m[1][3] == 2.0f && m2.m[2][3] == 3.0f, "m4_make_translation incorrect");
+	
+	    Vector3 scale = v3(2.0f, 3.0f, 4.0f);
+	    Matrix4 m4 = m4_make_scale(scale);
+	    assert(m4.m[0][0] == 2.0f && m4.m[1][1] == 3.0f && m4.m[2][2] == 4.0f, "m4_make_scale incorrect");
+	    
+	    // Test orthographic projection matrix
+	    Matrix4 ortho = m4_make_orthographic_projection(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f);
+	    assert(ortho.m[0][0] == 1.0f && ortho.m[1][1] == 1.0f && ortho.m[2][2] == 1.0f, "m4_make_orthographic_projection incorrect");
+	
+	    // Test matrix multiplication
+	    Matrix4 m5 = m4_scalar(1.0f);
+	    m5.m[0][3] = 1.0f; m5.m[1][3] = 2.0f; m5.m[2][3] = 3.0f;
+	    Matrix4 result_matrix = m4_mul(m2, m5);
+	    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_mul incorrect");
+	
+	    // Test matrix inverse
+	    Matrix4 identity = m4_scalar(1.0f);
+	    Matrix4 inverse_matrix = m4_inverse(identity);
+	    for (int i = 0; i < 4; ++i) {
+	        for (int j = 0; j < 4; ++j) {
+	            assert(inverse_matrix.m[i][j] == identity.m[i][j], "m4_inverse incorrect for identity matrix");
+	        }
+	    }
     }
     
     // Test Vector2 creation
@@ -1027,6 +1030,63 @@ void test_linmath() {
     assert(floats_roughly_match(v2_dot_product, 20), "Failed: v2_dot");
 	assert(floats_roughly_match(v3_dot_product, 38), "Failed: v3_dot");
 	assert(floats_roughly_match(v4_dot_product, 30), "Failed: v4_dot");
+	
+	Matrix3 identity = m3_identity();
+    assert(identity.m[0][0] == 1.0f && identity.m[1][1] == 1.0f && identity.m[2][2] == 1.0f, "Failed: m3_identity is incorrect");
+    
+    // Test m3_scalar
+    Matrix3 scalar = m3_scalar(2.0f);
+    assert(scalar.m[0][0] == 2.0f && scalar.m[1][1] == 2.0f && scalar.m[2][2] == 2.0f, "Failed: m3_scalar is incorrect");
+    
+    // Test m3_make_translation
+    Vector2 translation = {2.0f, 3.0f};
+    Matrix3 translation_matrix = m3_make_translation(translation);
+    assert(translation_matrix.m[0][2] == 2.0f && translation_matrix.m[1][2] == 3.0f, "Failed: m3_make_translation is incorrect");
+
+    // Test m3_make_rotation
+    float32 radians = 3.14159265f / 4.0f; // 45 degrees
+    Matrix3 rotation_matrix = m3_make_rotation(radians);
+    assert(fabs(rotation_matrix.m[0][0] - 0.70710678f) < 0.0001f, "Failed: m3_make_rotation (cos) is incorrect");
+    assert(fabs(rotation_matrix.m[0][1] + 0.70710678f) < 0.0001f, "Failed: m3_make_rotation (sin) is incorrect");
+
+    // Test m3_make_scale
+    Vector2 scale = {2.0f, 3.0f};
+    Matrix3 scale_matrix = m3_make_scale(scale);
+    assert(scale_matrix.m[0][0] == 2.0f && scale_matrix.m[1][1] == 3.0f, "Failed: m3_make_scale is incorrect");
+
+    // Test m3_mul
+    Matrix3 mul_result = m3_mul(scalar, identity);
+    assert(mul_result.m[0][0] == 2.0f && mul_result.m[1][1] == 2.0f && mul_result.m[2][2] == 2.0f, "Failed: m3_mul scalar * identity is incorrect");
+
+    // Test m3_translate
+    Matrix3 translated = m3_translate(identity, translation);
+    assert(translated.m[0][2] == 2.0f && translated.m[1][2] == 3.0f, "Failed: m3_translate is incorrect");
+
+    // Test m3_rotate
+    Matrix3 rotated = m3_rotate(identity, radians);
+    assert(fabs(rotated.m[0][0] - 0.70710678f) < 0.0001f, "Failed: m3_rotate (cos) is incorrect");
+    assert(fabs(rotated.m[0][1] + 0.70710678f) < 0.0001f, "Failed: m3_rotate (sin) is incorrect");
+
+    // Test m3_scale
+    Matrix3 scaled = m3_scale(identity, scale);
+    assert(scaled.m[0][0] == 2.0f && scaled.m[1][1] == 3.0f, "Failed: m3_scale is incorrect");
+
+    // Test m3_inverse
+    Matrix3 inv_identity = m3_inverse(identity);
+    assert(inv_identity.m[0][0] == 1.0f && inv_identity.m[1][1] == 1.0f && inv_identity.m[2][2] == 1.0f, "Failed: m3_inverse identity is incorrect");
+
+    Matrix3 inv_scale = m3_inverse(scale_matrix);
+    assert(fabs(inv_scale.m[0][0] - 0.5f) < 0.0001f && fabs(inv_scale.m[1][1] - (1.0f / 3.0f)) < 0.0001f, "Failed: m3_inverse scale is incorrect");
+
+    // Test m3_transform
+    Vector3 v = {1.0f, 2.0f, 1.0f};
+    Vector3 transformed = m3_transform(translation_matrix, v);
+    assert(transformed.x == 3.0f && transformed.y == 5.0f && transformed.z == 1.0f, "Failed: m3_transform is incorrect");
+
+    // Test m3_to_m4
+    Matrix3 mat3 = m3_identity();
+    Matrix4 mat4 = m3_to_m4(mat3);
+    assert(mat4.m[0][0] == 1.0f && mat4.m[3][3] == 1.0f && mat4.m[0][3] == 0.0f, "Failed: m3_to_m4 is incorrect");
 }
 
 void test_intmath() {

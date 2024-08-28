@@ -1,4 +1,4 @@
-## v0.01.006
+## v0.01.006 - Particles, Matrix3, extensions
 
 	- Build configuration
 		- Introduced an "extensions" system to be able to compile some extensions that might help with your game.
@@ -8,7 +8,10 @@
 	- Implemented a Particles extension for particle emissions
 		- struct Emission_Config
 		- Emission_Handle emit_particles(config, position)
-		
+		- void emission_reset(Emission_Handle h);
+		- void emission_set_config(Emission_Handle h, Emission_Config config);
+		- void emission_set_position(Emission_Handle h, Vector2 pos);
+		- void emission_release(Emission_Handle h);
 	
 	- Misc
 		- Added void *growing_array_add_multiple_empty(void **array, u64 count)
@@ -36,6 +39,7 @@
 		- Fixed build.sh
 		- Made seed_for_random thread_local
 		- Added utility function float32 sine_oscillate_n_waves_normalized(float32 v, float32 n)
+		- Fixed os_wait_and_read_stdin including \r\n
 
 ## v0.01.005 - Arenas, Monitor query, fullscreen
 
