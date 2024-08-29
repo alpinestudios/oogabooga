@@ -23,8 +23,8 @@ Draw_Quad *draw_outlined_circle_xform(Matrix4 xform, Vector2 size, Vector4 color
 int entry(int argc, char **argv) {
 	
 	window.title = STR("Custom Shader Example");
-	window.scaled_width = 1280;
-	window.scaled_height = 720; 
+	window.point_width = 1280;
+	window.point_height = 720; 
 	window.x = 200;
 	window.y = 90;
 	window.clear_color = hex_to_rgba(0x6495EDff);

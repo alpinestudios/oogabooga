@@ -8,6 +8,14 @@
 	- Graphics
 		- Added gfx_reserve_vbo_bytes so you can allocate a big vbo once instead of slowly doubling it, causing lag spikes
 
+	- OS window
+		- Reworked window sizing & positioning
+		- Deprecated window.scaled_width & window.scaled_height to be replaced by window.point_width and window.point_height which is units in 72th of an inch
+		- Added window.point_x and window.point_y
+		- Added window.dpi and window.points_size_in_pixels
+		- Fixed window positioning and sizing, as it was pretty broken and incorrect before
+		- Added an examples that showcase all the window stuff in examples/window_test.c
+
 	- Misc
 		- Changed default ortho projection to match window size
 		- Cleanups

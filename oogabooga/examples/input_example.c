@@ -31,8 +31,8 @@ bool is_action_just_pressed(Action action) {
 int entry(int argc, char **argv) {
 	
 	window.title = STR("Input example");
-	window.scaled_width = 1280;
-	window.scaled_height = 720; 
+	window.point_width = 1280;
+	window.point_height = 720; 
 	window.x = 200;
 	window.y = 90;
 	window.clear_color = hex_to_rgba(0x6495EDff);

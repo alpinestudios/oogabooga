@@ -9,8 +9,16 @@
 #include <xinput.h>
 #include <shellscalingapi.h>
 
-#define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#else
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 
+#define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
 void* heap_alloc(u64);
 void heap_dealloc(void*);
 
@@ -396,7 +404,13 @@ void os_init(u64 program_memory_capacity) {
 	timeBeginPeriod(1);
 #endif
 
-	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	BOOL ok;
+
+	ok = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	if (!ok) {
+		hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+		win32_check_hr(hr);
+	}
 	
 	os_set_mouse_pointer_standard(MOUSE_POINTER_DEFAULT);
 	
@@ -432,15 +446,6 @@ void os_init(u64 program_memory_capacity) {
 	
 #ifndef OOGABOOGA_HEADLESS
 
-	RAWINPUTDEVICE rid[1] = {0};
-	
-	rid[0].usUsagePage = 0x01;
-	rid[0].usUsage = 0x05; // HID_USAGE_GENERIC_GAMEPAD
-	
-	BOOL ok = RegisterRawInputDevices(rid, sizeof(rid)/sizeof(RAWINPUTDEVICE), sizeof(RAWINPUTDEVICE));
-	assert(ok, "Failed RegisterRawInputDevices");
-	
-	
     win32_init_window();
     
     // Set a dummy output format before audio init in case it fails.
@@ -1894,8 +1899,9 @@ void os_update() {
 
 	win32_do_handle_raw_input = true;
 #ifndef OOGABOOGA_HEADLESS
-	UINT dpi = GetDpiForWindow(window._os_handle);
-    float dpi_scale_factor = dpi / 96.0f;
+	window.dpi = window.monitor->dpi;
+    float dpi_scale_factor = window.dpi / 72.0f;
+	window.point_size_in_pixels = window.dpi / 72.0;
 
 	local_persist Os_Window last_window;
 	
@@ -1918,27 +1924,36 @@ void os_update() {
 	BOOL ok;
 	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
 	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
-	int screen_height = os.primary_monitor->resolution_y;
+	int screen_height = window.monitor->resolution_y;
 
 	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
 		window.width = window.scaled_width*dpi_scale_factor;
 		window.height = window.scaled_height*dpi_scale_factor;
 	}
 	
+	if (last_window.point_width != window.point_width || last_window.point_height != window.point_height) {
+		window.width = window.point_width*window.point_size_in_pixels;
+		window.height = window.point_height*window.point_size_in_pixels;
+	}
+	
+	if (last_window.point_x != window.point_x || last_window.point_y != window.point_y) {
+		window.x = window.point_x*window.point_size_in_pixels;
+		window.y = window.point_y*window.point_size_in_pixels;
+	}
+	
 	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
 	    RECT update_rect;
 	    update_rect.left = window.x;
 	    update_rect.right = window.x + window.width;
-	    update_rect.top = window.y;
-	    update_rect.bottom = window.y + window.height; 
+	    update_rect.top = screen_height - (window.y+window.height);
+	    update_rect.bottom = screen_height - window.y; 
 	
-	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, style_ex);
-	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	    AdjustWindowRectEx(&update_rect, style, FALSE, style_ex);
 	
 	    u32 actual_width = update_rect.right - update_rect.left;
 	    u32 actual_height = update_rect.bottom - update_rect.top;
 	    u32 actual_x = update_rect.left;
-	    u32 actual_y = screen_height - update_rect.top - (update_rect.bottom - update_rect.top);
+	    u32 actual_y = update_rect.top;
 	    
 	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
@@ -1953,16 +1968,12 @@ void os_update() {
     RECT window_rect;
 	ok = GetWindowRect(window._os_handle, &window_rect);
 	assert(ok, "GetWindowRect failed with error code %lu", GetLastError());
+
+	window_rect.left -= adjusted_rect.left;
+	window_rect.right -= adjusted_rect.right-client_rect.right;
 	
-	/*u32 style_space_left =   abs(client_rect.left-adjusted_rect.left);
-	u32 style_space_right =  abs(client_rect.left-adjusted_rect.right);
-	u32 style_space_bottom = abs(client_rect.left-adjusted_rect.bottom);
-	u32 style_space_top =    abs(client_rect.left-adjusted_rect.top);
-	
-	framebuffer_rect.left += style_space_left;
-	framebuffer_rect.right -= style_space_right;
-	framebuffer_rect.top += style_space_top;
-	framebuffer_rect.bottom -= style_space_bottom;*/
+	window_rect.top -= adjusted_rect.top;
+	window_rect.bottom -= adjusted_rect.bottom-client_rect.bottom;
 	
 	POINT top_left;
 	top_left.x = client_rect.left;
@@ -1983,6 +1994,11 @@ void os_update() {
     
     window.scaled_width = (u32)((bottom_right.x - top_left.x) * dpi_scale_factor);
     window.scaled_height = (u32)((bottom_right.y - top_left.y) * dpi_scale_factor);
+    
+    window.point_width = window.pixel_width / window.point_size_in_pixels;
+    window.point_height = window.pixel_height / window.point_size_in_pixels;
+    window.point_x = window.pixel_x / window.point_size_in_pixels;
+    window.point_y = window.pixel_y / window.point_size_in_pixels;
 	
 	if (last_window.allow_resize != window.allow_resize) {
 		if (window.allow_resize) style |= WS_SIZEBOX;
@@ -2319,3 +2335,11 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
     return 0;
 }
 #endif /* OOGABOOGA_HEADLESS */
+
+
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic pop
+#else
+#pragma warning(pop)
+#endif

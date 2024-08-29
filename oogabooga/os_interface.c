@@ -65,18 +65,24 @@ typedef struct Os_Context {
 
 typedef struct Os_Window {
 
-	// Keep in mind that setting these in runtime is potentially slow!
+	// Keep in mind that setting these in runtime is potentially slow since they might trigger win32 calls!
 	string title;
 	union { s32 width;  s32 pixel_width;  };
 	union { s32 height; s32 pixel_height; };
-	s32 scaled_width; // DPI scaled!
-	s32 scaled_height; // DPI scaled!
-	s32 x;
-	s32 y;
+	DEPRECATED(s32 scaled_width, "Use point_width instead, which is 72th of an inch");
+	DEPRECATED(s32 scaled_height, "Use point_height instead, which is 72th of an inch");
+	s32 point_width; // 72th of an inch
+	s32 point_height; // 72th of an inch
+	union { s32 x; s32 pixel_x; };
+	union { s32 y; s32 pixel_y; };
+	s32 point_x; // 72th of an inch
+	s32 point_y; // 72th of an inch
 	Vector4 clear_color;
 	bool enable_vsync;
 	bool fullscreen;
 	bool allow_resize;
+	u32 dpi;
+	float64 point_size_in_pixels;
 	
 	bool should_close;
 	
