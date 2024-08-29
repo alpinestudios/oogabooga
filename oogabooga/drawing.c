@@ -90,9 +90,8 @@ void reset_draw_frame(Draw_Frame *frame) {
 	
 	frame->quad_buffer = quad_buffer;
 	
-	float32 aspect = (float32)window.width/(float32)window.height;
-	
-	frame->projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
+	frame->projection 
+		= m4_make_orthographic_projection(-window.width/2, window.width/2, -window.height/2, window.height/2, -1, 10);
 	frame->camera_xform = m4_scalar(1.0);
 }
 

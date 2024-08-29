@@ -1,6 +1,11 @@
 
 /*
 
+	This is an oogabooga extension, so it's not compiled by default.
+	Do the following before including oogabooga.c to enable this extension:
+	#define OOGABOOGA_ENABLE_EXTENSIONS   1
+	#define OOGABOOGA_EXTENSION_PARTICLES 1
+
 	Usage:
 	
 		Create a Emission_Config, configure

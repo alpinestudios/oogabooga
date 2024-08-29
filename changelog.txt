@@ -1,3 +1,17 @@
+## v0.01.007
+
+- Reworked linmath
+		- There are now 4(x3) different vector types: VectorNf32, VectorNf64, VectorNs32, VectorNs64 where N is the number of scalars from 2 to 4.
+		- The code has been refactored to be more consistent, predictable and self-documenting
+		- Vector2 and Vector2i as well as v2_ and v2i_ functions are typedeffed / #defined to Vector2f32 and Vector2s32
+
+	- Graphics
+		- Added gfx_reserve_vbo_bytes so you can allocate a big vbo once instead of slowly doubling it, causing lag spikes
+
+	- Misc
+		- Changed default ortho projection to match window size
+		- Cleanups
+
 ## v0.01.006 - Particles, Matrix3, extensions
 
 	- Build configuration

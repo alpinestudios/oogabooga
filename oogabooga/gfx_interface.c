@@ -59,6 +59,9 @@ gfx_init();
 ogb_instance void 
 gfx_update();
 
+ogb_instance void
+gfx_reserve_vbo_bytes(u64 number_of_bytes);
+
 ogb_instance bool
 shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 

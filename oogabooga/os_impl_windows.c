@@ -303,6 +303,8 @@ win32_init_window() {
 	window.title = STR("Unnamed Window");
 	window.scaled_width = 1280;
 	window.scaled_height = 720;
+	window.pixel_width = 1280;
+	window.pixel_height = 720;
 	window.x = 200;
 	window.y = 150;
 	window.should_close = false;

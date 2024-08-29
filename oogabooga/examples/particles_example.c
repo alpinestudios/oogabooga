@@ -7,6 +7,9 @@
 	#error particles_example.c requires OOGABOOGA_EXTENSION_PARTICLES to be enabled
 #endif
 
+
+#if OOGABOOGA_ENABLE_EXTENSIONS && OOGABOOGA_EXTENSION_PARTICLES
+
 Emission_Config emission_rain;
 Emission_Config emission_poof;
 void setup_emission_configs();
@@ -25,6 +28,10 @@ int entry(int argc, char **argv) {
 	// Keep a stack of the looped emissions so we can pop them
 	Emission_Handle *emission_stack = 0;
 	growing_array_init((void**)&emission_stack, sizeof(Emission_Handle), get_heap_allocator());
+	
+	// Particles spawn in contiguously meaning vbo will initially grow a little bit at a time
+	// as we start drawing more quads, so let's just reserve a lot of bytes now instead.
+	gfx_reserve_vbo_bytes(MB(16));
 	
 	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
@@ -55,9 +62,9 @@ int entry(int argc, char **argv) {
 			growing_array_pop((void**)&emission_stack);
 		}
 		
-		// Emit poof with spacebar, but just use one instance which is reset with a new seed
-		// (Most of the time you might just want to emit a new emission each time though, this
-		// is just showing that a resetting emission is possible)
+		// Emit poof with spacebar, but just use one instance which is reset with a new seed.
+		// It's completely fine to just call emit_particles() and do nothing else each time,
+		// this is just to prove that you can have one resetting emission.
 		if (is_key_just_pressed(KEY_SPACEBAR)) {
 		
 			local_persist Emission_Handle inst = ZERO(Emission_Handle);
@@ -175,3 +182,5 @@ void setup_emission_configs() {
 	emission_poof.pivot.min_v2 = v2(8, 8);
 	emission_poof.pivot.max_v2 = v2(0, 0);
 }
+
+#endif // OOGABOOGA_ENABLE_EXTENSIONS && OOGABOOGA_EXTENSION_PARTICLES

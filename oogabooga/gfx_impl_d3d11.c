@@ -865,6 +865,29 @@ void gfx_update() {
 	
 }
 
+void gfx_reserve_vbo_bytes(u64 number_of_bytes) {
+	if (number_of_bytes > d3d11_quad_vbo_size) {
+		if (d3d11_quad_vbo) {
+			D3D11Release(d3d11_quad_vbo);
+			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
+		}
+		u64 new_size = get_next_power_of_two(number_of_bytes);
+		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
+		desc.Usage = D3D11_USAGE_DYNAMIC; 
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		desc.ByteWidth = new_size;
+		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
+		assert(SUCCEEDED(hr), "CreateBuffer failed");
+		d3d11_quad_vbo_size = new_size;
+		
+		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+		assert((u64)d3d11_staging_quad_buffer%16 == 0);
+		
+		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
+	}
+}
+
 
 void gfx_init_image(Gfx_Image *image, void *initial_data) {
 

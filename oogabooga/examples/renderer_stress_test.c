@@ -55,6 +55,11 @@ int entry(int argc, char **argv) {
 			delta = now - last_time;
 		}
 		last_time = now;
+		
+		float32 aspect = (float32)window.width/(float32)window.height;
+	
+		draw_frame.projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
+		
 		tm_scope("os_update") {
 			os_update(); 
 		}

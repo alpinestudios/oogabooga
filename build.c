@@ -42,7 +42,6 @@ typedef struct Context_Extra {
 // #include "oogabooga/examples/text_rendering.c"
 // #include "oogabooga/examples/custom_logger.c"
 // #include "oogabooga/examples/renderer_stress_test.c"
-// #include "oogabooga/examples/tile_game.c"
 // #include "oogabooga/examples/audio_test.c"
 // #include "oogabooga/examples/custom_shader.c"
 // #include "oogabooga/examples/growing_array_example.c"
