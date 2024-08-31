@@ -6,6 +6,7 @@
 	#include <dxgidebug.h>
 	#include <d3dcommon.h>
 	typedef ID3D11ShaderResourceView * Gfx_Handle;
+	typedef ID3D11RenderTargetView * Gfx_Render_Target_Handle;
 	
 #elif GFX_RENDERER == GFX_RENDERER_VULKAN
 	#error "We only have a D3D11 renderer at the moment"
@@ -34,57 +35,61 @@ typedef enum Gfx_Filter_Mode {
 typedef struct Gfx_Image {
 	u32 width, height, channels;
 	Gfx_Handle gfx_handle;
+	Gfx_Render_Target_Handle gfx_render_target;
 	Allocator allocator;
 } Gfx_Image;
 
-Gfx_Image *
-make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator);
-Gfx_Image *
-load_image_from_disk(string path, Allocator allocator);
-void 
-delete_image(Gfx_Image *image);
+typedef struct Draw_Frame Draw_Frame;
 
 // Implemented per renderer
-ogb_instance void 
-gfx_init_image(Gfx_Image *image, void *data);
-ogb_instance void 
-gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
-ogb_instance void
-gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output);
-ogb_instance void 
-gfx_deinit_image(Gfx_Image *image);
+ogb_instance void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target);
+ogb_instance void gfx_render_draw_frame_to_window(Draw_Frame *frame);
+ogb_instance void gfx_init_image(Gfx_Image *image, void *data, bool render_target);
+ogb_instance void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
+ogb_instance void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output);
+ogb_instance void gfx_deinit_image(Gfx_Image *image);
+ogb_instance void gfx_init();
+ogb_instance void gfx_update();
+ogb_instance void gfx_reserve_vbo_bytes(u64 number_of_bytes);
+ogb_instance bool gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
-ogb_instance void 
-gfx_init();
-ogb_instance void 
-gfx_update();
+DEPRECATED(bool shader_recompile_with_extension(string ext_source, u64 cbuffer_size), "Use gfx_shader_recompile_with_extension");
 
-ogb_instance void
-gfx_reserve_vbo_bytes(u64 number_of_bytes);
-
-ogb_instance bool
-shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
 // initial_data can be null to leave image data uninitialized
-Gfx_Image *
-make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
-	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image) + width*height*channels);
+Gfx_Image *make_image(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
+	// This is annoying but I did this long ago because stuff was a bit different and now I can't really change it :(
+	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
 	
 	assert(channels > 0 && channels <= 4, "Only 1, 2, 3 or 4 channels allowed on images. Got %d", channels);
 	
     image->width = width;
     image->height = height;
-    image->gfx_handle = GFX_INVALID_HANDLE;  // This is handled in gfx
     image->allocator = allocator;
     image->channels = channels;
     
-    gfx_init_image(image, initial_data);
+    gfx_init_image(image, initial_data, false);
     
     return image;
 }
 
-Gfx_Image *
-load_image_from_disk(string path, Allocator allocator) {
+Gfx_Image *make_image_render_target(u32 width, u32 height, u32 channels, void *initial_data, Allocator allocator) {
+	// This is annoying but I did this long ago because stuff was a bit different and now I can't really change it :(
+	Gfx_Image *image = alloc(allocator, sizeof(Gfx_Image));
+	
+	assert(channels > 0 && channels <= 4, "Only 1, 2, 3 or 4 channels allowed on images. Got %d", channels);
+	
+    image->width = width;
+    image->height = height;
+    image->allocator = allocator;
+    image->channels = channels;
+    
+    gfx_init_image(image, initial_data, true);
+    
+    return image;
+}
+
+Gfx_Image *load_image_from_disk(string path, Allocator allocator) {
     string png;
     bool ok = os_read_entire_file(path, &png, allocator);
     if (!ok) return 0;
@@ -111,7 +116,7 @@ load_image_from_disk(string path, Allocator allocator) {
 
     dealloc_string(allocator, png);
     
-    gfx_init_image(image, stb_data);
+    gfx_init_image(image, stb_data, false);
     
     stbi_image_free(stb_data);
     

@@ -1,14 +1,4 @@
 
-#define PI32 3.14159265359f
-#define PI64 3.14159265358979323846
-#define TAU32 (2.0f * PI32)
-#define TAU64 (2.0 * PI64)
-#define RAD_PER_DEG (PI64 / 180.0)
-#define DEG_PER_RAD (180.0 / PI64)
-
-#define to_radians(degrees) ((degrees)*RAD_PER_DEG)
-#define to_degrees(radians) ((radians)*DEG_PER_RAD)
-
 /*
 	These are the 4 different vector types that exist:
 */
@@ -133,6 +123,20 @@ typedef Vector4s32 Vector4i;
 #define v2i_abs v2s32_abs
 #define v3i_abs v3s32_abs
 #define v4i_abs v4s32_abs
+
+#define v2_lerp  v2f32_lerp
+#define v3_lerp  v3f32_lerp
+#define v4_lerp  v4f32_lerp
+#define v2i_lerp v2s32_lerp
+#define v3i_lerp v3s32_lerp
+#define v4i_lerp v4s32_lerp
+
+#define v2_smerp  v2f32_smerp
+#define v3_smerp  v3f32_smerp
+#define v4_smerp  v4f32_smerp
+#define v2i_smerp v2s32_smerp
+#define v3i_smerp v3s32_smerp
+#define v4i_smerp v4s32_smerp
 
 #define v2_normalize  v2f32_normalize
 #define v3_normalize  v3f32_normalize
@@ -422,6 +426,32 @@ inline Vector4s32 v4s32_abs(Vector4s32 a) { return v4s32(abs(a.x), abs(a.y), abs
 inline Vector2s64 v2s64_abs(Vector2s64 a) { return v2s64(llabs(a.x), llabs(a.y)); }
 inline Vector3s64 v3s64_abs(Vector3s64 a) { return v3s64(llabs(a.x), llabs(a.y), llabs(a.z)); }
 inline Vector4s64 v4s64_abs(Vector4s64 a) { return v4s64(llabs(a.x), llabs(a.y), llabs(a.z), llabs(a.w)); }
+
+inline Vector2f32 v2f32_lerp(Vector2f32 a, Vector2f32 b, float32 t)  { return v2f32(lerpf32(a.x, b.x, t), lerpf32(a.y, b.y, t)); }
+inline Vector3f32 v3f32_lerp(Vector3f32 a, Vector3f32 b, float32 t)  { return v3f32(lerpf32(a.x, b.x, t), lerpf32(a.y, b.y, t), lerpf32(a.z, b.z, t)); }
+inline Vector4f32 v4f32_lerp(Vector4f32 a, Vector4f32 b, float32 t)  { return v4f32(lerpf32(a.x, b.x, t), lerpf32(a.y, b.y, t), lerpf32(a.z, b.z, t), lerpf32(a.w, b.w, t)); }
+inline Vector2f64 v2f64_lerp(Vector2f64 a, Vector2f64 b, float64 t)  { return v2f64(lerpf64(a.x, b.x, t), lerpf64(a.y, b.y, t)); }
+inline Vector3f64 v3f64_lerp(Vector3f64 a, Vector3f64 b, float64 t)  { return v3f64(lerpf64(a.x, b.x, t), lerpf64(a.y, b.y, t), lerpf64(a.z, b.z, t)); }
+inline Vector4f64 v4f64_lerp(Vector4f64 a, Vector4f64 b, float64 t)  { return v4f64(lerpf64(a.x, b.x, t), lerpf64(a.y, b.y, t), lerpf64(a.z, b.z, t), lerpf64(a.w, b.w, t)); }
+inline Vector2s32 v2s32_lerp(Vector2s32 a, Vector2s32 b, float64 t)  { return v2s32(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t)); }
+inline Vector3s32 v3s32_lerp(Vector3s32 a, Vector3s32 b, float64 t)  { return v3s32(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t), lerpi(a.z, b.z, t)); }
+inline Vector4s32 v4s32_lerp(Vector4s32 a, Vector4s32 b, float64 t)  { return v4s32(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t), lerpi(a.z, b.z, t), lerpi(a.w, b.w, t)); }
+inline Vector2s64 v2s64_lerp(Vector2s64 a, Vector2s64 b, float64 t)  { return v2s64(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t)); }
+inline Vector3s64 v3s64_lerp(Vector3s64 a, Vector3s64 b, float64 t)  { return v3s64(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t), lerpi(a.z, b.z, t)); }
+inline Vector4s64 v4s64_lerp(Vector4s64 a, Vector4s64 b, float64 t)  { return v4s64(lerpi(a.x, b.x, t), lerpi(a.y, b.y, t), lerpi(a.z, b.z, t), lerpi(a.w, b.w, t)); }
+
+inline Vector2f32 v2f32_smerp(Vector2f32 a, Vector2f32 b, float32 t)  { return v2f32(smerpf32(a.x, b.x, t), smerpf32(a.y, b.y, t)); }
+inline Vector3f32 v3f32_smerp(Vector3f32 a, Vector3f32 b, float32 t)  { return v3f32(smerpf32(a.x, b.x, t), smerpf32(a.y, b.y, t), smerpf32(a.z, b.z, t)); }
+inline Vector4f32 v4f32_smerp(Vector4f32 a, Vector4f32 b, float32 t)  { return v4f32(smerpf32(a.x, b.x, t), smerpf32(a.y, b.y, t), smerpf32(a.z, b.z, t), smerpf32(a.w, b.w, t)); }
+inline Vector2f64 v2f64_smerp(Vector2f64 a, Vector2f64 b, float64 t)  { return v2f64(smerpf64(a.x, b.x, t), smerpf64(a.y, b.y, t)); }
+inline Vector3f64 v3f64_smerp(Vector3f64 a, Vector3f64 b, float64 t)  { return v3f64(smerpf64(a.x, b.x, t), smerpf64(a.y, b.y, t), smerpf64(a.z, b.z, t)); }
+inline Vector4f64 v4f64_smerp(Vector4f64 a, Vector4f64 b, float64 t)  { return v4f64(smerpf64(a.x, b.x, t), smerpf64(a.y, b.y, t), smerpf64(a.z, b.z, t), smerpf64(a.w, b.w, t)); }
+inline Vector2s32 v2s32_smerp(Vector2s32 a, Vector2s32 b, float64 t)  { return v2s32(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t)); }
+inline Vector3s32 v3s32_smerp(Vector3s32 a, Vector3s32 b, float64 t)  { return v3s32(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t), smerpi(a.z, b.z, t)); }
+inline Vector4s32 v4s32_smerp(Vector4s32 a, Vector4s32 b, float64 t)  { return v4s32(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t), smerpi(a.z, b.z, t), smerpi(a.w, b.w, t)); }
+inline Vector2s64 v2s64_smerp(Vector2s64 a, Vector2s64 b, float64 t)  { return v2s64(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t)); }
+inline Vector3s64 v3s64_smerp(Vector3s64 a, Vector3s64 b, float64 t)  { return v3s64(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t), smerpi(a.z, b.z, t)); }
+inline Vector4s64 v4s64_smerp(Vector4s64 a, Vector4s64 b, float64 t)  { return v4s64(smerpi(a.x, b.x, t),   smerpi(a.y, b.y, t), smerpi(a.z, b.z, t), smerpi(a.w, b.w, t)); }
 
 inline Vector2f32 v2f32_normalize(Vector2f32 a) { return v2f32_length(a) == 0 ? v2f32_scalar(0) : v2f32_divf32(a, v2f32_length(a)); }
 inline Vector3f32 v3f32_normalize(Vector3f32 a) { return v3f32_length(a) == 0 ? v3f32_scalar(0) : v3f32_divf32(a, v3f32_length(a)); }

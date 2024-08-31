@@ -1,4 +1,14 @@
 
+#define PI32 3.14159265359f
+#define PI64 3.14159265358979323846
+#define TAU32 (2.0f * PI32)
+#define TAU64 (2.0 * PI64)
+#define RAD_PER_DEG (PI64 / 180.0)
+#define DEG_PER_RAD (180.0 / PI64)
+
+#define to_radians(degrees) ((degrees)*RAD_PER_DEG)
+#define to_degrees(radians) ((radians)*DEG_PER_RAD)
+
 
 
 // This is a very niche sort algorithm.
@@ -107,14 +117,23 @@ inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count
 // This isn't really linmath but just putting it here for now
 #define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
 
-f64 lerpf(f64 from, f64 to, f64 x) {
+#define lerpf lerpf32
+f32 lerpf32(f32 from, f32 to, f32 x) {
+	return (to-from)*x+from;
+}
+f64 lerpf64(f64 from, f64 to, f64 x) {
 	return (to-from)*x+from;
 }
 s64 lerpi(s64 from, s64 to, f64 x) {
 	return (s64)((round((f64)to-(f64)from)*x)+from);
 }
 
-f64 smerpf(f64 from, f64 to, f64 t) {
+#define smerpf smerpf32
+f32 smerpf32(f32 from, f32 to, f32 t) {
+	float32 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpf(from, to, smooth);
+}
+f64 smerpf64(f64 from, f64 to, f64 t) {
 	float64 smooth = t * t * (3.0 - 2.0 * t);
 	return lerpf(from, to, smooth);
 }

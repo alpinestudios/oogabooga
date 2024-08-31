@@ -81,6 +81,7 @@ typedef struct Os_Window {
 	bool enable_vsync;
 	bool fullscreen;
 	bool allow_resize;
+	bool force_topmost;
 	u32 dpi;
 	float64 point_size_in_pixels;
 	
@@ -168,6 +169,24 @@ os_lock_mutex(Mutex_Handle m);
 
 void ogb_instance
 os_unlock_mutex(Mutex_Handle m);
+
+///
+// Binary semaphore
+typedef struct Binary_Semaphore {
+    void *os_event;
+} Binary_Semaphore;
+
+void ogb_instance
+os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+
+void ogb_instance
+os_binary_semaphore_destroy(Binary_Semaphore *sem);
+
+void ogb_instance
+os_binary_semaphore_wait(Binary_Semaphore *sem);
+
+void ogb_instance
+os_binary_semaphore_signal(Binary_Semaphore *sem);
 
 ///
 // Threading utilities

@@ -307,8 +307,8 @@ typedef u8 bool;
 #include "string_format.c"
 #include "hash.c"
 #include "path_utils.c"
-#include "linmath.c"
 #include "utility.c"
+#include "linmath.c"
 
 #include "hash_table.c"
 #include "growing_array.c"
@@ -406,6 +406,8 @@ ogb_instance void oogabooga_init(u64 program_memory_size);
 
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 void oogabooga_init(u64 program_memory_size) {
+	seed_for_random = rdtsc();
+	
 	context.logger = default_logger;
 	temp_allocator = get_initialization_allocator();
 	Cpu_Capabilities features = query_cpu_capabilities();
@@ -422,6 +424,7 @@ void oogabooga_init(u64 program_memory_size) {
 #if OOGABOOGA_ENABLE_EXTENSIONS
 	ext_init();
 #endif
+
 
 	log_verbose("CPU has sse1:   %cs", features.sse1   ? "true" : "false");
 	log_verbose("CPU has sse2:   %cs", features.sse2   ? "true" : "false");
@@ -469,6 +472,9 @@ int main(int argc, char **argv) {
 	dump_profile_result();
 	
 #endif
+	
+	// This is so any threads waiting for window to close will close on exit
+	window.should_close = true;
 	
 	printf("Ooga booga program exit with code %i\n", code);
 	

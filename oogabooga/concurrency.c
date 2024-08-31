@@ -58,26 +58,6 @@ void ogb_instance
 mutex_release(Mutex *m);
 
 
-///
-// Binary semaphore
-typedef struct Binary_Semaphore {
-    volatile bool signaled;
-    Mutex mutex;
-} Binary_Semaphore;
-
-void ogb_instance
-binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
-
-void ogb_instance
-binary_semaphore_destroy(Binary_Semaphore *sem);
-
-void ogb_instance
-binary_semaphore_wait(Binary_Semaphore *sem);
-
-void ogb_instance
-binary_semaphore_signal(Binary_Semaphore *sem);
-
-
 #if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 void spinlock_init(Spinlock *l) {
@@ -149,34 +129,6 @@ void mutex_release(Mutex *m) {
 	if (was_spinlock_acquired) {
 		spinlock_release(&m->spinlock);
 	}
-}
-
-
-
-void binary_semaphore_init(Binary_Semaphore *sem, bool initial_state) {
-    sem->signaled = initial_state;
-    mutex_init(&sem->mutex);
-}
-
-void binary_semaphore_destroy(Binary_Semaphore *sem) {
-    mutex_destroy(&sem->mutex);
-}
-
-void binary_semaphore_wait(Binary_Semaphore *sem) {
-    mutex_acquire_or_wait(&sem->mutex);
-    while (!sem->signaled) {
-        mutex_release(&sem->mutex);
-        os_yield_thread();
-        mutex_acquire_or_wait(&sem->mutex);
-    }
-    sem->signaled = false;
-    mutex_release(&sem->mutex);
-}
-
-void binary_semaphore_signal(Binary_Semaphore *sem) {
-    mutex_acquire_or_wait(&sem->mutex);
-    sem->signaled = true;
-    mutex_release(&sem->mutex);
 }
 
 #endif

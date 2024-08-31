@@ -1567,6 +1567,137 @@ void test_growing_array() {
     assert(growing_array_get_valid_count(things) == 99, "Failed: growing_array_get_valid_count");
 }
 
+
+typedef struct {
+    Binary_Semaphore *sem;
+    volatile LONG *counter;
+    int increments;
+} Test_Args;
+
+void increment_thread_proc(Thread *t) {
+    Test_Args *test_args = (Test_Args *)t->data;
+    for (int i = 0; i < test_args->increments; i++) {
+        os_binary_semaphore_wait(test_args->sem);
+        InterlockedIncrement(test_args->counter);
+        os_binary_semaphore_signal(test_args->sem);
+    }
+}
+void test_os_binary_semaphore() {
+    {
+        // Multithreaded increment test
+        const int num_threads = 100;
+        const int increments_per_thread = 10000;
+
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, true);
+
+        LONG counter = 0;
+        Thread threads[num_threads];
+        Test_Args args = { &sem, &counter, increments_per_thread };
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_init(&threads[i], increment_thread_proc);
+            threads[i].data = &args;
+            os_thread_start(&threads[i]);
+        }
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_join(&threads[i]);
+            os_thread_destroy(&threads[i]);
+        }
+
+        assert(counter == num_threads * increments_per_thread, "Failed: Multithreaded increment test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // Signal before wait test
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, false);
+
+        LONG counter = 0;
+
+        Thread thread;
+        Test_Args args = { &sem, &counter, 1 };
+        os_thread_init(&thread, increment_thread_proc);
+        thread.data = &args;
+        os_thread_start(&thread);
+
+        // Signal the semaphore after a delay
+        Sleep(100);
+        os_binary_semaphore_signal(&sem);
+
+        os_thread_join(&thread);
+        os_thread_destroy(&thread);
+
+        assert(counter == 1, "Failed: Signal before wait test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // High contention test
+        const int num_threads = 100;
+        const int increments_per_thread = 1000;
+
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, true);
+
+        LONG counter = 0;
+        Thread threads[num_threads];
+        Test_Args args = { &sem, &counter, increments_per_thread };
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_init(&threads[i], increment_thread_proc);
+            threads[i].data = &args;
+            os_thread_start(&threads[i]);
+        }
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_join(&threads[i]);
+            os_thread_destroy(&threads[i]);
+        }
+
+        assert(counter == num_threads * increments_per_thread, "Failed: High contention test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // Double signal test
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, false);
+
+        LONG counter = 0;
+
+        Thread thread1, thread2;
+        Test_Args args1 = { &sem, &counter, 1 };
+        Test_Args args2 = { &sem, &counter, 1 };
+
+        os_thread_init(&thread1, increment_thread_proc);
+        os_thread_init(&thread2, increment_thread_proc);
+        thread1.data = &args1;
+        thread2.data = &args2;
+        os_thread_start(&thread1);
+        os_thread_start(&thread2);
+
+        // Signal twice
+        os_binary_semaphore_signal(&sem);
+        os_binary_semaphore_signal(&sem);
+
+        os_thread_join(&thread1);
+        os_thread_join(&thread2);
+
+        assert(counter == 2, "Failed: Double signal test");
+
+        os_thread_destroy(&thread1);
+        os_thread_destroy(&thread2);
+        os_binary_semaphore_destroy(&sem);
+    }
+
+}
+
 void oogabooga_run_tests() {
 	
 	print("Testing growing array... ");
@@ -1611,6 +1742,10 @@ void oogabooga_run_tests() {
 	
 	print("Testing mutex... ");
 	test_mutex();
+	print("OK!\n");
+	
+	print("Testing binary semaphore... ");
+	test_os_binary_semaphore();
 	print("OK!\n");
 
 #ifndef OOGABOOGA_HEADLESS

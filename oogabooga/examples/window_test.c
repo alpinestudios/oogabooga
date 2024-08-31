@@ -71,6 +71,8 @@ int entry(int argc, char **argv) {
 		y -= h*1.3;
 		if (button(STR("Allow resize"), v2(x-w/2, y-h/2), v2(w, h), window.allow_resize)) window.allow_resize = !window.allow_resize;
 		y -= h*1.3;
+		if (button(STR("Topmost"), v2(x-w/2, y-h/2), v2(w, h), window.force_topmost)) window.force_topmost = !window.force_topmost;
+		y -= h*1.3;
 		if (button(STR("Move right"), v2(x-w/2, y-h/2), v2(w, h), false)) window.point_x += 20;
 		y -= h*1.3;
 		if (button(STR("Move left"), v2(x-w/2, y-h/2), v2(w, h), false)) window.point_x -= 20;

@@ -35,7 +35,7 @@ int entry(int argc, char **argv) {
 	
 	// This is slow and needs to recompile the shader. However, it should probably only happen once (or each hot reload)
 	// If it fails, it will return false and return to whatever shader it was before.
-	shader_recompile_with_extension(source, sizeof(My_Cbuffer));
+	gfx_shader_recompile_with_extension(source, sizeof(My_Cbuffer));
 	
 	dealloc_string(get_heap_allocator(), source);
 	

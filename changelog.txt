@@ -1,23 +1,81 @@
-## v0.01.007
-
-- Reworked linmath
-		- There are now 4(x3) different vector types: VectorNf32, VectorNf64, VectorNs32, VectorNs64 where N is the number of scalars from 2 to 4.
-		- The code has been refactored to be more consistent, predictable and self-documenting
-		- Vector2 and Vector2i as well as v2_ and v2i_ functions are typedeffed / #defined to Vector2f32 and Vector2s32
+## v0.01.007 - Offscreen rendering, Draw_Frame's, Major reworks, more examples
 
 	- Graphics
+		- Implemented render-target versions of Gfx_Image
+		- Added functions for offscreen rendering:
+			- make_image_render_target()
+			- gfx_render_draw_frame(Draw_Frame, Gfx_Image*)
+			- (and gfx_render_draw_frame_to_window(Draw_Frame) to render draw_frame directly to window)
+			See examples/offscreen_drawing.c for a practical example.
+		- Reworked the Draw_Frame's & drawing API
+			- Instead of targetting the global draw_frame, all drawing functions now make a call to draw_xxx_in_frame and passes &draw_frame as the last parameter.
+			- So, we added draw_xxx_in_frame overloads which means we can now draw to other Draw_Frame's than the global one.
+			- While the global draw_frame is still reset & rendered in gfx_update(), we can now manage separate draw_frame's manually with:
+				void draw_frame_init(Draw_Frame *frame);
+				void draw_frame_init_reserve(Draw_Frame *frame, u64 number_of_quads_to_reserve);
+				void draw_frame_reset(Draw_Frame *frame);
+			- See examples/threaded_drawing.c which dedicates a Draw_Frame to each thread to split up the drawing, and then render them on the main thread.
+			- Complete list of new drawing API functions:
+				void draw_frame_init(Draw_Frame *frame);
+				void draw_frame_init_reserve(Draw_Frame *frame, u64 number_of_quads_to_reserve);
+				void draw_frame_reset(Draw_Frame *frame);
+				Draw_Quad *draw_quad_projected_in_frame(Draw_Quad quad, Matrix4 world_to_clip, Draw_Frame *frame);
+				Draw_Quad *draw_quad_in_frame(Draw_Quad quad, Draw_Frame *frame);
+				Draw_Quad *draw_quad_xform_in_frame(Draw_Quad quad, Matrix4 xform, Draw_Frame *frame);
+				Draw_Quad *draw_rect_in_frame(Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_rect_xform_in_frame(Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_circle_in_frame(Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_circle_xform_in_frame(Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_image_in_frame(Gfx_Image *image, Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_image_xform_in_frame(Gfx_Image *image, Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				void draw_line_in_frame(Vector2 p0, Vector2 p1, float line_width, Vector4 color, Draw_Frame *frame);
+				void draw_text_xform_in_frame(Gfx_Font *font, string text, u32 raster_height, Matrix4 xform, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				void draw_text_in_frame(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				Gfx_Text_Metrics draw_text_and_measure_in_frame(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				void push_z_layer_in_frame(s32 z, Draw_Frame *frame);
+				void pop_z_layer_in_frame(Draw_Frame *frame);
+				void push_window_scissor_in_frame(Vector2 min, Vector2 max, Draw_Frame *frame);
+				void pop_window_scissor_in_frame(Draw_Frame *frame);
+			
 		- Added gfx_reserve_vbo_bytes so you can allocate a big vbo once instead of slowly doubling it, causing lag spikes
+		- Renamed shader_recompile_with_extension -> gfx_shader_recompile_with_extension
+		- Sped up d3d11 renderer a bit with index buffer
+		- More thoroughly documented drawing.c
+		- Made window resizing forced to be even (% 2 == 0), because uneven dimensions make texture sampling wonky and I'm not sure how to solve it
 
-	- OS window
-		- Reworked window sizing & positioning
-		- Deprecated window.scaled_width & window.scaled_height to be replaced by window.point_width and window.point_height which is units in 72th of an inch
-		- Added window.point_x and window.point_y
-		- Added window.dpi and window.points_size_in_pixels
-		- Fixed window positioning and sizing, as it was pretty broken and incorrect before
-		- Added an examples that showcase all the window stuff in examples/window_test.c
+	- OS
+		- Reworked window stuff
+			- Reworked window sizing & positioning
+			- Deprecated window.scaled_width & window.scaled_height to be replaced by window.point_width and window.point_height which is units in 72th of an inch
+			- Added window.point_x and window.point_y
+			- Added window.dpi and window.points_size_in_pixels
+			- Fixed window positioning and sizing, as it was pretty broken and incorrect before
+			- Added an examples that showcase all the window stuff in examples/window_test.c
+			- Added window.force_topmost for forcing the window to be on top of everything when true.
+			- Told windows to gtfo and let us size and position the window however we want
+		- Binary semaphore:
+			os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+			os_binary_semaphore_destroy(Binary_Semaphore *sem);
+			os_binary_semaphore_wait(Binary_Semaphore *sem);
+			os_binary_semaphore_signal(Binary_Semaphore *sem);
 
 	- Misc
+		- Reworked linmath
+			- There are now 4(x3) different vector types: VectorNf32, VectorNf64, VectorNs32, VectorNs64 where N is the number of scalars from 2 to 4.
+			- The code has been refactored to be more consistent, predictable and self-documenting
+			- Vector2 and Vector2i as well as v2_ and v2i_ functions are typedeffed / #defined to Vector2f32 and Vector2s32
+			- Vector interpolation functions:
+				v2_lerp
+				v3_lerp
+				v4_lerp
+				v2_smerp
+				v3_smerp
+				v4_smerp
+		- Changed profiling to measure in seconds
+		- lerpf -> lerpf32 & lerpf64
+		- smerpf -> smerpf32 & smerpf64
 		- Changed default ortho projection to match window size
+		- Made oogabooga init seed_for_random to rdtsc() so each program starts completely randomized
 		- Cleanups
 
 ## v0.01.006 - Particles, Matrix3, extensions

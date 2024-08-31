@@ -54,14 +54,17 @@ ID3D11PixelShader  *d3d11_fragment_shader_for_2d = 0;
 ID3D11InputLayout  *d3d11_image_vertex_layout = 0;
 
 ID3D11Buffer *d3d11_quad_vbo = 0;
+ID3D11Buffer *d3d11_quad_ibo = 0;
 u32 d3d11_quad_vbo_size = 0;
 void *d3d11_staging_quad_buffer = 0;
 
 ID3D11Buffer *d3d11_cbuffer = 0;
 u64 d3d11_cbuffer_size = 0;
 
-Draw_Quad *sort_quad_buffer = 0;
-u64 sort_quad_buffer_size = 0;
+Draw_Quad *d3d11_sort_quad_buffer = 0;
+u64 d3d11_sort_quad_buffer_size = 0;
+
+u64 d3d11_thread_id = 0;
 
 const char* d3d11_stringify_category(D3D11_MESSAGE_CATEGORY category) {
     switch (category) {
@@ -399,6 +402,8 @@ void gfx_init() {
 	window.enable_vsync = false;
 
 	log_verbose("d3d11 gfx_init");
+	
+	d3d11_thread_id = context.thread_id;
 
     HWND hwnd = window._os_handle;
 	HRESULT hr = S_OK;
@@ -494,7 +499,7 @@ void gfx_init() {
 	    bd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 	    bd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
 	    bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	    bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	    bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
 	    bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	    hr = ID3D11Device_CreateBlendState(d3d11_device, &bd, &d3d11_blend_state);
@@ -547,15 +552,32 @@ void gfx_init() {
 
 	log_info("D3D11 init done");
 	
+	draw_frame_init(&draw_frame);
 }
 
-void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures) {
+void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures, Draw_Frame *frame, Gfx_Image *render_target) {
+
+	u32 view_width;
+	u32 view_height;
+
+	local_persist Gfx_Image *last_render_target = 0;
+	if (render_target) {
+		assert(render_target->gfx_render_target, "Image was not created as a render target");
+		ID3D11DeviceContext_OMSetRenderTargets(d3d11_context, 1, &render_target->gfx_render_target, 0); 
+		view_width = render_target->width;
+		view_height = render_target->height;
+	} else {
+		ID3D11DeviceContext_OMSetRenderTargets(d3d11_context, 1, &d3d11_window_render_target_view, 0); 
+		view_width = window.width;
+		view_height = window.height;
+	}
+	
 	ID3D11DeviceContext_OMSetBlendState(d3d11_context, d3d11_blend_state, 0, 0xffffffff);
-	ID3D11DeviceContext_OMSetRenderTargets(d3d11_context, 1, &d3d11_window_render_target_view, 0); 
 	ID3D11DeviceContext_RSSetState(d3d11_context, d3d11_rasterizer);
+	
 	D3D11_VIEWPORT viewport = ZERO(D3D11_VIEWPORT);
-	viewport.Width = d3d11_swap_chain_width;
-	viewport.Height = d3d11_swap_chain_height;
+	viewport.Width = view_width;
+	viewport.Height = view_height;
 	viewport.MaxDepth = 1.0;
 	ID3D11DeviceContext_RSSetViewports(d3d11_context, 1, &viewport);
 	
@@ -564,12 +586,13 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
 	
 	ID3D11DeviceContext_IASetInputLayout(d3d11_context, d3d11_image_vertex_layout);
     ID3D11DeviceContext_IASetVertexBuffers(d3d11_context, 0, 1, &d3d11_quad_vbo, &stride, &offset);
+    ID3D11DeviceContext_IASetIndexBuffer(d3d11_context, d3d11_quad_ibo, DXGI_FORMAT_R32_UINT, 0);
     ID3D11DeviceContext_IASetPrimitiveTopology(d3d11_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_vertex_shader_for_2d, NULL, 0);
     ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_fragment_shader_for_2d, NULL, 0);
     
-	if (draw_frame.cbuffer && d3d11_cbuffer && d3d11_cbuffer_size) {
+	if (frame->cbuffer && d3d11_cbuffer && d3d11_cbuffer_size) {
 		D3D11_MAPPED_SUBRESOURCE cbuffer_mapping;
 		ID3D11DeviceContext_Map(
 			d3d11_context, 
@@ -579,7 +602,7 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
 			0, 
 			&cbuffer_mapping
 		);
-		memcpy(cbuffer_mapping.pData, draw_frame.cbuffer, d3d11_cbuffer_size);
+		memcpy(cbuffer_mapping.pData, frame->cbuffer, d3d11_cbuffer_size);
 		ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0);
 		
 		ID3D11DeviceContext_PSSetConstantBuffers(d3d11_context, 0, 1, &d3d11_cbuffer);
@@ -591,29 +614,56 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
     ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 0, num_textures, textures);
 
-    ID3D11DeviceContext_Draw(d3d11_context, number_of_rendered_quads * 6, 0);
+    ID3D11DeviceContext_DrawIndexed(d3d11_context, number_of_rendered_quads * 6, 0, 0);
+    
+    ID3D11ShaderResourceView* null_srv[32] = {0};
+    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 0, num_textures, null_srv);
 }
 
-void d3d11_process_draw_frame() {
+void gfx_clear_render_target(Gfx_Image *render_target, Vector4 clear_color) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
+	assert(render_target->gfx_render_target, "Image was not created as a render target");
+	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, render_target->gfx_render_target, (float*)&clear_color);
+}
 
+// gfx_interface.c impl
+void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
+	
 	HRESULT hr;
 	
-	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
-	if (!draw_frame.quad_buffer) return;
+	if (!frame->quad_buffer) return;
 
-	u64 number_of_quads = growing_array_get_valid_count(draw_frame.quad_buffer);
+	u64 number_of_quads = growing_array_get_valid_count(frame->quad_buffer);
 	
 	///
 	// Maybe grow quad vbo
-	u64 required_size = sizeof(D3D11_Vertex) * number_of_quads*6;
+	u64 required_size = sizeof(D3D11_Vertex) * number_of_quads*4;
 
+	// #Copypaste
 	if (required_size > d3d11_quad_vbo_size) {
 		if (d3d11_quad_vbo) {
 			D3D11Release(d3d11_quad_vbo);
 			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
 		u64 new_size = get_next_power_of_two(required_size);
+		u64 new_indices = ((new_size/sizeof(D3D11_Vertex))/4)*6;
+		
+		d3d11_quad_vbo_size = new_size;
+		
+		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+		u32 *indices = (u32*)alloc(get_heap_allocator(), new_indices*sizeof(u32));
+		
+		for (u64 i = 0; i < new_indices; i += 6) {
+			indices[i + 0] = (i/6)*4 + 0;
+			indices[i + 1] = (i/6)*4 + 1;
+			indices[i + 2] = (i/6)*4 + 2;
+			indices[i + 3] = (i/6)*4 + 0;
+			indices[i + 4] = (i/6)*4 + 2;
+			indices[i + 5] = (i/6)*4 + 3;
+		}
+		
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
 		desc.Usage = D3D11_USAGE_DYNAMIC; 
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -621,10 +671,18 @@ void d3d11_process_draw_frame() {
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
-		d3d11_quad_vbo_size = new_size;
 		
-		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
-		assert((u64)d3d11_staging_quad_buffer%16 == 0);
+		D3D11_BUFFER_DESC index_buffer_desc = ZERO(D3D11_BUFFER_DESC);
+		index_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+		index_buffer_desc.ByteWidth = new_indices*sizeof(u32);
+		index_buffer_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		index_buffer_desc.CPUAccessFlags = 0;
+		
+		D3D11_SUBRESOURCE_DATA index_data = {};
+		index_data.pSysMem = indices;
+		
+		ID3D11Device_CreateBuffer(d3d11_device, &index_buffer_desc, &index_data, &d3d11_quad_ibo);
+		
 		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
@@ -644,21 +702,27 @@ void d3d11_process_draw_frame() {
 		u64 number_of_rendered_quads = 0;
 		
 		
-		
+		///
+		// This is where we convert Draw_Quad's to vertices. It should be very fast as all it's doing is mostly
+		// copying and some minor computing.
+		// Most computation is done in draw_quad_projected in drawing.c.
+		// This way, we could easily build different draw frames on different threads and then render them
+		// here on the main thread.
+		//
 		tm_scope("Quad processing") {
-			if (draw_frame.enable_z_sorting) tm_scope("Z sorting") {
-				if (!sort_quad_buffer || (sort_quad_buffer_size < number_of_quads*sizeof(Draw_Quad))) {
+			if (frame->enable_z_sorting) tm_scope("Z sorting") {
+				if (!d3d11_sort_quad_buffer || (d3d11_sort_quad_buffer_size < number_of_quads*sizeof(Draw_Quad))) {
 					// #Memory #Heapalloc
-					if (sort_quad_buffer) dealloc(get_heap_allocator(), sort_quad_buffer);
-					sort_quad_buffer = alloc(get_heap_allocator(), number_of_quads*sizeof(Draw_Quad));
-					sort_quad_buffer_size = number_of_quads*sizeof(Draw_Quad);
+					if (d3d11_sort_quad_buffer) dealloc(get_heap_allocator(), d3d11_sort_quad_buffer);
+					d3d11_sort_quad_buffer = alloc(get_heap_allocator(), number_of_quads*sizeof(Draw_Quad));
+					d3d11_sort_quad_buffer_size = number_of_quads*sizeof(Draw_Quad);
 				}
-				radix_sort(draw_frame.quad_buffer, sort_quad_buffer, number_of_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
+				radix_sort(frame->quad_buffer, d3d11_sort_quad_buffer, number_of_quads, sizeof(Draw_Quad), offsetof(Draw_Quad, z), MAX_Z_BITS);
 			}
 		
 			for (u64 i = 0; i < number_of_quads; i++)  {
 				
-				Draw_Quad *q = &draw_frame.quad_buffer[i];
+				Draw_Quad *q = &frame->quad_buffer[i];
 				
 				assert(q->z <= MAX_Z, "Z is too high. Z is %d, Max is %d.", q->z, MAX_Z);
 				assert(q->z >= (-MAX_Z+1), "Z is too low. Z is %d, Min is %d.", q->z, -MAX_Z+1);
@@ -683,9 +747,9 @@ void d3d11_process_draw_frame() {
 								// If max textures reached, make a draw call and start over
 								D3D11_MAPPED_SUBRESOURCE buffer_mapping;
 								ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
-								memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
+								memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*4);
 								ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
-								d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
+								d3d11_draw_call(number_of_rendered_quads, textures, num_textures, frame, render_target);
 								head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
 								num_textures = 0;
 								texture_index = 0;
@@ -702,38 +766,16 @@ void d3d11_process_draw_frame() {
 					last_texture_index = texture_index;
 				}
 				
-				// This is meant to fix the annoying artifacts that shows up when sampling from a large atlas
-			    // presumably for floating point precision issues or something.
-			
-			    // #Incomplete
-			    // If we want to animate text with small movements then it will look wonky.
-			    // This should be optional probably.
-			
-				float pixel_width = 2.0/(float)window.width;
-				float pixel_height = 2.0/(float)window.height;
-
-                bool xeven = window.width % 2 == 0;
-                bool yeven = window.height % 2 == 0;
 				
-				q->bottom_left.x  = round(q->bottom_left.x  / pixel_width)  * pixel_width;
-			    q->bottom_left.y  = round(q->bottom_left.y  / pixel_height) * pixel_height;
-			    q->top_left.x     = round(q->top_left.x     / pixel_width)  * pixel_width;
-			    q->top_left.y     = round(q->top_left.y     / pixel_height) * pixel_height;
-			    q->top_right.x    = round(q->top_right.x    / pixel_width)  * pixel_width;
-			    q->top_right.y    = round(q->top_right.y    / pixel_height) * pixel_height;
-			    q->bottom_right.x = round(q->bottom_right.x / pixel_width)  * pixel_width;
-			    q->bottom_right.y = round(q->bottom_right.y / pixel_height) * pixel_height;
 				
-				// We will write to 6 vertices for the one quad (two tris)
+				// We will write to 4 vertices for the one quad
 				 {
 				
 					D3D11_Vertex* BL  = pointer + 0;
 					D3D11_Vertex* TL  = pointer + 1;
 					D3D11_Vertex* TR  = pointer + 2;
-					D3D11_Vertex* BL2 = pointer + 3;
-					D3D11_Vertex* TR2 = pointer + 4;
-					D3D11_Vertex* BR  = pointer + 5;
-					pointer += 6;
+					D3D11_Vertex* BR  = pointer + 3;
+					pointer += 4;
 					
 					BL->position = v4(q->bottom_left.x,  q->bottom_left.y,  0, 1);
 					TL->position = v4(q->top_left.x,     q->top_left.y,     0, 1);
@@ -790,7 +832,8 @@ void d3d11_process_draw_frame() {
 					TR->self_uv = v2(1, 1);
 					BR->self_uv = v2(1, 0);
 					
-					// #Speed
+					// #Speed #Cleanup
+					// Many programs may not user userdata, which means a lot of redundant time spent on this.
 					memcpy(BL->userdata, q->userdata, sizeof(q->userdata));
 					memcpy(TL->userdata, q->userdata, sizeof(q->userdata));
 					memcpy(TR->userdata, q->userdata, sizeof(q->userdata));
@@ -810,9 +853,6 @@ void d3d11_process_draw_frame() {
 					BL->has_scissor=TL->has_scissor=TR->has_scissor=BR->has_scissor = q->has_scissor;
 					BL->scissor=TL->scissor=TR->scissor=BR->scissor = q->scissor;
 					
-					*BL2 = *BL;
-					*TR2 = *TR;
-					
 					number_of_rendered_quads += 1;
 				}
 			}
@@ -825,7 +865,7 @@ void d3d11_process_draw_frame() {
 			d3d11_check_hr(hr);
 			}
 			tm_scope("The memcpy") {
-				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*6);
+				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*4);
 			}
 			tm_scope("The Unmap call") {
 				ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
@@ -834,17 +874,18 @@ void d3d11_process_draw_frame() {
 		
 		///
 		// Draw call
-		tm_scope("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures);
+		tm_scope("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures, frame, render_target);
     }
     
-    reset_draw_frame(&draw_frame);
+    
+}
+void gfx_render_draw_frame_to_window(Draw_Frame *frame) {
+	gfx_render_draw_frame(frame, 0);
 }
 
 void gfx_update() {
 	if (window.should_close) return;
 	
-	
-
 	HRESULT hr;
 	///
 	// Maybe resize swap chain
@@ -852,12 +893,14 @@ void gfx_update() {
 		d3d11_update_swapchain();
 	}
 
-	d3d11_process_draw_frame();
+	// Clear window & render global draw frame to window
+	gfx_render_draw_frame_to_window(&draw_frame);
+	draw_frame_reset(&draw_frame);
 
 	tm_scope("Present") {
 		IDXGISwapChain1_Present(d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 	}
-	
+	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
 #if CONFIGURATION == DEBUG
 	d3d11_output_debug_messages();
@@ -866,12 +909,31 @@ void gfx_update() {
 }
 
 void gfx_reserve_vbo_bytes(u64 number_of_bytes) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
+
+	// #Copypaste
 	if (number_of_bytes > d3d11_quad_vbo_size) {
 		if (d3d11_quad_vbo) {
 			D3D11Release(d3d11_quad_vbo);
 			dealloc(get_heap_allocator(), d3d11_staging_quad_buffer);
 		}
 		u64 new_size = get_next_power_of_two(number_of_bytes);
+		u64 new_indices = ((new_size/sizeof(D3D11_Vertex))/4)*6;
+		
+		d3d11_quad_vbo_size = new_size;
+		
+		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
+		u32 *indices = (u32*)alloc(get_heap_allocator(), new_indices*sizeof(u32));
+		
+		for (u64 i = 0; i < new_indices; i += 6) {
+			indices[i + 0] = 0;
+			indices[i + 1] = 1;
+			indices[i + 2] = 2;
+			indices[i + 3] = 0;
+			indices[i + 4] = 2;
+			indices[i + 5] = 3;
+		}
+		
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
 		desc.Usage = D3D11_USAGE_DYNAMIC; 
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -879,17 +941,26 @@ void gfx_reserve_vbo_bytes(u64 number_of_bytes) {
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, 0, &d3d11_quad_vbo);
 		assert(SUCCEEDED(hr), "CreateBuffer failed");
-		d3d11_quad_vbo_size = new_size;
 		
-		d3d11_staging_quad_buffer = alloc(get_heap_allocator(), d3d11_quad_vbo_size);
-		assert((u64)d3d11_staging_quad_buffer%16 == 0);
+		D3D11_BUFFER_DESC index_buffer_desc = ZERO(D3D11_BUFFER_DESC);
+		index_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+		index_buffer_desc.ByteWidth = new_indices*sizeof(u32);
+		index_buffer_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		index_buffer_desc.CPUAccessFlags = 0;
+		
+		D3D11_SUBRESOURCE_DATA index_data = {};
+		index_data.pSysMem = indices;
+		
+		ID3D11Device_CreateBuffer(d3d11_device, &index_buffer_desc, &index_data, &d3d11_quad_ibo);
 		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
 }
 
 
-void gfx_init_image(Gfx_Image *image, void *initial_data) {
+void gfx_init_image(Gfx_Image *image, void *initial_data, bool render_target) {
+
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
 
 	void *data = initial_data;
     if (!initial_data){
@@ -916,6 +987,9 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 	desc.SampleDesc.Quality = 0;
 	desc.Usage = D3D11_USAGE_DEFAULT;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	if (render_target) {
+		desc.BindFlags |= D3D11_BIND_RENDER_TARGET;
+	}
 	desc.CPUAccessFlags = 0;
 	desc.MiscFlags = 0;
 	
@@ -934,9 +1008,29 @@ void gfx_init_image(Gfx_Image *image, void *initial_data) {
 		dealloc(image->allocator, data);
 	}
 	
-	log_verbose("Created a D3D11 image of width %d and height %d.", image->width, image->height);
+	if (render_target) {
+		D3D11_RENDER_TARGET_VIEW_DESC rtv_desc = ZERO(D3D11_RENDER_TARGET_VIEW_DESC);
+	    rtv_desc.Format = desc.Format;
+	    rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	    rtv_desc.Texture2D.MipSlice = 0;
+	
+	    // Create the render target view
+	    hr = ID3D11Device_CreateRenderTargetView(
+	    	d3d11_device, 
+	    	(ID3D11Resource*)texture, 
+	    	&rtv_desc, 
+	    	&image->gfx_render_target
+    	);
+    	d3d11_check_hr(hr);
+	} else {
+		image->gfx_render_target = 0;
+	}
+	
+	log_verbose("Created a D3D11 image%s of width %d and height %d.", render_target ? STR(" render target") : STR(""), image->width, image->height);
 }
 void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
+	
     assert(image && data, "Bad parameters passed to gfx_set_image_data");
 
     ID3D11ShaderResourceView *view = image->gfx_handle;
@@ -966,6 +1060,8 @@ void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data
     ID3D11Resource_Release(resource);
 }
 void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output) {
+	
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
 	
     D3D11_BOX region;
     region.left = x;
@@ -1019,6 +1115,8 @@ void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *out
 	ID3D11Texture2D_Release(staging_texture);
 }
 void gfx_deinit_image(Gfx_Image *image) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
+
 	ID3D11ShaderResourceView *view = image->gfx_handle;
 	ID3D11Resource *resource = 0;
 	ID3D11ShaderResourceView_GetResource(view, &resource);
@@ -1037,8 +1135,8 @@ void gfx_deinit_image(Gfx_Image *image) {
 }
 
 bool 
-shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
-	
+gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
+	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
 
 	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, get_temporary_allocator());
 	

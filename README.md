@@ -87,13 +87,15 @@ int entry(int argc, char **argv) {
 
 ## Examples & Documentation
 
-Documentation will come in the form of a lot of examples because that's the best way to learn and understand how everything works.
+In general, we try to leave a nice chunk of documentation in a comment at the top of the source code files when needed.
+An example would be: If you want to understand how to draw things, go to drawing.c and read the comment at the top of the file.
+This is however a WIP and probably not very well-maintained.
 
-See [examples](oogabooga/examples). 
+The goal is however to have the main form of documentation be in the form of [examples](oogabooga/examples). Seeing things in practice is generally much more informative than theory.
 
 Simply add `#include "oogabooga/examples/some_example.c"` to build.c and compile & run to see the example code in action.
 
-Other than examples, a great way to learn is to delve into the code of whatever module you're using. The codebase is written with this in mind.
+Other than the top-of-file documentation and examples, we have tried to write code that's easy to read & understand i.e. self-documenting. Ideally, a good way of finding what you need is to use your text editor to do a workspace-search for terms related to what you're trying to do and finding related functions/files/documentation.
 
 ## Known bugs & issues
 - If DPI changes in runtime, updating window position or size will be a bit weird

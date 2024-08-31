@@ -1,13 +1,22 @@
 
-// See oogabooga/examples/text_rendering.c for usage
-
-
+// See oogabooga/examples/text_rendering.c for a practical example
 
 /*
-TODO:
-	- Justify rows in walk_glyphs
-*/
 
+	Example Usage:
+	
+	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
+	assert(font, "Failed loading arial.ttf");
+
+	while (...) {
+		...
+		
+		draw_text(font, STR("Some text"), raster_height, v2(x, y),  v2(scale_x, scale_y), v4(r, g, b, a));
+		
+		...
+	}
+
+*/
 
 // #Memory #Speed
 // This is terruble  and huge waste of video memory. We should have a constant codepoint range

@@ -294,6 +294,21 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 	    	
 	    	goto DEFAULT_HANDLE;
 	    }
+	    case WM_GETMINMAXINFO: {
+	    	if (!window._initialized) {
+	    		goto DEFAULT_HANDLE;
+	    	}
+	    	MINMAXINFO* mmi = (MINMAXINFO*)lparam;
+            
+            mmi->ptMaxSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxSize.y = window.monitor->resolution_y*2;
+            mmi->ptMaxTrackSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxTrackSize.y = window.monitor->resolution_y*2;
+            mmi->ptMinTrackSize.x = -window.monitor->resolution_x*2;
+            mmi->ptMinTrackSize.y = -window.monitor->resolution_y*2;
+            
+	    	break;
+	    }
         default:
         
         DEFAULT_HANDLE:
@@ -309,18 +324,18 @@ win32_init_window() {
 	memset(&window, 0, sizeof(window));
 	
 	window.title = STR("Unnamed Window");
-	window.scaled_width = 1280;
-	window.scaled_height = 720;
-	window.pixel_width = 1280;
-	window.pixel_height = 720;
+	window.point_width = 960;
+	window.point_height = 540;
 	window.x = 200;
 	window.y = 150;
 	window.should_close = false;
+	window.force_topmost = true;
 	window._initialized = false;
 	window.clear_color.r = 0.392f; 
 	window.clear_color.g = 0.584f;
 	window.clear_color.b = 0.929f;
 	window.clear_color.a = 1.0f;
+	
 	
 	WNDCLASSEX wc = (WNDCLASSEX){0};
     MSG msg;
@@ -641,6 +656,8 @@ void os_join_thread(Thread *t) {
 }
 ////// DEPRECATED   ^^^^^^^^^^^^^^^^
 
+
+
 void os_thread_init(Thread *t, Thread_Proc proc) {
 	memset(t, 0, sizeof(Thread));
 	t->id = 0;
@@ -706,6 +723,23 @@ void os_lock_mutex(Mutex_Handle m) {
 void os_unlock_mutex(Mutex_Handle m) {
 	BOOL result = ReleaseMutex(m);
 	assert(result, "Unlock mutex 0x%x failed with error %d", m, GetLastError());
+}
+
+void os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state) {
+	sem->os_event = CreateEvent(NULL, TRUE, initial_state ? TRUE : FALSE, NULL);
+}
+
+void os_binary_semaphore_destroy(Binary_Semaphore *sem) {
+	CloseHandle(sem->os_event);
+}
+
+void os_binary_semaphore_wait(Binary_Semaphore *sem) {
+	WaitForSingleObject(sem->os_event, INFINITE);
+	ResetEvent(sem->os_event);
+}
+
+void os_binary_semaphore_signal(Binary_Semaphore *sem) {
+	SetEvent(sem->os_event);
 }
 
 
@@ -1926,22 +1960,31 @@ void os_update() {
 	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
 	int screen_height = window.monitor->resolution_y;
 
-	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
-		window.width = window.scaled_width*dpi_scale_factor;
-		window.height = window.scaled_height*dpi_scale_factor;
+	if (last_window.pixel_width == window.pixel_width && last_window.pixel_height == window.pixel_height) {
+		if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
+			window.width = window.scaled_width*dpi_scale_factor;
+			window.height = window.scaled_height*dpi_scale_factor;
+		}
+		
+		if (last_window.point_width != window.point_width || last_window.point_height != window.point_height) {
+			window.width = window.point_width*window.point_size_in_pixels;
+			window.height = window.point_height*window.point_size_in_pixels;
+		}
+		
+		if (last_window.point_x != window.point_x || last_window.point_y != window.point_y) {
+			window.x = window.point_x*window.point_size_in_pixels;
+			window.y = window.point_y*window.point_size_in_pixels;
+		}
 	}
 	
-	if (last_window.point_width != window.point_width || last_window.point_height != window.point_height) {
-		window.width = window.point_width*window.point_size_in_pixels;
-		window.height = window.point_height*window.point_size_in_pixels;
-	}
-	
-	if (last_window.point_x != window.point_x || last_window.point_y != window.point_y) {
-		window.x = window.point_x*window.point_size_in_pixels;
-		window.y = window.point_y*window.point_size_in_pixels;
-	}
+	// #Hack
+	// Uneven window size just causes pain with texture sampling, so I'm just doing even only
+	if (window.pixel_width % 2 != 0) window.pixel_width += 1;
+	if (window.pixel_height % 2 != 0) window.pixel_height += 1;
 	
 	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
+	
+	
 	    RECT update_rect;
 	    update_rect.left = window.x;
 	    update_rect.right = window.x + window.width;
@@ -1955,8 +1998,13 @@ void os_update() {
 	    u32 actual_x = update_rect.left;
 	    u32 actual_y = update_rect.top;
 	    
-	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
+	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOACTIVATE);
 	}
+	
+	if (last_window.force_topmost != window.force_topmost) {
+		SetWindowPos(window._os_handle, window.force_topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOMOVE);
+	}
+	
 	RECT client_rect;
 	ok = GetClientRect(window._os_handle, &client_rect);
 	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
