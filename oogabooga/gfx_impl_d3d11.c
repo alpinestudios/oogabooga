@@ -926,12 +926,12 @@ void gfx_reserve_vbo_bytes(u64 number_of_bytes) {
 		u32 *indices = (u32*)alloc(get_heap_allocator(), new_indices*sizeof(u32));
 		
 		for (u64 i = 0; i < new_indices; i += 6) {
-			indices[i + 0] = 0;
-			indices[i + 1] = 1;
-			indices[i + 2] = 2;
-			indices[i + 3] = 0;
-			indices[i + 4] = 2;
-			indices[i + 5] = 3;
+			indices[i + 0] = (i/6)*4 + 0;
+			indices[i + 1] = (i/6)*4 + 1;
+			indices[i + 2] = (i/6)*4 + 2;
+			indices[i + 3] = (i/6)*4 + 0;
+			indices[i + 4] = (i/6)*4 + 2;
+			indices[i + 5] = (i/6)*4 + 3;
 		}
 		
 		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
@@ -952,6 +952,7 @@ void gfx_reserve_vbo_bytes(u64 number_of_bytes) {
 		index_data.pSysMem = indices;
 		
 		ID3D11Device_CreateBuffer(d3d11_device, &index_buffer_desc, &index_data, &d3d11_quad_ibo);
+		
 		
 		log_verbose("Grew quad vbo to %d bytes.", d3d11_quad_vbo_size);
 	}
