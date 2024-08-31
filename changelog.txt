@@ -1,3 +1,6 @@
+## v0.01.008 - hotfix
+- Unbroke gfx_reserve_vbo_bytes
+
 ## v0.01.007 - Offscreen rendering, Draw_Frame's, Major reworks, more examples
 
 	- Graphics
