@@ -58,3 +58,5 @@ typedef struct Context_Extra {
 
 // This is where you swap in your own project!
 // #include "entry_yourepicgamename.c"
+
+// #include "entry_randygame.c"

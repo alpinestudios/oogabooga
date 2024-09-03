@@ -26,14 +26,19 @@ int entry(int argc, char **argv) {
 	font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), heap);
 	assert(font, "Failed loading arial.ttf");
 	
-	Audio_Source bruh, song;
+	#define NUM_SONGS 3
+	
+	Audio_Source bruh;
+	Audio_Source songs[NUM_SONGS];
 	
 	bool bruh_ok = audio_open_source_load(&bruh, STR("oogabooga/examples/bruh.wav"), heap);
 	assert(bruh_ok, "Could not load bruh.wav");
-
-	bool song_ok = audio_open_source_stream(&song, STR("oogabooga/examples/song.ogg"), heap);
-	assert(song_ok, "Could not load song.ogg");
 	
+	for (u64 i = 0; i < NUM_SONGS; i += 1) {
+		bool song_ok = audio_open_source_stream(&songs[i], tprint("oogabooga/examples/song%d.ogg", i+1), heap);
+		assert(song_ok, "Could not load song%d.ogg", i+1);
+	}
+
 	// By default, audio sources will be converted to the same format as the output buffer.
 	// However, if you want it to be a specific format (or something smaller than the
 	// output format), then you can call:
@@ -49,13 +54,15 @@ int entry(int argc, char **argv) {
 	// complicated audio system.
 	
 	audio_player_set_source(clip_player, bruh);
-	audio_player_set_source(song_player, song);
+	audio_player_set_source(song_player, songs[0]);
 	
 	audio_player_set_state(clip_player, AUDIO_PLAYER_STATE_PAUSED);
 	audio_player_set_state(song_player, AUDIO_PLAYER_STATE_PAUSED);
 	
 	audio_player_set_looping(clip_player, true);
 	//play_one_audio_clip(STR("oogabooga/examples/block.wav"));
+	
+	u64 song_index = 0;
 	
 	while (!window.should_close) {
 		reset_temporary_storage();
@@ -94,7 +101,15 @@ int entry(int argc, char **argv) {
 			config.volume                = 1.0;
 			config.playback_speed        = get_random_float32_in_range(0.8, 1.2);
 			config.enable_spacialization = true;
-			config.position_ndc          = v3(get_random_float32_in_range(-1, 1), get_random_float32_in_range(-1, 1), 0);
+			config.position              = v3(
+				get_random_float32_in_range(-window.width/2, window.width/2), 
+				get_random_float32_in_range(-window.height/2, window.height/2), 
+				0
+			);
+			config.spacial_distance_min = 400;
+			config.spacial_distance_max = 600;
+			config.spacial_projection     = draw_frame.projection;
+			config.spacial_listener_xform = draw_frame.camera_xform;
 			play_one_audio_clip_with_config(STR("oogabooga/examples/bruh.wav"), config);
 		}
 		rect.y -= FONT_HEIGHT*3;
@@ -125,6 +140,12 @@ int entry(int argc, char **argv) {
 		if (button(STR("Speed down"), rect.xy, rect.zw, false)) {
 			song_player->config.playback_speed -= 0.05;
 		}
+		rect.y -= FONT_HEIGHT*1.8;
+		if (button(STR("Next song"), rect.xy, rect.zw, false)) {
+			song_index += 1;
+			if (song_index >= NUM_SONGS) song_index = 0;
+			audio_player_transition_to_source(song_player, songs[song_index], 4);
+		}
 		song_player->config.playback_speed = clamp(song_player->config.playback_speed, 0, 20);
 		rect.x += rect.z + FONT_HEIGHT;
 		draw_text(font, tprint("Speed: %d%%", (s64)round(song_player->config.playback_speed*100)), FONT_HEIGHT, v2_sub(rect.xy, v2(2, -2)), v2(1, 1), COLOR_BLACK);
@@ -144,7 +165,9 @@ int entry(int argc, char **argv) {
 	// Your OS will clean up everything when program exits, so this is only slowing down the time it takes for the program to exit.
 	// This is just for testing purposes.
 	audio_source_destroy(&bruh);
-	audio_source_destroy(&song);
+	for (u64 i = 0; i < NUM_SONGS; i += 1) {
+		audio_source_destroy(&songs[i]);
+	}
 
 	return 0;
 }

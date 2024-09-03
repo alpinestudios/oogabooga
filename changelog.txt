@@ -1,3 +1,22 @@
+## v0.01.009
+
+	- Audio
+		- Improved spacialization API
+			- renamed Audio_Playback_Config.position_ndc -> Audio_Playback_Config.position
+			- Added Audio_Playback_Config spacial_projection & spacial_listener_xform
+				- Audio_Playback_Config.position can now be in your world space
+				- spacial_projection & spacial_listener_xform is the same as Draw_Frame.projection & Draw_Frame.camera_xform but for the audio spacialization
+			- Refactored audio a bit to get its intermediate buffers from one large mega buffer
+			- Fixed the short fade in/out on pausing/playing without noise
+			- Added audio_player_transition_to_source() which makes a player fade to another source for a given amount of seconds
+			
+	- Misc
+		- Added parsing functions string_to_int and string_to_float
+		- Fixed som bugs
+			
+			
+			
+
 ## v0.01.008 - hotfix
 - Unbroke gfx_reserve_vbo_bytes
 

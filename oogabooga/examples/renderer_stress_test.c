@@ -80,7 +80,7 @@ int entry(int argc, char **argv) {
 		draw_frame.camera_xform = camera_xform;
 
 		seed_for_random = 69;
-		for (u64 i = 0; i < 40000; i++) {
+		for (u64 i = 0; i < 150000; i++) {
 			float32 aspect = (float32)window.width/(float32)window.height;
 			float min_x = -aspect;
 			float max_x = aspect;

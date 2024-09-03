@@ -329,7 +329,7 @@ win32_init_window() {
 	window.x = 200;
 	window.y = 150;
 	window.should_close = false;
-	window.force_topmost = true;
+	window.force_topmost = false;
 	window._initialized = false;
 	window.clear_color.r = 0.392f; 
 	window.clear_color.g = 0.584f;

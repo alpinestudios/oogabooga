@@ -146,3 +146,12 @@ s64 smerpi(s64 from, s64 to, f64 t) {
 float32 sine_oscillate_n_waves_normalized(float32 v, float32 n) {
 	return (sin((n*2*PI32*((v)-(1/(n*4))))+1))/2;
 }
+
+
+float64 string_to_float(string s) {
+	return atof(temp_convert_to_null_terminated_string(s));
+}
+
+s64 string_to_int(string s) {
+	return atoll(temp_convert_to_null_terminated_string(s));
+}
