@@ -148,10 +148,81 @@ float32 sine_oscillate_n_waves_normalized(float32 v, float32 n) {
 }
 
 
-float64 string_to_float(string s) {
-	return atof(temp_convert_to_null_terminated_string(s));
+float64 string_to_float(string s, bool *success) {
+
+    *success = true;
+    float64 result = 0.0;
+    float64 sign = 1.0;
+    bool has_decimal = false;
+    float64 decimal_place = 0.1;
+
+    u64 i = 0;
+    // Skip leading spaces
+    while (i < s.count && (s.data[i] == ' ' || s.data[i] == '\t')) {
+        i++;
+    }
+
+    // Handle optional sign
+    if (i < s.count && s.data[i] == '-') {
+        sign = -1.0;
+        i++;
+    } else if (i < s.count && s.data[i] == '+') {
+        i++;
+    }
+
+    while (i < s.count) {
+        if (s.data[i] >= '0' && s.data[i] <= '9') {
+            if (has_decimal) {
+                result += (s.data[i] - '0') * decimal_place;
+                decimal_place *= 0.1;
+            } else {
+                result = result * 10.0 + (s.data[i] - '0');
+            }
+        } else if (s.data[i] == '.') {
+            if (has_decimal) {
+                // Multiple decimal points are invalid
+                *success = false;
+                return 0.0;
+            }
+            has_decimal = true;
+        } else {
+            *success = false;
+            return 0.0;
+        }
+        i++;
+    }
+
+    return result * sign;
 }
 
-s64 string_to_int(string s) {
-	return atoll(temp_convert_to_null_terminated_string(s));
+s64 string_to_int(string s, bool *success) {
+    *success = true;
+    s64 result = 0;
+    s64 sign = 1;
+
+    u64 i = 0;
+    // Skip leading spaces
+    while (i < s.count && (s.data[i] == ' ' || s.data[i] == '\t')) {
+        i++;
+    }
+
+    // Handle optional sign
+    if (i < s.count && s.data[i] == '-') {
+        sign = -1;
+        i++;
+    } else if (i < s.count && s.data[i] == '+') {
+        i++;
+    }
+
+    while (i < s.count) {
+        if (s.data[i] >= '0' && s.data[i] <= '9') {
+            result = result * 10 + (s.data[i] - '0');
+        } else {
+            *success = false;
+            return 0;
+        }
+        i++;
+    }
+
+    return result * sign;
 }

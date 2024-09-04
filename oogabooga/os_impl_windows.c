@@ -346,10 +346,10 @@ win32_init_window() {
     wc.style = CS_OWNDC;
     wc.lpfnWndProc = win32_window_proc;
     wc.hInstance = instance;
-    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
-    wc.hCursor = LoadCursor(0, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = "sigma balls";
+    wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(0, IDC_ARROW);
     wc.hIconSm = LoadIcon(0, IDI_APPLICATION);
 
 	BOOL ok = RegisterClassEx(&wc);
@@ -377,10 +377,6 @@ win32_init_window() {
     UpdateWindow(window._os_handle);
     
     ShowWindow(window._os_handle, SW_HIDE);
-    //style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
-    //style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
-    //style |= WS_EX_TOOLWINDOW;  // Make it a tool window
-    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 }
 
 void 
