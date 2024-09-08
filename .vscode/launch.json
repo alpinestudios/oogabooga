@@ -10,7 +10,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console":"integratedTerminal",
+            "console": "integratedTerminal",
             "preLaunchTask": "Compile"
         },
         {
@@ -22,7 +22,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console":"integratedTerminal",
+            "console": "integratedTerminal",
             "preLaunchTask": "Compile Release"
         }
     ]
