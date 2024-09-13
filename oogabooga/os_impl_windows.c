@@ -1,30 +1,155 @@
 
 #define CINTERFACE
-#include <Shlwapi.h>
+#include <shlwapi.h>
 #include <audioclient.h>
 #include <audiopolicy.h>
 #include <mmdeviceapi.h>
 #include <initguid.h>
 #include <avrt.h>
+#include <xinput.h>
+#include <shellscalingapi.h>
+
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#else
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 
 #define VIRTUAL_MEMORY_BASE ((void*)0x0000690000000000ULL)
-
 void* heap_alloc(u64);
 void heap_dealloc(void*);
+
+u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
+
+	if (utf8.count == 0) {
+		u16 *utf16_str = (u16 *)alloc(allocator, (1) * sizeof(u16));
+		*utf16_str = 0;
+		return utf16_str;
+	}
+
+    u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
+
+    u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
+
+    int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
+    if (result == 0) {
+        dealloc(allocator, utf16_str);
+        return 0;
+    }
+
+    utf16_str[utf16_length] = 0;
+
+    return utf16_str;
+}
+u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
+	return win32_fixed_utf8_to_null_terminated_wide(utf8, get_temporary_allocator());
+}
+string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
+    u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
+
+	if (utf8_length == 0) {
+		string utf8;
+		utf8.count = 0;
+		utf8.data = 0;
+		return utf8;
+	}
+
+    u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
+
+    int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
+    if (result == 0) {
+        dealloc(allocator, utf8_str);
+        return (string){0, 0};
+    }
+
+    string utf8;
+    utf8.data = utf8_str;
+    utf8.count = utf8_length-1;
+
+    return utf8;
+}
+
+string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
+    return win32_null_terminated_wide_to_fixed_utf8(utf16, get_temporary_allocator());
+}
+#define win32_check_hr(hr) win32_check_hr_impl(hr, __LINE__, __FILE__);
+void win32_check_hr_impl(HRESULT hr, u32 line, const char* file_name) {
+    if (hr != S_OK) {
+    
+    	LPVOID errorMsg;
+        DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+                        FORMAT_MESSAGE_FROM_SYSTEM | 
+                        FORMAT_MESSAGE_IGNORE_INSERTS;
+
+        DWORD messageLength = FormatMessageW(
+            dwFlags,
+            NULL,
+            hr,
+            MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
+            (LPWSTR) &errorMsg,
+            0,
+            NULL );
+
+		u16 *wide_err = 0;
+
+        if (messageLength > 0) {
+        	wide_err = (LPWSTR)errorMsg;
+        } else {
+        	wide_err = (u16*)L"Failed to retrieve error message.";
+        }
+    
+    	string utf8_err = temp_win32_null_terminated_wide_to_fixed_utf8(wide_err);
+    	
+    	string final_message_utf8 = tprint("%s\nIn file %cs on line %d", utf8_err, file_name, line);
+    	
+    	u16 *final_message_wide = temp_win32_fixed_utf8_to_null_terminated_wide(final_message_utf8);
+    
+        MessageBoxW(NULL, final_message_wide, L"Error", MB_OK | MB_ICONERROR);
+
+        panic("win32 hr failed in file %cs on line %d, hr was %d", file_name, line, hr);
+    }
+}
+
+// #Global
+bool win32_want_override_mouse_pointer = false;
+HCURSOR win32_shadowed_mouse_pointer = 0;
+bool win32_did_override_user_mouse_pointer = false;
+SYSTEM_INFO win32_system_info;
+LARGE_INTEGER win32_counter_at_start;
+bool win32_do_handle_raw_input = false;
+HANDLE win32_xinput = 0;
+bool has_os_update_been_called_at_all = false;
+
+// Used to save windowed state when in fullscreen mode.
+DWORD win32_windowed_style = 0;
+DWORD win32_windowed_style_ex = 0;
+s32 win32_windowed_x = 0;
+s32 win32_windowed_y = 0;
+s32 win32_windowed_width = 0;
+s32 win32_windowed_height = 0;
+
+// impl input.c
+const u64 MAX_NUMBER_OF_GAMEPADS = XUSER_MAX_COUNT;
+
+#ifndef OOGABOOGA_HEADLESS
 
 // Persistent
 Input_State_Flags win32_key_states[INPUT_KEY_CODE_COUNT];
 
-void win32_send_key_event(Input_Key_Code code, Input_State_Flags state) {
+void win32_send_key_event(Input_Key_Code code, Input_State_Flags state, s64 gamepad_index) {
 	Input_Event e;
 	e.kind = INPUT_EVENT_KEY;
 	e.key_code = code;
 	e.key_state = state;
+	e.gamepad_index = gamepad_index;
 	input_frame.events[input_frame.number_of_events] = e;
 	input_frame.number_of_events += 1;
 }
 
-void win32_handle_key_up(Input_Key_Code code) {
+void win32_handle_key_up(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	Input_State_Flags last_state = win32_key_states[code];
@@ -34,9 +159,9 @@ void win32_handle_key_up(Input_Key_Code code) {
 	
 	win32_key_states[code] = state;
 	
-	win32_send_key_event(code, state);
+	win32_send_key_event(code, state, gamepad_index);
 }
-void win32_handle_key_down(Input_Key_Code code) {
+void win32_handle_key_down(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	Input_State_Flags last_state = win32_key_states[code];
@@ -46,15 +171,18 @@ void win32_handle_key_down(Input_Key_Code code) {
 	
 	win32_key_states[code] = state;
 	
-	win32_send_key_event(code, state);
+	win32_send_key_event(code, state, gamepad_index);
 }
-void win32_handle_key_repeat(Input_Key_Code code) {
+void win32_handle_key_repeat(Input_Key_Code code, s64 gamepad_index) {
 	if (code == KEY_UNKNOWN) return;
 	
 	win32_key_states[code] |= INPUT_STATE_REPEAT;
 	
-	win32_send_key_event(code, win32_key_states[code]);
+	win32_send_key_event(code, win32_key_states[code], gamepad_index);
 }
+
+void win32_query_monitors();
+
 LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wparam, LPARAM lparam) {
 	
 	if (window._initialized) {
@@ -70,32 +198,36 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
+        	
+        case WM_SYSKEYDOWN:
         case WM_KEYDOWN:
         	bool is_repeat = (lparam & 0x40000000) != 0;
-        	
-        	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam));
-	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam));
-	        goto DEFAULT_HANDLE;
+        	if (is_repeat) win32_handle_key_repeat(os_key_to_key_code((void*)wparam), -1);
+	        else           win32_handle_key_down  (os_key_to_key_code((void*)wparam), -1);
+	        //goto DEFAULT_HANDLE;
+	        break;
+        case WM_SYSKEYUP:
 	    case WM_KEYUP:
-	        win32_handle_key_up(os_key_to_key_code((void*)wparam));
-	        goto DEFAULT_HANDLE;
+	        win32_handle_key_up(os_key_to_key_code((void*)wparam), -1);
+	        //goto DEFAULT_HANDLE;
+	        break;
 	    case WM_LBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_LEFT);
+	        win32_handle_key_down(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_RBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_RIGHT);
+	        win32_handle_key_down(MOUSE_BUTTON_RIGHT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MBUTTONDOWN:
-	        win32_handle_key_down(MOUSE_BUTTON_MIDDLE);
+	        win32_handle_key_down(MOUSE_BUTTON_MIDDLE, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_LBUTTONUP:
-	        win32_handle_key_up(MOUSE_BUTTON_LEFT);
+	        win32_handle_key_up(MOUSE_BUTTON_LEFT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_RBUTTONUP:
-	        win32_handle_key_up(MOUSE_BUTTON_RIGHT);
+	        win32_handle_key_up(MOUSE_BUTTON_RIGHT, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MBUTTONUP:
-			win32_handle_key_up(MOUSE_BUTTON_MIDDLE);
+			win32_handle_key_up(MOUSE_BUTTON_MIDDLE, -1);
 	        goto DEFAULT_HANDLE;
 	    case WM_MOUSEWHEEL: {
 	        int delta = GET_WHEEL_DELTA_WPARAM(wparam);
@@ -130,6 +262,53 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 	        
 	        goto DEFAULT_HANDLE;
 	    }
+	    case WM_SETCURSOR: {
+	    
+            WORD hit_test = LOWORD(lparam);
+            WORD mouse_message = HIWORD(lparam);
+            
+            if (hit_test == HTLEFT || hit_test == HTRIGHT || hit_test == HTTOP ||
+                hit_test == HTBOTTOM || hit_test == HTTOPLEFT || hit_test == HTTOPRIGHT ||
+                hit_test == HTBOTTOMLEFT || hit_test == HTBOTTOMRIGHT) {
+                
+                // We are hovering the borders, let windows decide the pointer
+                win32_want_override_mouse_pointer = true;
+                
+                goto DEFAULT_HANDLE;
+            } else {
+                if (win32_want_override_mouse_pointer) {
+                    win32_want_override_mouse_pointer = false;
+                    if (win32_did_override_user_mouse_pointer) {
+                        win32_did_override_user_mouse_pointer = false;
+                        SetCursor(win32_shadowed_mouse_pointer);
+                    } else {
+                        goto DEFAULT_HANDLE;
+                    }
+                }
+            }
+	       break;
+	    }
+	    case WM_DISPLAYCHANGE: {
+	    	
+	    	win32_query_monitors();
+	    	
+	    	goto DEFAULT_HANDLE;
+	    }
+	    case WM_GETMINMAXINFO: {
+	    	if (!window._initialized) {
+	    		goto DEFAULT_HANDLE;
+	    	}
+	    	MINMAXINFO* mmi = (MINMAXINFO*)lparam;
+            
+            mmi->ptMaxSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxSize.y = window.monitor->resolution_y*2;
+            mmi->ptMaxTrackSize.x = window.monitor->resolution_x*2;
+            mmi->ptMaxTrackSize.y = window.monitor->resolution_y*2;
+            mmi->ptMinTrackSize.x = -window.monitor->resolution_x*2;
+            mmi->ptMinTrackSize.y = -window.monitor->resolution_y*2;
+            
+	    	break;
+	    }
         default:
         
         DEFAULT_HANDLE:
@@ -145,16 +324,18 @@ win32_init_window() {
 	memset(&window, 0, sizeof(window));
 	
 	window.title = STR("Unnamed Window");
-	window.width = 1280;
-	window.height = 720;
-	window.x = 0;
-	window.y = 0;
+	window.point_width = 960;
+	window.point_height = 540;
+	window.x = 200;
+	window.y = 150;
 	window.should_close = false;
+	window.force_topmost = true;
 	window._initialized = false;
 	window.clear_color.r = 0.392f; 
 	window.clear_color.g = 0.584f;
 	window.clear_color.b = 0.929f;
 	window.clear_color.a = 1.0f;
+	
 	
 	WNDCLASSEX wc = (WNDCLASSEX){0};
     MSG msg;
@@ -176,15 +357,15 @@ win32_init_window() {
 	
 	RECT rect = {0, 0, window.width, window.height};
 	DWORD style = WS_OVERLAPPEDWINDOW;
-	DWORD ex_style = WS_EX_CLIENTEDGE;
-	ok = AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+	DWORD style_ex = WS_EX_CLIENTEDGE;
+	ok = AdjustWindowRectEx(&rect, style, FALSE, style_ex);
 	assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
 	
 	u32 actual_window_width = rect.right - rect.left;
 	u32 actual_window_height = rect.bottom - rect.top;
     // Create the window
     window._os_handle = CreateWindowEx(
-        ex_style,
+        style_ex,
         "sigma balls",
         temp_convert_to_null_terminated_string(window.title),
         style,
@@ -192,8 +373,14 @@ win32_init_window() {
         0, 0, instance, 0);
     assert(window._os_handle != 0, "Window creation failed, error: %lu", GetLastError());
 	window._initialized = true;
-    ShowWindow(window._os_handle, SW_SHOWDEFAULT);
+	window.allow_resize = true;
     UpdateWindow(window._os_handle);
+    
+    ShowWindow(window._os_handle, SW_HIDE);
+    //style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+    //style &= ~WS_EX_APPWINDOW;  // Remove from taskbar
+    //style |= WS_EX_TOOLWINDOW;  // Make it a tool window
+    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
 }
 
 void 
@@ -201,10 +388,19 @@ win32_audio_thread(Thread *t);
 void 
 win32_audio_poll_default_device_thread(Thread *t);
 
-bool win32_has_audio_thread_started = false;
+volatile bool win32_has_audio_thread_started = false;
+#endif /* OOGABOOGA_HEADLESS */
 
-void os_init(u64 program_memory_size) {
+void os_init(u64 program_memory_capacity) {
 	
+    // #Volatile
+    // Any printing uses vsnprintf, and printing may happen in init,
+    // especially on errors, so this needs to happen first.
+    os.crt = os_load_dynamic_library(STR("msvcrt.dll"));
+	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
+	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
+	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+
 #if CONFIGURATION == DEBUG
 	HANDLE process = GetCurrentProcess();
 	SymInitialize(process, NULL, TRUE);
@@ -214,25 +410,34 @@ void os_init(u64 program_memory_size) {
     win32_check_hr(hr);
 	
 	context.thread_id = GetCurrentThreadId();
-	
-	
-	
+
+
 #if CONFIGURATION == RELEASE
+	// #Configurable #Copypaste
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	timeBeginPeriod(1);
 #endif
 
-	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	BOOL ok;
+
+	ok = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	if (!ok) {
+		hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+		win32_check_hr(hr);
+	}
 	
-	SYSTEM_INFO si;
-    GetSystemInfo(&si);
-	os.granularity = cast(u64)si.dwAllocationGranularity;
-	os.page_size = cast(u64)si.dwPageSize;
+	os_set_mouse_pointer_standard(MOUSE_POINTER_DEFAULT);
+	
+    GetSystemInfo(&win32_system_info);
+	os.granularity = cast(u64)win32_system_info.dwAllocationGranularity;
+	os.page_size = cast(u64)win32_system_info.dwPageSize;
 	
 	os.static_memory_start = 0;
 	os.static_memory_end = 0;
 	
+	
 	MEMORY_BASIC_INFORMATION mbi;
-    
     
     unsigned char* addr = 0;
     while (VirtualQuery(addr, &mbi, sizeof(mbi))) {
@@ -247,17 +452,21 @@ void os_init(u64 program_memory_size) {
 
 
 	program_memory_mutex = os_make_mutex();
-	os_grow_program_memory(program_memory_size);
+	os_grow_program_memory(program_memory_capacity);
 	
 	heap_init();
 	
-	os.crt = os_load_dynamic_library(STR("msvcrt.dll"));
-	assert(os.crt != 0, "Could not load win32 crt library. Might be compiled with non-msvc? #Incomplete #Portability");
-	os.crt_vsnprintf = (Crt_Vsnprintf_Proc)os_dynamic_library_load_symbol(os.crt, STR("vsnprintf"));
-	assert(os.crt_vsnprintf, "Missing vsnprintf in crt");
+	QueryPerformanceCounter(&win32_counter_at_start);
 	
+	
+#ifndef OOGABOOGA_HEADLESS
+
     win32_init_window();
     
+    // Set a dummy output format before audio init in case it fails.
+    audio_output_format.sample_rate = 48000;
+    audio_output_format.channels = 2;
+    audio_output_format.bit_width = AUDIO_BITS_32;
     
     local_persist Thread audio_thread, audio_poll_default_device_thread;
     
@@ -268,6 +477,72 @@ void os_init(u64 program_memory_size) {
     os_thread_start(&audio_poll_default_device_thread);
     
     while (!win32_has_audio_thread_started) { os_yield_thread(); }
+#endif /* NOT OOGABOOGA_HEADLESS */
+
+
+	
+	win32_query_monitors();
+}
+
+BOOL win32_query_monitors_callback(HMONITOR monitor_handle, HDC dc, LPRECT rect, LPARAM param) {
+	MONITORINFOEX info = ZERO(MONITORINFOEX);
+    info.cbSize = sizeof(MONITORINFOEX);
+    BOOL ok = GetMonitorInfo(monitor_handle, (MONITORINFO*)&info);
+    assert(ok, "GetMonitorInfo failed");
+    
+    string monitor_id;
+    monitor_id.count = strlen(info.szDevice);
+    monitor_id.data = (u8*)info.szDevice;
+    
+    u16 *monitor_id_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    
+    DEVMODEW more_info = ZERO(DEVMODEW);
+    u16 *name_wide = temp_win32_fixed_utf8_to_null_terminated_wide(monitor_id);
+    ok = EnumDisplaySettingsW(name_wide, ENUM_CURRENT_SETTINGS, &more_info);
+    assert(ok, "EnumDisplaySettingsW failed");
+    
+    DISPLAY_DEVICEW even_more_info = ZERO(DISPLAY_DEVICEW);
+	even_more_info.cb = sizeof(DISPLAY_DEVICE);
+    bool display_device_found = false;
+    for (DWORD i = 0; EnumDisplayDevicesW(NULL, i, &even_more_info, 0); ++i) {
+        if (wcscmp(even_more_info.DeviceName, monitor_id_wide) == 0) {
+            display_device_found = TRUE;
+            break;
+        }
+    }
+    assert(display_device_found, "DISPLAY_DEVICE not found");
+    
+    Os_Monitor *monitor = (Os_Monitor*)growing_array_add_empty((void**)&os.monitors);
+    memset(monitor, 0, sizeof(Os_Monitor));
+    if (info.dwFlags & MONITORINFOF_PRIMARY) os.primary_monitor = monitor;
+    
+    monitor->name = temp_win32_null_terminated_wide_to_fixed_utf8(even_more_info.DeviceString);
+    monitor->refresh_rate = more_info.dmDisplayFrequency;
+    monitor->resolution_x = info.rcMonitor.right  - info.rcMonitor.left;
+    monitor->resolution_y = info.rcMonitor.bottom - info.rcMonitor.top;
+    
+    GetDpiForMonitor(monitor_handle, MDT_EFFECTIVE_DPI, (UINT*)&monitor->dpi, (UINT*)&monitor->dpi_y);
+    
+    if (monitor_handle == MonitorFromWindow(window._os_handle, MONITOR_DEFAULTTONEAREST)) {
+    	window.monitor = monitor;
+    }
+    
+    return TRUE;
+}
+void win32_query_monitors() {
+
+	window.monitor = 0;
+
+	if (os.monitors) growing_array_clear((void**)&os.monitors);
+	else growing_array_init((void**)&os.monitors, sizeof(Os_Monitor), get_heap_allocator());
+	
+	EnumDisplayMonitors(0, 0, win32_query_monitors_callback, 0);
+	
+	os.number_of_connected_monitors = growing_array_get_valid_count(os.monitors);
+	
+	if (!window.monitor) {
+		window.monitor = os.primary_monitor;
+	}
 }
 
 void s64_to_null_terminated_string_reverse(char str[], int length)
@@ -312,71 +587,7 @@ void s64_to_null_terminated_string(s64 num, char* str, int base)
     s64_to_null_terminated_string_reverse(str, i);
 }
 
-bool os_grow_program_memory(u64 new_size) {
-	os_lock_mutex(program_memory_mutex); // #Sync
-	if (program_memory_size >= new_size) {
-		os_unlock_mutex(program_memory_mutex); // #Sync
-		return true;
-	}
 
-	
-	
-	bool is_first_time = program_memory == 0;
-	
-	if (is_first_time) {
-		u64 aligned_size = (new_size+os.granularity) & ~(os.granularity);
-		void* aligned_base = (void*)(((u64)VIRTUAL_MEMORY_BASE+os.granularity) & ~(os.granularity-1));
-
-		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-		if (program_memory == 0) { 
-			os_unlock_mutex(program_memory_mutex); // #Sync
-			return false;
-		}
-		program_memory_size = aligned_size;
-		
-		memset(program_memory, 0xBA, program_memory_size);
-	} else {
-		// #Cleanup this mess
-		// Allocation size doesn't actually need to be aligned to granularity, page size is enough.
-		// Doesn't matter that much tho, but this is just a bit unfortunate to look at.
-		void* tail = (u8*)program_memory + program_memory_size;
-		u64 m = ((u64)program_memory_size % os.granularity);
-		assert(m == 0, "program_memory_size is not aligned to granularity!");
-		m = ((u64)tail % os.granularity);
-		assert(m == 0, "Tail is not aligned to granularity!");
-		u64 amount_to_allocate = new_size-program_memory_size;
-		amount_to_allocate = ((amount_to_allocate+os.granularity)&~(os.granularity-1));
-		m = ((u64)amount_to_allocate % os.granularity);
-		assert(m == 0, "amount_to_allocate is not aligned to granularity!");
-		// Just keep allocating at the tail of the current chunk
-		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-		assert(result == tail);
-#if CONFIGURATION == DEBUG
-		volatile u8 a = *(u8*)tail = 69;
-#endif
-		memset(result, 0xBA, amount_to_allocate);
-		if (result == 0) { 
-			os_unlock_mutex(program_memory_mutex); // #Sync
-			return false;
-		}
-		assert(tail == result, "It seems tail is not aligned properly. o nein");
-		
-		program_memory_size += amount_to_allocate;
-
-		m = ((u64)program_memory_size % os.granularity);
-		assert(m == 0, "program_memory_size is not aligned to granularity!");
-	}
-
-	
-	char size_str[32];
-	s64_to_null_terminated_string(program_memory_size/1024, size_str, 10);
-	
-	os_write_string_to_stdout(STR("Program memory grew to "));
-	os_write_string_to_stdout(STR(size_str));
-	os_write_string_to_stdout(STR(" kb\n"));
-	os_unlock_mutex(program_memory_mutex); // #Sync
-	return true;
-}
 
 
 ///
@@ -390,15 +601,25 @@ bool os_grow_program_memory(u64 new_size) {
 
 DWORD WINAPI win32_thread_invoker(LPVOID param) {
 
-#if CONFIGURATION == RELEASE
-	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-#endif
 
 	Thread *t = (Thread*)param;
-	temporary_storage_init();
+	
+#if CONFIGURATION == RELEASE
+	// #Configurable #Copypaste
+	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+	SetThreadPriority(t->os_handle, THREAD_PRIORITY_TIME_CRITICAL);
+	timeBeginPeriod(1);
+#endif
+	
+	temporary_storage_init(t->temporary_storage_size);
+	
 	context = t->initial_context;
 	context.thread_id = GetCurrentThreadId();
+	
 	t->proc(t);
+	
+	heap_dealloc(temporary_storage);
+	
 	return 0;
 }
 
@@ -435,11 +656,14 @@ void os_join_thread(Thread *t) {
 }
 ////// DEPRECATED   ^^^^^^^^^^^^^^^^
 
+
+
 void os_thread_init(Thread *t, Thread_Proc proc) {
 	memset(t, 0, sizeof(Thread));
 	t->id = 0;
 	t->proc = proc;
 	t->initial_context = context;
+	t->temporary_storage_size = KB(10);
 }
 void os_thread_destroy(Thread *t) {
 	os_thread_join(t);
@@ -501,6 +725,23 @@ void os_unlock_mutex(Mutex_Handle m) {
 	assert(result, "Unlock mutex 0x%x failed with error %d", m, GetLastError());
 }
 
+void os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state) {
+	sem->os_event = CreateEvent(NULL, TRUE, initial_state ? TRUE : FALSE, NULL);
+}
+
+void os_binary_semaphore_destroy(Binary_Semaphore *sem) {
+	CloseHandle(sem->os_event);
+}
+
+void os_binary_semaphore_wait(Binary_Semaphore *sem) {
+	WaitForSingleObject(sem->os_event, INFINITE);
+	ResetEvent(sem->os_event);
+}
+
+void os_binary_semaphore_signal(Binary_Semaphore *sem) {
+	SetEvent(sem->os_event);
+}
+
 
 void os_sleep(u32 ms) {
     Sleep(ms);
@@ -514,7 +755,7 @@ void os_high_precision_sleep(f64 ms) {
 	
 	const f64 s = ms/1000.0;
 	
-	f64 start = os_get_current_time_in_seconds();
+	f64 start = os_get_elapsed_seconds();
 	f64 end = start + (f64)s;
 	s32 sleep_time = (s32)((end-start)-1.0);
 	bool do_sleep = sleep_time >= 1;
@@ -523,7 +764,7 @@ void os_high_precision_sleep(f64 ms) {
 	
 	if (do_sleep)  os_sleep(sleep_time);
 	
-	while (os_get_current_time_in_seconds() < end) {
+	while (os_get_elapsed_seconds() < end) {
 		os_yield_thread();
 	}
 	
@@ -537,16 +778,22 @@ void os_high_precision_sleep(f64 ms) {
 ///
 
 
-u64 os_get_current_cycle_count() {
-	return rdtsc();
-}
-
-float64 os_get_current_time_in_seconds() {
+// #Cleanup deprecated
+float64
+os_get_current_time_in_seconds() {
     LARGE_INTEGER frequency, counter;
     if (!QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&counter)) {
         return -1.0;
     }
-    return (double)counter.QuadPart / (double)frequency.QuadPart;
+    return (float64)counter.QuadPart / (float64)frequency.QuadPart;
+}
+
+float64
+os_get_elapsed_seconds() {
+	LARGE_INTEGER freq, counter = (LARGE_INTEGER){0};
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&counter);
+	return (float64)(counter.QuadPart-win32_counter_at_start.QuadPart) / (float64)freq.QuadPart;
 }
 
 
@@ -555,8 +802,10 @@ float64 os_get_current_time_in_seconds() {
 // Dynamic Libraries
 ///
 
+u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8);
+
 Dynamic_Library_Handle os_load_dynamic_library(string path) {
-	return LoadLibraryA(temp_convert_to_null_terminated_string(path));
+	return LoadLibraryW(temp_win32_fixed_utf8_to_null_terminated_wide(path));
 }
 void *os_dynamic_library_load_symbol(Dynamic_Library_Handle l, string identifier) {
 	return GetProcAddress(l, temp_convert_to_null_terminated_string(identifier));
@@ -571,6 +820,7 @@ void os_unload_dynamic_library(Dynamic_Library_Handle l) {
 // IO
 ///
 
+// #Global
 const File OS_INVALID_FILE = INVALID_HANDLE_VALUE;
 void os_write_string_to_stdout(string s) {
 	HANDLE win32_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -579,59 +829,7 @@ void os_write_string_to_stdout(string s) {
 	WriteFile(win32_stdout, s.data, s.count, 0, 0);
 }
 
-u16 *win32_fixed_utf8_to_null_terminated_wide(string utf8, Allocator allocator) {
 
-	if (utf8.count == 0) {
-		u16 *utf16_str = (u16 *)alloc(allocator, (1) * sizeof(u16));
-		*utf16_str = 0;
-		return utf16_str;
-	}
-
-    u64 utf16_length = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, 0, 0);
-
-    u16 *utf16_str = (u16 *)alloc(allocator, (utf16_length + 1) * sizeof(u16));
-
-    int result = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)utf8.data, (int)utf8.count, utf16_str, utf16_length);
-    if (result == 0) {
-        dealloc(allocator, utf16_str);
-        return 0;
-    }
-
-    utf16_str[utf16_length] = 0;
-
-    return utf16_str;
-}
-u16 *temp_win32_fixed_utf8_to_null_terminated_wide(string utf8) {
-	return win32_fixed_utf8_to_null_terminated_wide(utf8, temp);
-}
-string win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16, Allocator allocator) {
-    u64 utf8_length = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, 0, 0, 0, 0);
-
-	if (utf8_length == 0) {
-		string utf8;
-		utf8.count = 0;
-		utf8.data = 0;
-		return utf8;
-	}
-
-    u8 *utf8_str = (u8 *)alloc(allocator, utf8_length * sizeof(u8));
-
-    int result = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)utf16, -1, (LPSTR)utf8_str, (int)utf8_length, 0, 0);
-    if (result == 0) {
-        dealloc(allocator, utf8_str);
-        return (string){0, 0};
-    }
-
-    string utf8;
-    utf8.data = utf8_str;
-    utf8.count = utf8_length-1;
-
-    return utf8;
-}
-
-string temp_win32_null_terminated_wide_to_fixed_utf8(const u16 *utf16) {
-    return win32_null_terminated_wide_to_fixed_utf8(utf16, temp);
-}
 
 
 File os_file_open_s(string path, Os_Io_Open_Flags flags) {
@@ -659,6 +857,12 @@ void os_file_close(File f) {
 bool os_file_delete_s(string path) {
 	u16 *path_wide = temp_win32_fixed_utf8_to_null_terminated_wide(path);
 	return (bool)DeleteFileW(path_wide);
+}
+
+bool os_file_copy_s(string from, string to, bool replace_if_exists) {
+    u16 *from_wide = temp_win32_fixed_utf8_to_null_terminated_wide(from);
+    u16 *to_wide   = temp_win32_fixed_utf8_to_null_terminated_wide(to);
+	return (bool)CopyFileW(from_wide, to_wide, !replace_if_exists);
 }
 
 bool os_make_directory_s(string path, bool recursive) {
@@ -913,11 +1117,11 @@ bool os_get_absolute_path(string path, string *result, Allocator allocator) {
 bool os_get_relative_path(string from, string to, string *result, Allocator allocator) {
     
 	if (!os_is_path_absolute(from)) {
-		bool abs_ok = os_get_absolute_path(from, &from, temp);
+		bool abs_ok = os_get_absolute_path(from, &from, get_temporary_allocator());
 		if (!abs_ok) return false;
 	}
 	if (!os_is_path_absolute(to)) {
-		bool abs_ok = os_get_absolute_path(to, &to, temp);
+		bool abs_ok = os_get_absolute_path(to, &to, get_temporary_allocator());
 		if (!abs_ok) return false;
 	}
 	
@@ -968,6 +1172,8 @@ bool os_do_paths_match(string a, string b) {
     return false;
 }
 
+// #Cleanup
+// These are not os-specific, why are they here?
 void fprints(File f, string fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -984,22 +1190,43 @@ void fprintf(File f, const char* fmt, ...) {
 	va_end(args);
 }
 
+void os_wait_and_read_stdin(string *result, u64 max_count, Allocator allocator) {
+	char *buffer = talloc(max_count);
+	
+	DWORD read;
+	BOOL ok = ReadConsole(GetStdHandle(STD_INPUT_HANDLE), buffer, max_count, &read, 0);
+	
+	if (!ok) {
+		*result = string_copy(STR("STDIN is not available"), allocator);
+	} else {		
+		*result = alloc_string(allocator, read);
+		memcpy(result->data, buffer, read);
+		if (result->count >= 2 && result->data[result->count-1] == '\n') result->count -= 2;
+	}
 
+}
 
 
 
 ///
 ///
-// Memory
+// Queries
 ///
 
-void* os_get_stack_base() {
+void* 
+os_get_stack_base() {
 	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
     return tib->StackBase;
 }
-void* os_get_stack_limit() {
+void* 
+os_get_stack_limit() {
 	NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
     return tib->StackLimit;
+}
+
+u64
+os_get_number_of_logical_processors() {
+	return (u64)win32_system_info.dwNumberOfProcessors;
 }
 
 ///
@@ -1103,13 +1330,271 @@ os_get_stack_trace(u64 *trace_count, Allocator allocator) {
 #endif // NOT DEBUG
 }
 
+bool os_grow_program_memory(u64 new_size) {
+	os_lock_mutex(program_memory_mutex); // #Sync
+	if (program_memory_capacity >= new_size) {
+		os_unlock_mutex(program_memory_mutex); // #Sync
+		return true;
+	}
+
+	
+	
+	bool is_first_time = program_memory == 0;
+	
+	if (is_first_time) {
+		// It's fine to allocate a region with size only aligned to page size, BUT,
+		// since we allocate each region with the base address at the tail of the
+		// previous region, then that tail needs to be aligned to granularity, which
+		// will be true if the size is also always aligned to granularity.
+		u64 aligned_size = align_next(new_size, os.granularity);
+		void *aligned_base = (void*)align_next(VIRTUAL_MEMORY_BASE, os.granularity);
+
+		program_memory = VirtualAlloc(aligned_base, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		if (program_memory == 0) { 
+			os_unlock_mutex(program_memory_mutex); // #Sync
+			return false;
+		}
+		program_memory_next = program_memory;
+		program_memory_capacity = aligned_size;
+#if CONFIGURATION == DEBUG
+		memset(program_memory, 0xBA, program_memory_capacity);
+        DWORD _ = PAGE_READWRITE;
+		VirtualProtect(aligned_base, aligned_size, PAGE_NOACCESS, &_);
+#endif
+	} else {
+		void* tail = (u8*)program_memory + program_memory_capacity;
+		
+		assert((u64)program_memory_capacity % os.granularity == 0, "program_memory_capacity is not aligned to granularity!");
+		assert((u64)tail % os.granularity == 0, "Tail is not aligned to granularity!");
+		
+		u64 amount_to_allocate = align_next(new_size-program_memory_capacity, os.granularity);
+		
+		// Just keep allocating at the tail of the current chunk
+		void* result = VirtualAlloc(tail, amount_to_allocate, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+#if CONFIGURATION == DEBUG
+		memset(result, 0xBA, amount_to_allocate);
+		DWORD _ = PAGE_READWRITE;
+		VirtualProtect(tail, amount_to_allocate, PAGE_NOACCESS, &_);
+#endif
+		if (result == 0) { 
+			os_unlock_mutex(program_memory_mutex); // #Sync
+			return false;
+		}
+		assert(tail == result, "It seems tail is not aligned properly. o nein");
+		assert((u64)program_memory_capacity % os.granularity == 0, "program_memory_capacity is not aligned to granularity!");
+		
+		program_memory_capacity += amount_to_allocate;
+	}
+
+	
+	char size_str[32];
+	s64_to_null_terminated_string(program_memory_capacity/1024, size_str, 10);
+	
+	os_write_string_to_stdout(STR("Program memory grew to "));
+	os_write_string_to_stdout(STR(size_str));
+	os_write_string_to_stdout(STR(" kb\n"));
+	os_unlock_mutex(program_memory_mutex); // #Sync
+	return true;
+}
+
+void*
+os_reserve_next_memory_pages(u64 size) {
+	assert(size % os.page_size == 0, "size was not aligned to page size in os_reserve_next_memory_pages");
+
+	void *p = program_memory_next;
+	
+	program_memory_next = (u8*)program_memory_next + size;
+	
+	void *program_tail = (u8*)program_memory + program_memory_capacity;
+	
+	if ((u64)program_memory_next > (u64)program_tail) {
+		u64 minimum_size = ((u64)program_memory_next) - (u64)program_memory + 1;
+		u64 new_program_size = get_next_power_of_two(minimum_size);
+		
+		const u64 ATTEMPTS = 1000;
+		for (u64 i = 0; i <= ATTEMPTS; i++) {
+			if (program_memory_capacity >= new_program_size) break; // Another thread might have resized already, causing it to fail here.
+			assert(i < ATTEMPTS, "OS is not letting us allocate more memory. Maybe we are out of memory? You sure must be using a lot of memory then.");
+			if (os_grow_program_memory(new_program_size))
+				break;
+		}
+	}
+	
+	return p;
+}
+
+void
+os_unlock_program_memory_pages(void *start, u64 size) {
+#if CONFIGURATION == DEBUG
+	assert((u64)start % os.page_size == 0, "When unlocking memory pages, the start address must be the start of a page");
+	assert(size       % os.page_size == 0, "When unlocking memory pages, the size must be aligned to page_size");
+	// This memory may be across multiple allocated regions so we need to do this one page at a time.
+	// Probably super slow but this shouldn't happen often at all + it's only in debug.
+	// - Charlie M 28th July 2024
+	for (u8 *p = (u8*)start; p < (u8*)start+size; p += os.page_size) {
+		DWORD old_protect = PAGE_NOACCESS;
+		BOOL ok = VirtualProtect(p, os.page_size, PAGE_READWRITE, &old_protect);
+		assert(ok, "VirtualProtect Failed with error %d", GetLastError());
+	}
+#endif
+}
+
+void
+os_lock_program_memory_pages(void *start, u64 size) {
+#if CONFIGURATION == DEBUG
+	assert((u64)start % os.page_size == 0, "When unlocking memory pages, the start address must be the start of a page");
+	assert(size       % os.page_size == 0, "When unlocking memory pages, the size must be aligned to page_size");
+	// This memory may be across multiple allocated regions so we need to do this one page at a time.
+	// Probably super slow but this shouldn't happen often at all + it's only in debug.
+	// - Charlie M 28th July 2024
+	for (u8 *p = (u8*)start; p < (u8*)start+size; p += os.page_size) {
+		DWORD old_protect = PAGE_READWRITE;
+		BOOL ok = VirtualProtect(p, os.page_size, PAGE_NOACCESS, &old_protect);
+		assert(ok, "VirtualProtect Failed with error %d", GetLastError());
+	}
+#endif
+}
+
+///
+///
+// Mouse pointer
+
+LPCSTR
+win32_mouse_pointer_kind_to_win32(Mouse_Pointer_Kind k) {
+    switch (k) {
+        case MOUSE_POINTER_DEFAULT:           return IDC_ARROW;
+        case MOUSE_POINTER_TEXT_SELECT:       return IDC_IBEAM;
+        case MOUSE_POINTER_BUSY:              return IDC_WAIT;
+        case MOUSE_POINTER_BUSY_BACKGROUND:   return IDC_APPSTARTING;
+        case MOUSE_POINTER_CROSS:             return IDC_CROSS;
+        case MOUSE_POINTER_ARROW_N:           return IDC_UPARROW;
+        case MOUSE_POINTER_ARROWS_NW_SE:      return IDC_SIZENWSE;
+        case MOUSE_POINTER_ARROWS_NE_SW:      return IDC_SIZENESW;
+        case MOUSE_POINTER_ARROWS_HORIZONTAL: return IDC_SIZEWE;
+        case MOUSE_POINTER_ARROWS_VERTICAL:   return IDC_SIZENS;
+        case MOUSE_POINTER_ARROWS_ALL:        return IDC_SIZEALL;
+        case MOUSE_POINTER_NO:                return IDC_NO;
+        case MOUSE_POINTER_POINT:             return IDC_HAND;
+        default: break;
+    }
+    panic("Unhandled Mouse_Pointer_Kind");
+}
+
+void ogb_instance
+os_set_mouse_pointer_standard(Mouse_Pointer_Kind kind) {
+    local_persist thread_local HCURSOR loaded_pointers[MOUSE_POINTER_MAX] = {0};
+    
+    if (loaded_pointers[kind] == 0) {
+        loaded_pointers[kind] = LoadCursor(0, win32_mouse_pointer_kind_to_win32(kind));
+    }
+    
+    if (win32_want_override_mouse_pointer) {
+        win32_shadowed_mouse_pointer = loaded_pointers[kind];
+        win32_did_override_user_mouse_pointer = true;
+    } else {
+        SetCursor(loaded_pointers[kind]);
+    }
+}
+void ogb_instance
+os_set_mouse_pointer_custom(Custom_Mouse_Pointer p) {
+    if (win32_want_override_mouse_pointer) {
+        win32_shadowed_mouse_pointer = (HCURSOR)p;
+        win32_did_override_user_mouse_pointer = true;
+    } else {
+        SetCursor((HCURSOR)p);
+    }
+}
+
+// Expects 32-bit rgba
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer(void *image, int width, int height, int hotspot_x, int hotspot_y) {
+    HICON icon = NULL;
+    HBITMAP bitmap = NULL;
+    ICONINFO icon_info = { 0 };
+    
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    
+    BYTE* bits = NULL;
+    HDC hdc = GetDC(NULL);
+    bitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, (void**)&bits, NULL, 0);
+    ReleaseDC(NULL, hdc);
+    if (!bitmap) {
+        assert(false, "Failed to create DIB section");
+        return NULL;
+    }
+
+    memcpy(bits, image, width * height * 4);
+
+    icon_info.fIcon = FALSE; // Cursor, not icon
+    icon_info.xHotspot = hotspot_x;
+    icon_info.yHotspot = height-hotspot_y;
+    icon_info.hbmMask = bitmap;
+    icon_info.hbmColor = bitmap;
+
+    icon = CreateIconIndirect(&icon_info);
+    if (!icon) {
+        assert(false, "Failed to create icon from bitmap");
+        DeleteObject(bitmap);
+        return NULL;
+    }
+
+    DeleteObject(bitmap);
+    
+    return icon;
+}
+
+Custom_Mouse_Pointer ogb_instance
+os_make_custom_mouse_pointer_from_file(string path, int hotspot_x, int hotspot_y, Allocator allocator) {
+    int width, height, channels;
+    stbi_set_flip_vertically_on_load(1);
+    third_party_allocator = allocator;
+    
+    string png;
+    bool ok = os_read_entire_file(path, &png, allocator);
+    
+    if (!ok) return 0;
+    
+    unsigned char* stb_data = stbi_load_from_memory(
+        png.data, 
+        png.count,
+        &width, 
+        &height, 
+        &channels, 
+        STBI_rgb_alpha
+    );
+    
+    if (!stb_data) {
+        dealloc_string(allocator, png);
+        return 0;
+    }
+    
+    Custom_Mouse_Pointer p = os_make_custom_mouse_pointer(stb_data, width, height, hotspot_x, hotspot_y);
+    
+    dealloc_string(allocator, png);
+    stbi_image_free(stb_data);
+    third_party_allocator = ZERO(Allocator);
+    
+    return p;
+    
+}
+
+
+
+
+
+#ifndef OOGABOOGA_HEADLESS // No audio in headless
+
 // Actually fuck you bill gates
 const GUID CLSID_MMDeviceEnumerator = {0xbcde0395, 0xe52f, 0x467c, {0x8e,0x3d, 0xc4,0x57,0x92,0x91,0x69,0x2e}};
 const GUID IID_IMMDeviceEnumerator = {0xa95664d2, 0x9614, 0x4f35, {0xa7,0x46, 0xde,0x8d,0xb6,0x36,0x17,0xe6}};
 const GUID IID_IAudioClient = {0x1cb9ad4c, 0xdbfa, 0x4c32, {0xb1,0x78, 0xc2,0xf5,0x68,0xa7,0x03,0xb2}};
 const GUID IID_IAudioRenderClient = {0xf294acfc, 0x3146, 0x4483, {0xa7,0xbf, 0xad,0xdc,0xa7,0xc2,0x60,0xe2}};
-DEFINE_GUID(IID_ISimpleAudioVolume, 
-0x87CE5498, 0x68D6, 0x44E5, 0x92, 0x15, 0x6D, 0xA4, 0x7E, 0xF8, 0x83, 0xD8);
 
 IAudioClient* win32_audio_client;
 IAudioRenderClient* win32_render_client;
@@ -1117,11 +1602,12 @@ bool win32_audio_deactivated = false;
 Audio_Format audio_output_format; // For use when loading audio sources
 IMMDevice* win32_audio_device = 0;
 IMMDeviceEnumerator* win32_device_enumerator = 0;
-ISimpleAudioVolume* win32_audio_volume = 0;
 Mutex audio_init_mutex;
 
 void
 win32_audio_init() {
+
+	local_persist bool did_report_error_last_call = false;
 
 	win32_audio_client = 0;
 	win32_render_client = 0;
@@ -1194,7 +1680,8 @@ win32_audio_init() {
 		);
 		if (hr != S_OK) {
 			win32_audio_deactivated = true;
-			log_error("Default audio output device is not supported.");
+			if (!did_report_error_last_call) log_error("Default audio output device is not supported.");
+			did_report_error_last_call = true;
 			return;
 		}
 		output_format = (WAVEFORMATEX*)format_s16;
@@ -1210,6 +1697,12 @@ win32_audio_init() {
     	BUFFER_DURATION_MS*10000ll, 0, 
     	output_format, 0
 	);
+	if (hr == 0x8889000A) {
+		if (!did_report_error_last_call) log_error("IAudioClient_Initialize failed for default device\nSample rate: %d\nBit-width: %d\n Channels: %d", device_base_format->nSamplesPerSec, device_base_format->wBitsPerSample, device_base_format->nChannels);
+		win32_audio_deactivated = true;
+		did_report_error_last_call = true;
+		return;
+	}
     win32_check_hr(hr);
 	
     hr = IAudioClient_GetService(win32_audio_client, &IID_IAudioRenderClient, (void**)&win32_render_client);
@@ -1228,21 +1721,14 @@ win32_audio_init() {
     DWORD task_index;
 	AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &task_index);
 
-	hr = IAudioClient_GetService(win32_audio_client, &IID_ISimpleAudioVolume, (void**)&win32_audio_volume);
-	if (SUCCEEDED(hr)) {
-	    hr = ISimpleAudioVolume_SetMasterVolume(win32_audio_volume, 1.0f, 0);
-	    win32_check_hr(hr);
-	    ISimpleAudioVolume_Release(win32_audio_volume);
-	}
-
     log_info("Successfully initialized default audio device. Channels: %d, sample_rate: %d, bits: %d", audio_output_format.channels, audio_output_format.sample_rate, get_audio_bit_width_byte_size(audio_output_format.bit_width)*8);
+    did_report_error_last_call = false;
 }
 
 
 void
 win32_audio_poll_default_device_thread(Thread *t) {
 	while (!win32_has_audio_thread_started) {
-		MEMORY_BARRIER;
 		os_yield_thread();
 	}
 
@@ -1252,9 +1738,7 @@ win32_audio_poll_default_device_thread(Thread *t) {
 		}
 		
 		mutex_acquire_or_wait(&audio_init_mutex);
-		MEMORY_BARRIER;
 	    mutex_release(&audio_init_mutex);
-		MEMORY_BARRIER;
 	
 		IMMDevice *now_default = 0;
 		HRESULT hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(win32_device_enumerator, eRender, eConsole, &now_default);
@@ -1269,6 +1753,7 @@ win32_audio_poll_default_device_thread(Thread *t) {
 	    win32_check_hr(hr);
 	    
 	    if (wcscmp(now_default_id, previous_id) != 0) {
+	    	log("Hi");
 	        win32_audio_deactivated = true;
 	    }
 	    
@@ -1289,11 +1774,8 @@ win32_audio_thread(Thread *t) {
 	
     mutex_acquire_or_wait(&audio_init_mutex);
     win32_has_audio_thread_started = true;
-    MEMORY_BARRIER;
 	win32_audio_init();
     mutex_release(&audio_init_mutex);
-        
-    timeBeginPeriod(1);
 	
 	u32 buffer_frame_count;
     HRESULT hr = IAudioClient_GetBufferSize(win32_audio_client, &buffer_frame_count);
@@ -1395,43 +1877,132 @@ win32_audio_thread(Thread *t) {
         
 	}
 }
+#endif /* OOGABOOGA_HEADLESS */
+
+void win32_lazy_init_xinput() {
+	if (!win32_xinput) {
+		win32_xinput = LoadLibraryW(L"xinput1_4.dll");
+		if (!win32_xinput) win32_xinput = LoadLibraryW(L"xinput1_3.dll");
+		if (!win32_xinput) {
+			log_warning("xinput is missing, gamepads not supported.");
+		}
+	}
+}
+
+void set_gamepad_vibration(float32 left, float32 right) {
+	win32_lazy_init_xinput();
+	local_persist DWORD (*XInputGetState)(DWORD, XINPUT_STATE*) = 0;
+	if (!XInputGetState)XInputGetState = (DWORD (*)(DWORD, XINPUT_STATE*))GetProcAddress(win32_xinput, "XInputGetState");
+	assert(XInputGetState != 0, "xinput dll corrupt");
+	
+	for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
+	    XINPUT_STATE state = ZERO(XINPUT_STATE);
+	    DWORD r = XInputGetState(i, &state);
+	
+	    if(r == ERROR_SUCCESS) {
+	    	set_specific_gamepad_vibration(i, left, right);
+	    }
+    }
+}
+void set_specific_gamepad_vibration(u64 gamepad_index, float32 left, float32 right) {
+	win32_lazy_init_xinput();
+	local_persist DWORD (*XInputSetState)(DWORD, XINPUT_VIBRATION*) = 0;
+	if (!XInputSetState)XInputSetState = (DWORD (*)(DWORD, XINPUT_VIBRATION*))GetProcAddress(win32_xinput, "XInputSetState");
+	assert(XInputSetState != 0, "xinput dll corrupt");
+	XINPUT_VIBRATION vibration = ZERO(XINPUT_VIBRATION);
+	vibration.wLeftMotorSpeed  = (USHORT)(65535.0*clamp(left, 0, 1));
+	vibration.wRightMotorSpeed = (USHORT)(65535.0*clamp(right, 0, 1));
+	DWORD r = XInputSetState(gamepad_index, &vibration);
+	if (r != ERROR_SUCCESS) { log_warning("Could not set gamepad vibration on gamepad %d", gamepad_index); }
+}
+
+
 
 void os_update() {
 
-	UINT dpi = GetDpiForWindow(window._os_handle);
-    float dpi_scale_factor = dpi / 96.0f;
+	// Only show window after first call to os_update
+	if (!has_os_update_been_called_at_all) {
+		ShowWindow(window._os_handle, SW_SHOW);
+	    //DWORD style = GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	    //style &= ~(WS_EX_TOOLWINDOW);
+	    //style |= WS_EX_APPWINDOW;
+	    //SetWindowLong(window._os_handle, GWL_EXSTYLE, style);
+	}
+
+	has_os_update_been_called_at_all = true;
+
+	win32_do_handle_raw_input = true;
+#ifndef OOGABOOGA_HEADLESS
+	window.dpi = window.monitor->dpi;
+    float dpi_scale_factor = window.dpi / 72.0f;
+	window.point_size_in_pixels = window.dpi / 72.0;
 
 	local_persist Os_Window last_window;
-
+	
+	//
+	// Window title
 	if (!strings_match(last_window.title, window.title)) {
 		SetWindowText(window._os_handle, temp_convert_to_null_terminated_string(window.title));
 	}
 
-	if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
-		window.width = window.scaled_width*dpi_scale_factor;
-		window.height = window.scaled_height*dpi_scale_factor;
+	//
+	// Window sizing & position
+
+	if (window.fullscreen && last_window.fullscreen) {
+		window.pixel_width = window.monitor->resolution_x;
+		window.pixel_height = window.monitor->resolution_y;
+		window.x = 0;
+		window.y = 0;
+	}
+
+	BOOL ok;
+	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
+	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	int screen_height = window.monitor->resolution_y;
+
+	if (last_window.pixel_width == window.pixel_width && last_window.pixel_height == window.pixel_height) {
+		if (last_window.scaled_width != window.scaled_width || last_window.scaled_height != window.scaled_height) {
+			window.width = window.scaled_width*dpi_scale_factor;
+			window.height = window.scaled_height*dpi_scale_factor;
+		}
+		
+		if (last_window.point_width != window.point_width || last_window.point_height != window.point_height) {
+			window.width = window.point_width*window.point_size_in_pixels;
+			window.height = window.point_height*window.point_size_in_pixels;
+		}
+		
+		if (last_window.point_x != window.point_x || last_window.point_y != window.point_y) {
+			window.x = window.point_x*window.point_size_in_pixels;
+			window.y = window.point_y*window.point_size_in_pixels;
+		}
 	}
 	
-	BOOL ok;
-	int screen_height = GetSystemMetrics(SM_CYSCREEN);
-	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
-	DWORD ex_style = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
+	// #Hack
+	// Uneven window size just causes pain with texture sampling, so I'm just doing even only
+	if (window.pixel_width % 2 != 0) window.pixel_width += 1;
+	if (window.pixel_height % 2 != 0) window.pixel_height += 1;
+	
 	if (last_window.x != window.x || last_window.y != window.y || last_window.width != window.width || last_window.height != window.height) {
+	
+	
 	    RECT update_rect;
 	    update_rect.left = window.x;
 	    update_rect.right = window.x + window.width;
-	    update_rect.top = window.y;
-	    update_rect.bottom = window.y + window.height; 
+	    update_rect.top = screen_height - (window.y+window.height);
+	    update_rect.bottom = screen_height - window.y; 
 	
-	    BOOL ok = AdjustWindowRectEx(&update_rect, style, FALSE, ex_style);
-	    assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
+	    AdjustWindowRectEx(&update_rect, style, FALSE, style_ex);
 	
 	    u32 actual_width = update_rect.right - update_rect.left;
 	    u32 actual_height = update_rect.bottom - update_rect.top;
 	    u32 actual_x = update_rect.left;
-	    u32 actual_y = screen_height - update_rect.top - (update_rect.bottom - update_rect.top);
+	    u32 actual_y = update_rect.top;
 	    
-	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOZORDER | SWP_NOACTIVATE);
+	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOACTIVATE);
+	}
+	
+	if (last_window.force_topmost != window.force_topmost) {
+		SetWindowPos(window._os_handle, window.force_topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOMOVE);
 	}
 	
 	RECT client_rect;
@@ -1439,22 +2010,18 @@ void os_update() {
 	assert(ok, "GetClientRect failed with error code %lu", GetLastError());
 	
 	RECT adjusted_rect = client_rect;
-	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, ex_style);
+	ok = AdjustWindowRectEx(&adjusted_rect, style, FALSE, style_ex);
     assert(ok != 0, "AdjustWindowRectEx failed with error code %lu", GetLastError());
     
     RECT window_rect;
 	ok = GetWindowRect(window._os_handle, &window_rect);
 	assert(ok, "GetWindowRect failed with error code %lu", GetLastError());
+
+	window_rect.left -= adjusted_rect.left;
+	window_rect.right -= adjusted_rect.right-client_rect.right;
 	
-	/*u32 style_space_left =   abs(client_rect.left-adjusted_rect.left);
-	u32 style_space_right =  abs(client_rect.left-adjusted_rect.right);
-	u32 style_space_bottom = abs(client_rect.left-adjusted_rect.bottom);
-	u32 style_space_top =    abs(client_rect.left-adjusted_rect.top);
-	
-	framebuffer_rect.left += style_space_left;
-	framebuffer_rect.right -= style_space_right;
-	framebuffer_rect.top += style_space_top;
-	framebuffer_rect.bottom -= style_space_bottom;*/
+	window_rect.top -= adjusted_rect.top;
+	window_rect.bottom -= adjusted_rect.bottom-client_rect.bottom;
 	
 	POINT top_left;
 	top_left.x = client_rect.left;
@@ -1475,21 +2042,194 @@ void os_update() {
     
     window.scaled_width = (u32)((bottom_right.x - top_left.x) * dpi_scale_factor);
     window.scaled_height = (u32)((bottom_right.y - top_left.y) * dpi_scale_factor);
+    
+    window.point_width = window.pixel_width / window.point_size_in_pixels;
+    window.point_height = window.pixel_height / window.point_size_in_pixels;
+    window.point_x = window.pixel_x / window.point_size_in_pixels;
+    window.point_y = window.pixel_y / window.point_size_in_pixels;
 	
+	if (last_window.allow_resize != window.allow_resize) {
+		if (window.allow_resize) style |= WS_SIZEBOX;
+		else                     style &= ~(WS_SIZEBOX);
+		SetWindowLongW(window._os_handle, GWL_STYLE, style);
+	}
+	
+	bool last_fullscreen = last_window.fullscreen;
 	last_window = window;
 	
+	//
+	// Fullscreen
 	
-	// Reflect what the backend did to input state before we query for OS inputs
+	if (last_fullscreen != window.fullscreen) {
+		
+		if (window.fullscreen) {
+		
+			// Save windowed state
+			win32_windowed_style = style;
+		    win32_windowed_style_ex = style_ex;
+		    win32_windowed_x = window.x;
+		    win32_windowed_y = window.y;
+		    win32_windowed_width = window.width;
+		    win32_windowed_height = window.height;
+		    
+		    SetWindowLongW(window._os_handle, GWL_STYLE, style & ~(WS_CAPTION | WS_THICKFRAME));
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, 
+				style_ex & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)
+			);
+		    
+		} else {
+			
+			// Restore windowed_state
+			style = win32_windowed_style;
+			style_ex = win32_windowed_style_ex;
+			window.x = win32_windowed_x;
+			window.y = win32_windowed_y;
+			window.width = win32_windowed_width;
+			window.height = win32_windowed_height;
+			
+			SetWindowLongW(window._os_handle, GWL_STYLE, win32_windowed_style);
+			SetWindowLongW(window._os_handle, GWL_EXSTYLE, win32_windowed_style_ex);
+		}
+	}
+	
+	
+	
+	// Reflect what the user layer did to input state before we query for OS inputs
 	memcpy(win32_key_states, input_frame.key_states, sizeof(input_frame.key_states));
 	input_frame.number_of_events = 0;
 	
-	// #Simd ?
 	for (u64 i = 0; i < INPUT_KEY_CODE_COUNT; i++) {
 		win32_key_states[i] &= ~(INPUT_STATE_REPEAT);
 		win32_key_states[i] &= ~(INPUT_STATE_JUST_PRESSED);
 		win32_key_states[i] &= ~(INPUT_STATE_JUST_RELEASED);
 	}
 	
+	win32_lazy_init_xinput();
+	
+	
+	if (win32_xinput != 0) {
+		local_persist DWORD (*XInputGetState)(DWORD, XINPUT_STATE*) = 0;
+		if (!XInputGetState)XInputGetState = (DWORD (*)(DWORD, XINPUT_STATE*))GetProcAddress(win32_xinput, "XInputGetState");
+		assert(XInputGetState != 0, "xinput dll corrupt");
+		
+		bool any_gamepad_processed = false;
+		
+		// A windows api that just does what you want it to.
+		// This can't be right...
+		// Poll gamepad
+		local_persist XINPUT_STATE last_states[XUSER_MAX_COUNT];
+		for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
+		    XINPUT_STATE state;
+		    ZeroMemory(&state, sizeof(XINPUT_STATE));
+		
+		    DWORD r = XInputGetState(i, &state);
+		
+		    if(r == ERROR_SUCCESS) {
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) win32_handle_key_down(GAMEPAD_DPAD_UP, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) win32_handle_key_up(GAMEPAD_DPAD_UP, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) win32_handle_key_down(GAMEPAD_DPAD_RIGHT, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) win32_handle_key_up(GAMEPAD_DPAD_RIGHT, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) win32_handle_key_down(GAMEPAD_DPAD_DOWN, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) win32_handle_key_up(GAMEPAD_DPAD_DOWN, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) win32_handle_key_down(GAMEPAD_DPAD_LEFT, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) win32_handle_key_up(GAMEPAD_DPAD_LEFT, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_START) win32_handle_key_down(GAMEPAD_START, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_START) win32_handle_key_up(GAMEPAD_START, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK) win32_handle_key_down(GAMEPAD_BACK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_BACK) win32_handle_key_up(GAMEPAD_BACK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) win32_handle_key_down(GAMEPAD_LEFT_STICK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) win32_handle_key_up(GAMEPAD_LEFT_STICK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) win32_handle_key_down(GAMEPAD_RIGHT_STICK, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) win32_handle_key_up(GAMEPAD_RIGHT_STICK, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) win32_handle_key_down(GAMEPAD_LEFT_BUMPER, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) win32_handle_key_up(GAMEPAD_LEFT_BUMPER, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) win32_handle_key_down(GAMEPAD_RIGHT_BUMPER, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) win32_handle_key_up(GAMEPAD_RIGHT_BUMPER, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_A) win32_handle_key_down(GAMEPAD_A, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_A) win32_handle_key_up(GAMEPAD_A, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_B) win32_handle_key_down(GAMEPAD_B, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_B) win32_handle_key_up(GAMEPAD_B, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_X) win32_handle_key_down(GAMEPAD_X, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_X) win32_handle_key_up(GAMEPAD_X, i);
+		    	if (state.Gamepad.wButtons & XINPUT_GAMEPAD_Y) win32_handle_key_down(GAMEPAD_Y, i);
+		    	else if (last_states[i].Gamepad.wButtons & XINPUT_GAMEPAD_Y) win32_handle_key_up(GAMEPAD_Y, i);
+		    	
+		    	SHORT left_stick_x  = state.Gamepad.sThumbLX;
+		    	SHORT left_stick_y  = state.Gamepad.sThumbLY;
+		    	SHORT right_stick_x = state.Gamepad.sThumbRX;
+		    	SHORT right_stick_y = state.Gamepad.sThumbRY;
+		    	
+		    	if (!any_gamepad_processed) {
+		    		input_frame.left_stick = v2(
+			    		(float32)left_stick_x / (left_stick_x >= 0 ? 32767.0 : 32768.0),
+			    		(float32)left_stick_y / (left_stick_y >= 0 ? 32767.0 : 32768.0)
+		    		);
+		    		input_frame.right_stick = v2(
+			    		(float32)right_stick_x / (right_stick_x >= 0 ? 32767.0 : 32768.0),
+			    		(float32)right_stick_y / (right_stick_y >= 0 ? 32767.0 : 32768.0)
+		    		);
+		    		input_frame.left_trigger  = (float32)state.Gamepad.bLeftTrigger / 255.0;
+		    		input_frame.right_trigger = (float32)state.Gamepad.bRightTrigger / 255.0;
+		    		
+		    	}
+		    	
+		    	if (state.Gamepad.bLeftTrigger >= 230) win32_handle_key_down(GAMEPAD_LEFT_TRIGGER, i);
+		    	else if (last_states[i].Gamepad.bLeftTrigger >= 230) win32_handle_key_up(GAMEPAD_LEFT_TRIGGER, i);
+		    	if (state.Gamepad.bRightTrigger >= 230) win32_handle_key_down(GAMEPAD_RIGHT_TRIGGER, i);
+		    	else if (last_states[i].Gamepad.bRightTrigger >= 230) win32_handle_key_up(GAMEPAD_RIGHT_TRIGGER, i);
+		    	
+		    	if (fabsf(input_frame.left_stick.x)  < deadzone_left_stick.x)  input_frame.left_stick.x  = 0.0;
+		    	if (fabsf(input_frame.left_stick.y)  < deadzone_left_stick.y)  input_frame.left_stick.y  = 0.0;
+		    	if (fabsf(input_frame.right_stick.x) < deadzone_right_stick.x) input_frame.right_stick.x = 0.0;
+		    	if (fabsf(input_frame.right_stick.y) < deadzone_right_stick.y) input_frame.right_stick.y = 0.0;
+		    	if (fabsf(input_frame.left_trigger)  < deadzone_left_trigger)  input_frame.left_trigger  = 0.0;
+		    	if (fabsf(input_frame.right_trigger) < deadzone_right_trigger) input_frame.right_trigger = 0.0;
+		    	
+		    	// Update state to account for deadzone
+		    	state.Gamepad.sThumbLX = (SHORT)(input_frame.left_stick.x*32768.0-1);
+		    	state.Gamepad.sThumbLY = (SHORT)(input_frame.left_stick.y*32768.0-1);
+		    	state.Gamepad.sThumbRX = (SHORT)(input_frame.right_stick.x*32768.0-1);
+		    	state.Gamepad.sThumbRY = (SHORT)(input_frame.right_stick.y*32768.0-1);
+		    	state.Gamepad.bLeftTrigger  = (SHORT)(input_frame.left_trigger*255);
+		    	state.Gamepad.bRightTrigger = (SHORT)(input_frame.right_trigger*255);
+		    	left_stick_x  = state.Gamepad.sThumbLX;
+		    	left_stick_y  = state.Gamepad.sThumbLY;
+		    	right_stick_x = state.Gamepad.sThumbRX;
+		    	right_stick_y = state.Gamepad.sThumbRY;
+		    	
+		    	Input_Event e = ZERO(Input_Event);
+		    	e.kind = INPUT_EVENT_GAMEPAD_AXIS;
+				e.gamepad_index = i;
+		    	
+		    	if (left_stick_x != last_states[i].Gamepad.sThumbLX || left_stick_y != last_states[i].Gamepad.sThumbLY) {
+		    		e.axes_changed |= INPUT_AXIS_LEFT_STICK;
+		    		e.left_stick = input_frame.left_stick;
+		    	}
+		    	if (right_stick_x != last_states[i].Gamepad.sThumbRX || right_stick_y != last_states[i].Gamepad.sThumbRY) {
+		    		e.axes_changed |= INPUT_AXIS_RIGHT_STICK;
+		    		e.right_stick = input_frame.right_stick;
+		    	}
+		    	if (state.Gamepad.bLeftTrigger != last_states[i].Gamepad.bLeftTrigger) {
+		    		e.axes_changed |= INPUT_AXIS_LEFT_TRIGGER;
+		    		e.left_trigger = input_frame.left_trigger;
+		    	}
+		    	if (state.Gamepad.bRightTrigger != last_states[i].Gamepad.bRightTrigger) {
+		    		e.axes_changed |= INPUT_AXIS_RIGHT_TRIGGER;
+		    		e.right_trigger = input_frame.right_trigger;
+		    	}
+		    	
+		    	if (e.axes_changed != 0) {
+					input_frame.events[input_frame.number_of_events] = e;
+					input_frame.number_of_events += 1;
+		    	}
+		    	
+		    	last_states[i] = state;
+		    	any_gamepad_processed = true;
+		    }
+		}
+	}
+	
+	// Poll window events
 	MSG msg;
 	while (input_frame.number_of_events < MAX_EVENTS_PER_FRAME 
 			&& PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -1512,8 +2252,10 @@ void os_update() {
 	if (window.should_close) {
 		win32_window_proc(window._os_handle, WM_CLOSE, 0, 0);
 	}
+#endif /* OOGABOOGA_HEADLESS */
 }
 
+#ifndef OOGABOOGA_HEADLESS
 Input_Key_Code os_key_to_key_code(void* os_key) {
 
 	UINT win32_key = (UINT)(u64)os_key;
@@ -1616,7 +2358,22 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
         case MOUSE_BUTTON_MIDDLE: return (void*)VK_MBUTTON;
         case MOUSE_BUTTON_RIGHT:  return (void*)VK_RBUTTON;
         
-        
+        case GAMEPAD_DPAD_UP:
+		case GAMEPAD_DPAD_RIGHT:
+		case GAMEPAD_DPAD_DOWN:
+		case GAMEPAD_DPAD_LEFT:
+		case GAMEPAD_A:
+		case GAMEPAD_X:
+		case GAMEPAD_Y:
+		case GAMEPAD_B:
+		case GAMEPAD_START:
+		case GAMEPAD_BACK:
+		case GAMEPAD_LEFT_STICK:
+		case GAMEPAD_RIGHT_STICK:
+		case GAMEPAD_LEFT_BUMPER:
+		case GAMEPAD_LEFT_TRIGGER:
+		case GAMEPAD_RIGHT_BUMPER:
+		case GAMEPAD_RIGHT_TRIGGER:
         case INPUT_KEY_CODE_COUNT:
         case KEY_UNKNOWN: 
         	break;
@@ -1625,3 +2382,12 @@ void* key_code_to_os_key(Input_Key_Code key_code) {
     panic("Invalid key code %d", key_code);
     return 0;
 }
+#endif /* OOGABOOGA_HEADLESS */
+
+
+// #Cleanup
+#if COMPILER_CLANG
+#pragma GCC diagnostic pop
+#else
+#pragma warning(pop)
+#endif

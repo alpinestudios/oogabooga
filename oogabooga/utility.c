@@ -1,4 +1,14 @@
 
+#define PI32 3.14159265359f
+#define PI64 3.14159265358979323846
+#define TAU32 (2.0f * PI32)
+#define TAU64 (2.0 * PI64)
+#define RAD_PER_DEG (PI64 / 180.0)
+#define DEG_PER_RAD (180.0 / PI64)
+
+#define to_radians(degrees) ((degrees)*RAD_PER_DEG)
+#define to_degrees(radians) ((radians)*DEG_PER_RAD)
+
 
 
 // This is a very niche sort algorithm.
@@ -11,51 +21,48 @@
 // At 21 bits I'm able to sort a completely randomized collection of 100k integers at around
 // 8m cycles (or 2.5-2.6ms on my shitty laptop i5-11300H)
 void radix_sort(void *collection, void *help_buffer, u64 item_count, u64 item_size, u64 sort_value_offset_in_item, u64 number_of_bits) {
-
     local_persist const int RADIX = 256;
     local_persist const int BITS_PER_PASS = 8;
-    local_persist const int MASK = (RADIX - 1);
     
     const int PASS_COUNT = ((number_of_bits + BITS_PER_PASS - 1) / BITS_PER_PASS);
-    const u64 SIGN_SHIFT = 1ULL << (number_of_bits - 1);
+    const u64 HALF_RANGE_OF_VALUE_BITS = 1ULL << (number_of_bits - 1);
 
-    u64* count = (u64*)alloc(get_temporary_allocator(), RADIX * sizeof(u64));
-    u8* items = (u8*)collection;
-    u8* buffer = (u8*)help_buffer;
+    u64 count[RADIX];
+    u64 prefix_sum[RADIX];
 
     for (u32 pass = 0; pass < PASS_COUNT; ++pass) {
         u32 shift = pass * BITS_PER_PASS;
 
-        for (u32 i = 0; i < RADIX; ++i) {
-            count[i] = 0;
-        }
+        memset(count, 0, sizeof(count));
 
         for (u64 i = 0; i < item_count; ++i) {
-            u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            sort_value += SIGN_SHIFT;  // Transform the value to handle negative numbers
-            u32 digit = (sort_value >> shift) & MASK;
+        	u8 *item = (u8*)collection + i * item_size;
+        	
+            u64 sort_value = *(u64*)(item + sort_value_offset_in_item);
+            sort_value += HALF_RANGE_OF_VALUE_BITS; // We treat the value as a signed integer
+            
+            u32 digit = (sort_value >> shift) & (RADIX-1);
             ++count[digit];
         }
 
-        u64 sum = 0;
-        for (u32 i = 0; i < RADIX; ++i) {
-            u64 temp = count[i];
-            count[i] = sum;
-            sum += temp;
+        prefix_sum[0] = 0;
+        for (u32 i = 1; i < RADIX; ++i) {
+            prefix_sum[i] = prefix_sum[i - 1] + count[i - 1];
         }
 
         for (u64 i = 0; i < item_count; ++i) {
-            u64 sort_value = *(u64*)(items + i * item_size + sort_value_offset_in_item);
-            u64 transformed_value = sort_value + SIGN_SHIFT;  // Transform the value to handle negative numbers
-            u32 digit = (transformed_value >> shift) & MASK;
-            memcpy(buffer + count[digit] * item_size, items + i * item_size, item_size);
-            ++count[digit];
+        	u8 *item = (u8*)collection + i * item_size;
+        	
+            u64 sort_value = *(u64*)(item + sort_value_offset_in_item);
+            sort_value += HALF_RANGE_OF_VALUE_BITS; // We treat the value as a signed integer
+            
+            u32 digit = (sort_value >> shift) & (RADIX-1);
+            memcpy((u8*)help_buffer + prefix_sum[digit] * item_size, item, item_size);
+            ++prefix_sum[digit];
         }
 
-        memcpy(items, buffer, item_count * item_size);
+        memcpy(collection, help_buffer, item_count * item_size);
     }
-
-    dealloc(get_temporary_allocator(), count);
 }
 
 void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_size, int (*compare)(const void *, const void *)) {
@@ -102,3 +109,40 @@ void merge_sort(void *collection, void *help_buffer, u64 item_count, u64 item_si
     }
 }
 
+inline bool bytes_match(void *a, void *b, u64 count) { return memcmp(a, b, count) == 0; }
+
+#define swap(a, b, type) { type t = a; a = b; b = t;  }
+
+
+// This isn't really linmath but just putting it here for now
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
+
+#define lerpf lerpf32
+f32 lerpf32(f32 from, f32 to, f32 x) {
+	return (to-from)*x+from;
+}
+f64 lerpf64(f64 from, f64 to, f64 x) {
+	return (to-from)*x+from;
+}
+s64 lerpi(s64 from, s64 to, f64 x) {
+	return (s64)((round((f64)to-(f64)from)*x)+from);
+}
+
+#define smerpf smerpf32
+f32 smerpf32(f32 from, f32 to, f32 t) {
+	float32 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpf(from, to, smooth);
+}
+f64 smerpf64(f64 from, f64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpf(from, to, smooth);
+}
+s64 smerpi(s64 from, s64 to, f64 t) {
+	float64 smooth = t * t * (3.0 - 2.0 * t);
+	return lerpi(from, to, smooth);
+}
+// I don't know how to describe this one I just made this in desmos and it has been useful for cool stuff:
+// https://www.desmos.com/calculator/r2etlhi2ej
+float32 sine_oscillate_n_waves_normalized(float32 v, float32 n) {
+	return (sin((n*2*PI32*((v)-(1/(n*4))))+1))/2;
+}

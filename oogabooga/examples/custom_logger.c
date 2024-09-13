@@ -81,8 +81,8 @@ int entry(int argc, char **argv) {
 	
 	// Window setup
 	window.title = STR("Minimal Game Example");
-	window.scaled_width = 1280;
-	window.scaled_height = 720;
+	window.point_width = 1280;
+	window.point_height = 720;
 	window.x = 200;
 	window.y = 200;
 	window.clear_color = hex_to_rgba(0x6495EDff);

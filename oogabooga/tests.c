@@ -122,11 +122,11 @@ void test_allocator(bool do_log_heap) {
     reset_temporary_storage();
     
     
-    int* foo = (int*)alloc(temp, 72);
+    int* foo = (int*)alloc(get_temporary_allocator(), 72);
     *foo = 1337;
-    void* bar = alloc(temp, 69);
+    void* bar = alloc(get_temporary_allocator(), 69);
     (void)bar;
-    void* baz = alloc(temp, 420);
+    void* baz = alloc(get_temporary_allocator(), 420);
     (void)baz;
     
     assert(*foo == 1337, "Temp memory corruptada");
@@ -135,7 +135,7 @@ void test_allocator(bool do_log_heap) {
     
     reset_temporary_storage();
     
-    foo = (int*)alloc(temp, 72);
+    foo = (int*)alloc(get_temporary_allocator(), 72);
     
     assert(old_foo == foo, "Temp allocator goof");
     
@@ -442,8 +442,6 @@ void test_strings() {
     assert(memcmp(multi_append_builder.buffer, expected_result, multi_append_builder.count) == 0, "Failed: multiple appends");
     dealloc(heap, multi_append_builder.buffer);
     
-    
-    
     string cheese_hello = STR("HeCHEESElloCHEESE, WorCHEESEld!");
     string hello = string_replace_all(cheese_hello, STR("CHEESE"), STR(""), heap);
     assert(strings_match(hello, STR("Hello, World!")), "Failed: string_replace");
@@ -454,7 +452,7 @@ void test_strings() {
 
 void test_file_io() {
 
-#if TARGET_OS == WINDOWS
+#if TARGET_OS == WINDOWS && !OOGABOOGA_LINK_EXTERNAL_INSTANCE
     // Test win32_fixed_utf8_to_null_terminated_wide
     string utf8_str = STR("Test");
     u16 *wide_str = win32_fixed_utf8_to_null_terminated_wide(utf8_str, get_heap_allocator());
@@ -591,6 +589,9 @@ void test_file_io() {
     assert(delete_ok, "Failed: could not delete test_dir1 (recursive)"); 
 }
 bool floats_roughly_match(float a, float b) {
+	return fabs(a - b) < 0.01;
+}
+bool floats_roughly_match64(float64 a, float64 b) {
 	return fabs(a - b) < 0.01;
 }
 void test_simd() {
@@ -838,10 +839,152 @@ void test_simd() {
     end = rdtsc();
     cycles = end-start;
     print("NO SIMD float32 mul took %llu cycles\n", cycles);
-}
+} 
+
 // Indirect testing of some simd stuff
 void test_linmath() {
 
+
+	{
+		// Test v2f32
+	    Vector2f32 v2f32_res = v2f32(1.0f, 2.0f);
+	    assert(v2f32_res.x == 1.0f && v2f32_res.y == 2.0f, "Failed: v2f32");
+	
+	    // Test v3f32
+	    Vector3f32 v3f32_res = v3f32(1.0f, 2.0f, 3.0f);
+	    assert(v3f32_res.x == 1.0f && v3f32_res.y == 2.0f && v3f32_res.z == 3.0f, "Failed: v3f32");
+	
+	    // Test v4f32
+	    Vector4f32 v4f32_res = v4f32(1.0f, 2.0f, 3.0f, 4.0f);
+	    assert(v4f32_res.x == 1.0f && v4f32_res.y == 2.0f && v4f32_res.z == 3.0f && v4f32_res.w == 4.0f, "Failed: v4f32");
+	
+	    // Test scalar vector constructors
+	    v2f32_res = v2f32_scalar(1.0f);
+	    assert(v2f32_res.x == 1.0f && v2f32_res.y == 1.0f, "Failed: v2f32_scalar");
+	
+	    v3f32_res = v3f32_scalar(1.0f);
+	    assert(v3f32_res.x == 1.0f && v3f32_res.y == 1.0f && v3f32_res.z == 1.0f, "Failed: v3f32_scalar");
+	
+	    v4f32_res = v4f32_scalar(1.0f);
+	    assert(v4f32_res.x == 1.0f && v4f32_res.y == 1.0f && v4f32_res.z == 1.0f && v4f32_res.w == 1.0f, "Failed: v4f32_scalar");
+	
+	    // Test vector addition
+	    v2f32_res = v2f32_add(v2f32(1.0f, 2.0f), v2f32(3.0f, 4.0f));
+	    assert(v2f32_res.x == 4.0f && v2f32_res.y == 6.0f, "Failed: v2f32_add");
+	
+	    v3f32_res = v3f32_add(v3f32(1.0f, 2.0f, 3.0f), v3f32(4.0f, 5.0f, 6.0f));
+	    assert(v3f32_res.x == 5.0f && v3f32_res.y == 7.0f && v3f32_res.z == 9.0f, "Failed: v3f32_add");
+	
+	    v4f32_res = v4f32_add(v4f32(1.0f, 2.0f, 3.0f, 4.0f), v4f32(5.0f, 6.0f, 7.0f, 8.0f));
+	    assert(v4f32_res.x == 6.0f && v4f32_res.y == 8.0f && v4f32_res.z == 10.0f && v4f32_res.w == 12.0f, "Failed: v4f32_add");
+	
+	    // Test vector subtraction
+	    v2f32_res = v2f32_sub(v2f32(3.0f, 4.0f), v2f32(1.0f, 2.0f));
+	    assert(v2f32_res.x == 2.0f && v2f32_res.y == 2.0f, "Failed: v2f32_sub");
+	
+	    v3f32_res = v3f32_sub(v3f32(4.0f, 5.0f, 6.0f), v3f32(1.0f, 2.0f, 3.0f));
+	    assert(v3f32_res.x == 3.0f && v3f32_res.y == 3.0f && v3f32_res.z == 3.0f, "Failed: v3f32_sub");
+	
+	    v4f32_res = v4f32_sub(v4f32(5.0f, 6.0f, 7.0f, 8.0f), v4f32(1.0f, 2.0f, 3.0f, 4.0f));
+	    assert(v4f32_res.x == 4.0f && v4f32_res.y == 4.0f && v4f32_res.z == 4.0f && v4f32_res.w == 4.0f, "Failed: v4f32_sub");
+	
+	    // Test vector multiplication
+	    v2f32_res = v2f32_mul(v2f32(2.0f, 3.0f), v2f32(4.0f, 5.0f));
+	    assert(v2f32_res.x == 8.0f && v2f32_res.y == 15.0f, "Failed: v2f32_mul");
+	
+	    v3f32_res = v3f32_mul(v3f32(2.0f, 3.0f, 4.0f), v3f32(5.0f, 6.0f, 7.0f));
+	    assert(v3f32_res.x == 10.0f && v3f32_res.y == 18.0f && v3f32_res.z == 28.0f, "Failed: v3f32_mul");
+	
+	    v4f32_res = v4f32_mul(v4f32(2.0f, 3.0f, 4.0f, 5.0f), v4f32(6.0f, 7.0f, 8.0f, 9.0f));
+	    assert(v4f32_res.x == 12.0f && v4f32_res.y == 21.0f && v4f32_res.z == 32.0f && v4f32_res.w == 45.0f, "Failed: v4f32_mul");
+	
+	    // Test vector division
+	    v2f32_res = v2f32_div(v2f32(6.0f, 8.0f), v2f32(2.0f, 4.0f));
+	    assert(v2f32_res.x == 3.0f && v2f32_res.y == 2.0f, "Failed: v2f32_div");
+	
+	    v3f32_res = v3f32_div(v3f32(12.0f, 15.0f, 18.0f), v3f32(4.0f, 5.0f, 6.0f));
+	    assert(v3f32_res.x == 3.0f && v3f32_res.y == 3.0f && v3f32_res.z == 3.0f, "Failed: v3f32_div");
+	
+	    v4f32_res = v4f32_div(v4f32(20.0f, 24.0f, 28.0f, 32.0f), v4f32(4.0f, 6.0f, 7.0f, 8.0f));
+	    assert(v4f32_res.x == 5.0f && v4f32_res.y == 4.0f && v4f32_res.z == 4.0f && v4f32_res.w == 4.0f, "Failed: v4f32_div");
+	
+	    // Test vector dot product
+	    float32 dot_res = v2f32_dot(v2f32(1.0f, 2.0f), v2f32(3.0f, 4.0f));
+	    assert(dot_res == 11.0f, "Failed: v2f32_dot");
+	
+	    dot_res = v3f32_dot(v3f32(1.0f, 2.0f, 3.0f), v3f32(4.0f, 5.0f, 6.0f));
+	    assert(dot_res == 32.0f, "Failed: v3f32_dot");
+	
+	    // Test vector cross product
+	    float32 cross_res = v2f32_cross(v2f32(1.0f, 2.0f), v2f32(3.0f, 4.0f));
+	    assert(cross_res == -2.0f, "Failed: v2f32_cross");
+	
+	    Vector3f32 cross_v3_res = v3f32_cross(v3f32(1.0f, 2.0f, 3.0f), v3f32(4.0f, 5.0f, 6.0f));
+	    assert(cross_v3_res.x == -3.0f && cross_v3_res.y == 6.0f && cross_v3_res.z == -3.0f, "Failed: v3f32_cross");
+	
+	    // Test length calculation
+	    float32 length_res = v2f32_length(v2f32(3.0f, 4.0f));
+	    assert(length_res == 5.0f, "Failed: v2f32_length");
+	
+	    length_res = v3f32_length(v3f32(1.0f, 2.0f, 2.0f));
+	    assert(length_res == 3.0f, "Failed: v3f32_length");
+	
+	    length_res = v4f32_length(v4f32(2.0f, 2.0f, 2.0f, 2.0f));
+	    assert(length_res == 4.0f, "Failed: v4f32_length");
+	
+	    // Test vector normalization
+	    v2f32_res = v2f32_normalize(v2f32(3.0f, 4.0f));
+	    assert(fabs(v2f32_res.x - 0.6f) < 0.0001f && fabs(v2f32_res.y - 0.8f) < 0.0001f, "Failed: v2f32_normalize");
+	
+	    v3f32_res = v3f32_normalize(v3f32(1.0f, 2.0f, 2.0f));
+	    assert(fabs(v3f32_res.x - 1.0f/3.0f) < 0.0001f && fabs(v3f32_res.y - 2.0f/3.0f) < 0.0001f && fabs(v3f32_res.z - 2.0f/3.0f) < 0.0001f, "Failed: v3f32_normalize");
+	
+	    // Test vector conversions
+	    Vector2f32 conv_v2f32 = v2f64_to_v2f32(v2f64(1.0, 2.0));
+	    assert(conv_v2f32.x == 1.0f && conv_v2f32.y == 2.0f, "Failed: v2f64_to_v2f32");
+	
+	    conv_v2f32 = v2s64_to_v2f32(v2s64(1, 2));
+	    assert(conv_v2f32.x == 1.0f && conv_v2f32.y == 2.0f, "Failed: v2s64_to_v2f32");
+	
+	    Vector3f32 conv_v3f32 = v3f64_to_v3f32(v3f64(1.0, 2.0, 3.0));
+	    assert(conv_v3f32.x == 1.0f && conv_v3f32.y == 2.0f && conv_v3f32.z == 3.0f, "Failed: v3f64_to_v3f32");
+	
+	    Vector4f32 conv_v4f32 = v4f64_to_v4f32(v4f64(1.0, 2.0, 3.0, 4.0));
+	    assert(conv_v4f32.x == 1.0f && conv_v4f32.y == 2.0f && conv_v4f32.z == 3.0f && conv_v4f32.w == 4.0f, "Failed: v4f64_to_v4f32");
+	    
+	    Vector2s32 conv_v2s32 = v2f32_to_v2s32(v2f32(1.0f, 2.0f));
+	    assert(conv_v2s32.x == 1 && conv_v2s32.y == 2, "Failed: v2f32_to_v2s32");
+	
+	    conv_v2s32 = v2s64_to_v2s32(v2s64(1, 2));
+	    assert(conv_v2s32.x == 1 && conv_v2s32.y == 2, "Failed: v2s64_to_v2s32");
+	
+	    Vector3s32 conv_v3s32 = v3f32_to_v3s32(v3f32(1.0f, 2.0f, 3.0f));
+	    assert(conv_v3s32.x == 1 && conv_v3s32.y == 2 && conv_v3s32.z == 3, "Failed: v3f32_to_v3s32");
+	
+	    Vector4s32 conv_v4s32 = v4f32_to_v4s32(v4f32(1.0f, 2.0f, 3.0f, 4.0f));
+	    assert(conv_v4s32.x == 1 && conv_v4s32.y == 2 && conv_v4s32.z == 3 && conv_v4s32.w == 4, "Failed: v4f32_to_v4s32");
+	
+	    Vector2s64 conv_v2s64 = v2f32_to_v2s64(v2f32(1.0f, 2.0f));
+	    assert(conv_v2s64.x == 1 && conv_v2s64.y == 2, "Failed: v2f32_to_v2s64");
+	
+	    conv_v2s64 = v2f64_to_v2s64(v2f64(1.0, 2.0));
+	    assert(conv_v2s64.x == 1 && conv_v2s64.y == 2, "Failed: v2f64_to_v2s64");
+	
+	    Vector3s64 conv_v3s64 = v3f32_to_v3s64(v3f32(1.0f, 2.0f, 3.0f));
+	    assert(conv_v3s64.x == 1 && conv_v3s64.y == 2 && conv_v3s64.z == 3, "Failed: v3f32_to_v3s64");
+	
+	    Vector4s64 conv_v4s64 = v4f32_to_v4s64(v4f32(1.0f, 2.0f, 3.0f, 4.0f));
+	    assert(conv_v4s64.x == 1 && conv_v4s64.y == 2 && conv_v4s64.z == 3 && conv_v4s64.w == 4, "Failed: v4f32_to_v4s64");
+	    
+	    float v2f64_dot_product = v2f64_dot(v2f64(2, 7), v2f64(3, 2));
+	    float v3f64_dot_product = v3f64_dot(v3f64(2, 7, 2), v3f64(3, 2, 9));
+	    float v4f64_dot_product = v4f64_dot(v4f64(2, 7, 6, 1), v4f64(3, 2, 1, 4));
+	    
+	    assert(floats_roughly_match64(v2f64_dot_product, 20), "Failed: v2f64_dot");
+		assert(floats_roughly_match64(v3f64_dot_product, 38), "Failed: v3f64_dot");
+		assert(floats_roughly_match64(v4f64_dot_product, 30), "Failed: v4f64_dot");
+	}
+	
     // Test vector creation and access
     Vector2 v2_test = v2(1.0f, 2.0f);
     assert(v2_test.x == 1.0f && v2_test.y == 2.0f, "v2 creation incorrect");
@@ -873,35 +1016,38 @@ void test_linmath() {
     v2_result = v2_divf(v2_a, 2.0f);
     assert(v2_result.x == 1.5f && v2_result.y == 2.0f, "v2_divf incorrect");
 
-    // Test matrix operations
-    Matrix4 m1 = m4_scalar(2.0f);
-    assert(m1.data[0] == 2.0f && m1.data[5] == 2.0f && m1.data[10] == 2.0f && m1.data[15] == 2.0f, "m4_scalar incorrect");
 
-    Vector3 translation = v3(1.0f, 2.0f, 3.0f);
-    Matrix4 m2 = m4_make_translation(translation);
-    assert(m2.m[0][3] == 1.0f && m2.m[1][3] == 2.0f && m2.m[2][3] == 3.0f, "m4_make_translation incorrect");
-
-    Vector3 scale = v3(2.0f, 3.0f, 4.0f);
-    Matrix4 m4 = m4_make_scale(scale);
-    assert(m4.m[0][0] == 2.0f && m4.m[1][1] == 3.0f && m4.m[2][2] == 4.0f, "m4_make_scale incorrect");
-
-    // Test orthographic projection matrix
-    Matrix4 ortho = m4_make_orthographic_projection(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f);
-    assert(ortho.m[0][0] == 1.0f && ortho.m[1][1] == 1.0f && ortho.m[2][2] == 1.0f, "m4_make_orthographic_projection incorrect");
-
-    // Test matrix multiplication
-    Matrix4 m5 = m4_scalar(1.0f);
-    m5.m[0][3] = 1.0f; m5.m[1][3] = 2.0f; m5.m[2][3] = 3.0f;
-    Matrix4 result_matrix = m4_mul(m2, m5);
-    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_mul incorrect");
-
-    // Test matrix inverse
-    Matrix4 identity = m4_scalar(1.0f);
-    Matrix4 inverse_matrix = m4_inverse(identity);
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            assert(inverse_matrix.m[i][j] == identity.m[i][j], "m4_inverse incorrect for identity matrix");
-        }
+	{
+	    // Test matrix operations
+	    Matrix4 m1 = m4_scalar(2.0f);
+	    assert(m1.data[0] == 2.0f && m1.data[5] == 2.0f && m1.data[10] == 2.0f && m1.data[15] == 2.0f, "m4_scalar incorrect");
+	
+	    Vector3 translation = v3(1.0f, 2.0f, 3.0f);
+	    Matrix4 m2 = m4_make_translation(translation);
+	    assert(m2.m[0][3] == 1.0f && m2.m[1][3] == 2.0f && m2.m[2][3] == 3.0f, "m4_make_translation incorrect");
+	
+	    Vector3 scale = v3(2.0f, 3.0f, 4.0f);
+	    Matrix4 m4 = m4_make_scale(scale);
+	    assert(m4.m[0][0] == 2.0f && m4.m[1][1] == 3.0f && m4.m[2][2] == 4.0f, "m4_make_scale incorrect");
+	    
+	    // Test orthographic projection matrix
+	    Matrix4 ortho = m4_make_orthographic_projection(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f);
+	    assert(ortho.m[0][0] == 1.0f && ortho.m[1][1] == 1.0f && ortho.m[2][2] == 1.0f, "m4_make_orthographic_projection incorrect");
+	
+	    // Test matrix multiplication
+	    Matrix4 m5 = m4_scalar(1.0f);
+	    m5.m[0][3] = 1.0f; m5.m[1][3] = 2.0f; m5.m[2][3] = 3.0f;
+	    Matrix4 result_matrix = m4_mul(m2, m5);
+	    assert(result_matrix.m[0][3] == 2.0f && result_matrix.m[1][3] == 4.0f && result_matrix.m[2][3] == 6.0f, "m4_mul incorrect");
+	
+	    // Test matrix inverse
+	    Matrix4 identity = m4_scalar(1.0f);
+	    Matrix4 inverse_matrix = m4_inverse(identity);
+	    for (int i = 0; i < 4; ++i) {
+	        for (int j = 0; j < 4; ++j) {
+	            assert(inverse_matrix.m[i][j] == identity.m[i][j], "m4_inverse incorrect for identity matrix");
+	        }
+	    }
     }
     
     // Test Vector2 creation
@@ -1028,7 +1174,139 @@ void test_linmath() {
     assert(floats_roughly_match(v2_dot_product, 20), "Failed: v2_dot");
 	assert(floats_roughly_match(v3_dot_product, 38), "Failed: v3_dot");
 	assert(floats_roughly_match(v4_dot_product, 30), "Failed: v4_dot");
+	
+	Matrix3 identity = m3_identity();
+    assert(identity.m[0][0] == 1.0f && identity.m[1][1] == 1.0f && identity.m[2][2] == 1.0f, "Failed: m3_identity is incorrect");
+    
+    // Test m3_scalar
+    Matrix3 scalar = m3_scalar(2.0f);
+    assert(scalar.m[0][0] == 2.0f && scalar.m[1][1] == 2.0f && scalar.m[2][2] == 2.0f, "Failed: m3_scalar is incorrect");
+    
+    // Test m3_make_translation
+    Vector2 translation = {2.0f, 3.0f};
+    Matrix3 translation_matrix = m3_make_translation(translation);
+    assert(translation_matrix.m[0][2] == 2.0f && translation_matrix.m[1][2] == 3.0f, "Failed: m3_make_translation is incorrect");
+
+    // Test m3_make_rotation
+    float32 radians = 3.14159265f / 4.0f; // 45 degrees
+    Matrix3 rotation_matrix = m3_make_rotation(radians);
+    assert(fabs(rotation_matrix.m[0][0] - 0.70710678f) < 0.0001f, "Failed: m3_make_rotation (cos) is incorrect");
+    assert(fabs(rotation_matrix.m[0][1] + 0.70710678f) < 0.0001f, "Failed: m3_make_rotation (sin) is incorrect");
+
+    // Test m3_make_scale
+    Vector2 scale = {2.0f, 3.0f};
+    Matrix3 scale_matrix = m3_make_scale(scale);
+    assert(scale_matrix.m[0][0] == 2.0f && scale_matrix.m[1][1] == 3.0f, "Failed: m3_make_scale is incorrect");
+
+    // Test m3_mul
+    Matrix3 mul_result = m3_mul(scalar, identity);
+    assert(mul_result.m[0][0] == 2.0f && mul_result.m[1][1] == 2.0f && mul_result.m[2][2] == 2.0f, "Failed: m3_mul scalar * identity is incorrect");
+
+    // Test m3_translate
+    Matrix3 translated = m3_translate(identity, translation);
+    assert(translated.m[0][2] == 2.0f && translated.m[1][2] == 3.0f, "Failed: m3_translate is incorrect");
+
+    // Test m3_rotate
+    Matrix3 rotated = m3_rotate(identity, radians);
+    assert(fabs(rotated.m[0][0] - 0.70710678f) < 0.0001f, "Failed: m3_rotate (cos) is incorrect");
+    assert(fabs(rotated.m[0][1] + 0.70710678f) < 0.0001f, "Failed: m3_rotate (sin) is incorrect");
+
+    // Test m3_scale
+    Matrix3 scaled = m3_scale(identity, scale);
+    assert(scaled.m[0][0] == 2.0f && scaled.m[1][1] == 3.0f, "Failed: m3_scale is incorrect");
+
+    // Test m3_inverse
+    Matrix3 inv_identity = m3_inverse(identity);
+    assert(inv_identity.m[0][0] == 1.0f && inv_identity.m[1][1] == 1.0f && inv_identity.m[2][2] == 1.0f, "Failed: m3_inverse identity is incorrect");
+
+    Matrix3 inv_scale = m3_inverse(scale_matrix);
+    assert(fabs(inv_scale.m[0][0] - 0.5f) < 0.0001f && fabs(inv_scale.m[1][1] - (1.0f / 3.0f)) < 0.0001f, "Failed: m3_inverse scale is incorrect");
+
+    // Test m3_transform
+    Vector3 v = {1.0f, 2.0f, 1.0f};
+    Vector3 transformed = m3_transform(translation_matrix, v);
+    assert(transformed.x == 3.0f && transformed.y == 5.0f && transformed.z == 1.0f, "Failed: m3_transform is incorrect");
+
+    // Test m3_to_m4
+    Matrix3 mat3 = m3_identity();
+    Matrix4 mat4 = m3_to_m4(mat3);
+    assert(mat4.m[0][0] == 1.0f && mat4.m[3][3] == 1.0f && mat4.m[0][3] == 0.0f, "Failed: m3_to_m4 is incorrect");
 }
+
+void test_intmath() {
+    // Test vector creation and access
+    Vector2i v2i_test = v2i(1, 2);
+    assert(v2i_test.x == 1 && v2i_test.y == 2, "v2i creation incorrect");
+
+    Vector3i v3i_test = v3i(1, 2, 3);
+    assert(v3i_test.x == 1 && v3i_test.y == 2 && v3i_test.z == 3, "v3i creation incorrect");
+
+    Vector4i v4i_test = v4i(1, 2, 3, 4);
+    assert(v4i_test.x == 1 && v4i_test.y == 2 && v4i_test.z == 3 && v4i_test.w == 4, "v4i creation incorrect");
+
+    // Test vector2 operations
+    Vector2i v2i_a = v2i(3, 4);
+    Vector2i v2i_b = v2i(1, 2);
+    Vector2i v2i_result = v2i_add(v2i_a, v2i_b);
+    assert(v2i_result.x == 4 && v2i_result.y == 6, "v2i_add incorrect");
+
+    v2i_result = v2i_sub(v2i_a, v2i_b);
+    assert(v2i_result.x == 2 && v2i_result.y == 2, "v2i_sub incorrect");
+
+    v2i_result = v2i_mul(v2i_a, v2i_b);
+    assert(v2i_result.x == 3 && v2i_result.y == 8, "v2i_mul incorrect");
+
+    v2i_result = v2i_div(v2i_a, v2i_b);
+    assert(v2i_result.x == 3 && v2i_result.y == 2, "v2i_div incorrect");
+
+    v2i_result = v2i_muli(v2i_a, 2);
+    assert(v2i_result.x == 6 && v2i_result.y == 8, "v2i_muli incorrect");
+
+    v2i_result = v2i_divi(v2i_a, 2);
+    assert(v2i_result.x == 1 && v2i_result.y == 2, "v2i_divi incorrect");
+
+    // Test vector2 operations
+    Vector3i v3i_a = v3i(3, 4, 6);
+    Vector3i v3i_b = v3i(1, 2, 3);
+    Vector3i v3i_result = v3i_add(v3i_a, v3i_b);
+    assert(v3i_result.x == 4 && v3i_result.y == 6 && v3i_result.z == 9, "v3i_add incorrect.");
+
+    v3i_result = v3i_sub(v3i_a, v3i_b);
+    assert(v3i_result.x == 2 && v3i_result.y == 2 && v3i_result.z == 3, "v3i_sub incorrect");
+
+    v3i_result = v3i_mul(v3i_a, v3i_b);
+    assert(v3i_result.x == 3 && v3i_result.y == 8 && v3i_result.z == 18, "v3i_mul incorrect");
+
+    v3i_result = v3i_div(v3i_a, v3i_b);
+    assert(v3i_result.x == 3 && v3i_result.y == 2 && v3i_result.z == 2, "v3i_div incorrect");
+
+    v3i_result = v3i_muli(v3i_a, 2);
+    assert(v3i_result.x == 6 && v3i_result.y == 8 && v3i_result.z == 12, "v3i_muli incorrect");
+
+    v3i_result = v3i_divi(v3i_a, 2);
+    assert(v3i_result.x == 1 && v3i_result.y == 2 && v3i_result.z == 3, "v3i_divi incorrect");
+
+    Vector4i v4i_a = v4i(3, 4, 6, 8);
+    Vector4i v4i_b = v4i(1, 2, 3, 4);
+    Vector4i v4i_result = v4i_add(v4i_a, v4i_b);
+    assert(v4i_result.x == 4 && v4i_result.y == 6 && v4i_result.z == 9 && v4i_result.w == 12, "v4i_add incorrect.");
+
+    v4i_result = v4i_sub(v4i_a, v4i_b);
+    assert(v4i_result.x == 2 && v4i_result.y == 2 && v4i_result.z == 3 && v4i_result.w == 4, "v4i_sub incorrect");
+
+    v4i_result = v4i_mul(v4i_a, v4i_b);
+    assert(v4i_result.x == 3 && v4i_result.y == 8 && v4i_result.z == 18 && v4i_result.w == 32, "v4i_mul incorrect");
+
+    v4i_result = v4i_div(v4i_a, v4i_b);
+    assert(v4i_result.x == 3 && v4i_result.y == 2 && v4i_result.z == 2 && v4i_result.w == 2, "v4i_div incorrect");
+
+    v4i_result = v4i_muli(v4i_a, 2);
+    assert(v4i_result.x == 6 && v4i_result.y == 8 && v4i_result.z == 12 && v4i_result.w == 16, "v4i_muli incorrect");
+
+    v4i_result = v4i_divi(v4i_a, 2);
+    assert(v4i_result.x == 1 && v4i_result.y == 2 && v4i_result.z == 3 && v4i_result.w == 4, "v4i_divi incorrect");
+}
+
 void test_hash_table() {
     Hash_Table table = make_hash_table(string, int, get_heap_allocator());
     
@@ -1151,14 +1429,15 @@ void test_mutex() {
     mutex_destroy(&data.mutex);
 }
 
+#ifndef OOGABOOGA_HEADLESS
 int compare_draw_quads(const void *a, const void *b) {
     return ((Draw_Quad*)a)->z-((Draw_Quad*)b)->z;
 }
 void test_sort() {
     
-    int num_samples = 100;
+    int num_samples = 500;
     u64 id_bits = 21;
-    u64 item_count = 5000;
+    u64 item_count = 50000;
     
     f64 seconds = 0;
     u64 cycles = 0;
@@ -1176,11 +1455,11 @@ void test_sort() {
         u64 item_size = sizeof(Draw_Quad);
         u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
     
-        float64 start_seconds = os_get_current_time_in_seconds();
+        float64 start_seconds = os_get_elapsed_seconds();
         u64 start_cycles = rdtsc();
         radix_sort(items, buffer, item_count, item_size, sort_value_offset_in_item, id_bits);
         u64 end_cycles = rdtsc();
-        float64 end_seconds = os_get_current_time_in_seconds();
+        float64 end_seconds = os_get_elapsed_seconds();
     
         for (u64 i = 1; i < item_count; i++) {
             assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");
@@ -1204,11 +1483,11 @@ void test_sort() {
         u64 item_size = sizeof(Draw_Quad);
         u64 sort_value_offset_in_item = offsetof(Draw_Quad, z);
     
-        float64 start_seconds = os_get_current_time_in_seconds();
+        float64 start_seconds = os_get_elapsed_seconds();
         u64 start_cycles = rdtsc();
         merge_sort(items, buffer, item_count, item_size, compare_draw_quads);
         u64 end_cycles = rdtsc();
-        float64 end_seconds = os_get_current_time_in_seconds();
+        float64 end_seconds = os_get_elapsed_seconds();
     
         for (u64 i = 1; i < item_count; i++) {
             assert(items[i].z >= items[i-1].z, "Failed: not correctly sorted");
@@ -1220,9 +1499,211 @@ void test_sort() {
     
     print("Merge sort took on average %llu cycles and %.2f ms\n", cycles / num_samples, (seconds * 1000.0) / (float64)num_samples);
 }
+#endif /* OOGABOOGA_HEADLESS */
+
+typedef struct Test_Thing {
+    int foo;
+    float bar;
+} Test_Thing;
+void test_growing_array() {
+    Test_Thing *things = 0;
+    
+    growing_array_init((void**)&things, sizeof(Test_Thing), get_heap_allocator());
+    
+    Test_Thing new_thing;
+    new_thing.foo = 5;
+    new_thing.bar = 420.69;
+    growing_array_add((void**)&things, &new_thing);
+    
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    new_thing.foo = 1;
+    new_thing.bar = 123.45;
+    growing_array_add((void**)&things, &new_thing);
+    
+    assert(growing_array_get_valid_count(things) == 2, "Failed: growing_array_get_valid_count");
+    
+    assert(things[0].foo == 5 && floats_roughly_match(things[0].bar, 420.69), "Failed: growing_array_add");
+    assert(things[1].foo == 1 && floats_roughly_match(things[1].bar, 123.45), "Failed: growing_array_add");
+    
+    growing_array_ordered_remove_by_index((void**)&things, 0);
+    assert(things[0].foo == 1 && floats_roughly_match(things[0].bar, 123.45), "Failed: growing_array_ordered_remove_by_index");
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    new_thing.foo = 5;
+    new_thing.bar = 420.69;
+    growing_array_add((void**)&things, &new_thing);
+    assert(things[1].foo == 5 && floats_roughly_match(things[1].bar, 420.69), "Failed: growing_array_add");
+    
+    assert(growing_array_get_valid_count(things) == 2, "Failed: growing_array_get_valid_count");
+    
+    growing_array_unordered_remove_by_index((void**)&things, 0);
+    assert(things[0].foo == 5 && floats_roughly_match(things[0].bar, 420.69), "Failed: growing_array_unordered_remove_by_index");
+    assert(growing_array_get_valid_count(things) == 1, "Failed: growing_array_get_valid_count");
+    
+    
+    for (u32 i = 0; i < 100; i += 1) {
+        new_thing.foo = i;
+        new_thing.bar = i * 4.0;
+        growing_array_add((void**)&things, &new_thing);
+    }
+    
+    assert(growing_array_get_valid_count(things) == 101, "Failed: growing_array_get_valid_count");
+    
+    // Unordered remove by pointer
+    Test_Thing *thing = &things[50];
+    Test_Thing copy = *thing;
+    bool found = growing_array_unordered_remove_by_pointer((void**)&things, thing);
+    assert(found, "Failed: growing_array_unordered_remove_by_pointer");
+    assert(!bytes_match(&copy, thing, sizeof(Test_Thing)), "Failed: growing_array_unordered_remove_by_pointer");
+    
+    // Ordered remove by pointer
+    thing = &things[50];
+    copy = *thing;
+    found = growing_array_ordered_remove_by_pointer((void**)&things, thing);
+    assert(found, "Failed: growing_array_unordered_remove_by_pointer");
+    assert(!bytes_match(&copy, thing, sizeof(Test_Thing)), "Failed: growing_array_unordered_remove_by_pointer");
+    
+    assert(growing_array_get_valid_count(things) == 99, "Failed: growing_array_get_valid_count");
+}
+
+
+typedef struct {
+    Binary_Semaphore *sem;
+    volatile LONG *counter;
+    int increments;
+} Test_Args;
+
+void increment_thread_proc(Thread *t) {
+    Test_Args *test_args = (Test_Args *)t->data;
+    for (int i = 0; i < test_args->increments; i++) {
+        os_binary_semaphore_wait(test_args->sem);
+        InterlockedIncrement(test_args->counter);
+        os_binary_semaphore_signal(test_args->sem);
+    }
+}
+void test_os_binary_semaphore() {
+    {
+        // Multithreaded increment test
+        const int num_threads = 100;
+        const int increments_per_thread = 10000;
+
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, true);
+
+        LONG counter = 0;
+        Thread threads[num_threads];
+        Test_Args args = { &sem, &counter, increments_per_thread };
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_init(&threads[i], increment_thread_proc);
+            threads[i].data = &args;
+            os_thread_start(&threads[i]);
+        }
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_join(&threads[i]);
+            os_thread_destroy(&threads[i]);
+        }
+
+        assert(counter == num_threads * increments_per_thread, "Failed: Multithreaded increment test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // Signal before wait test
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, false);
+
+        LONG counter = 0;
+
+        Thread thread;
+        Test_Args args = { &sem, &counter, 1 };
+        os_thread_init(&thread, increment_thread_proc);
+        thread.data = &args;
+        os_thread_start(&thread);
+
+        // Signal the semaphore after a delay
+        Sleep(100);
+        os_binary_semaphore_signal(&sem);
+
+        os_thread_join(&thread);
+        os_thread_destroy(&thread);
+
+        assert(counter == 1, "Failed: Signal before wait test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // High contention test
+        const int num_threads = 100;
+        const int increments_per_thread = 1000;
+
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, true);
+
+        LONG counter = 0;
+        Thread threads[num_threads];
+        Test_Args args = { &sem, &counter, increments_per_thread };
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_init(&threads[i], increment_thread_proc);
+            threads[i].data = &args;
+            os_thread_start(&threads[i]);
+        }
+
+        for (int i = 0; i < num_threads; i++) {
+            os_thread_join(&threads[i]);
+            os_thread_destroy(&threads[i]);
+        }
+
+        assert(counter == num_threads * increments_per_thread, "Failed: High contention test");
+
+        os_binary_semaphore_destroy(&sem);
+    }
+
+    {
+        // Double signal test
+        Binary_Semaphore sem;
+        os_binary_semaphore_init(&sem, false);
+
+        LONG counter = 0;
+
+        Thread thread1, thread2;
+        Test_Args args1 = { &sem, &counter, 1 };
+        Test_Args args2 = { &sem, &counter, 1 };
+
+        os_thread_init(&thread1, increment_thread_proc);
+        os_thread_init(&thread2, increment_thread_proc);
+        thread1.data = &args1;
+        thread2.data = &args2;
+        os_thread_start(&thread1);
+        os_thread_start(&thread2);
+
+        // Signal twice
+        os_binary_semaphore_signal(&sem);
+        os_binary_semaphore_signal(&sem);
+
+        os_thread_join(&thread1);
+        os_thread_join(&thread2);
+
+        assert(counter == 2, "Failed: Double signal test");
+
+        os_thread_destroy(&thread1);
+        os_thread_destroy(&thread2);
+        os_binary_semaphore_destroy(&sem);
+    }
+
+}
+
 void oogabooga_run_tests() {
 	
-	
+	print("Testing growing array... ");
+	test_growing_array();
+	print("OK!\n");
+    
 	print("Testing allocator... ");
 	test_allocator(true);
 	print("OK!\n");
@@ -1242,6 +1723,10 @@ void oogabooga_run_tests() {
 	print("Testing linmath... ");
 	test_linmath();
 	print("OK!\n");
+
+	print("Testing intmath... ");
+	test_intmath();
+	print("OK!\n");
 	
 	print("Testing simd... ");
 	test_simd();
@@ -1259,9 +1744,17 @@ void oogabooga_run_tests() {
 	test_mutex();
 	print("OK!\n");
 	
+	print("Testing binary semaphore... ");
+	test_os_binary_semaphore();
+	print("OK!\n");
+
+#ifndef OOGABOOGA_HEADLESS
 	print("Testing radix sort... ");
 	test_sort();
 	print("OK!\n");
+#endif
+
+	
 	
 	print("All tests ok!\n");
 }

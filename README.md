@@ -11,6 +11,7 @@ ooga booga
 - [Examples & Documentation](#examples--documentation)
 - [Known bugs](#known-bugs)
 - [Licensing](#licensing)
+- [Contributions](#contributions)
 
 ## What is ooga booga?
 
@@ -86,17 +87,20 @@ int entry(int argc, char **argv) {
 
 ## Examples & Documentation
 
-Documentation will come in the form of a lot of examples because that's the best way to learn and understand how everything works.
+In general, we try to leave a nice chunk of documentation in a comment at the top of the source code files when needed.
+An example would be: If you want to understand how to draw things, go to drawing.c and read the comment at the top of the file.
+This is however a WIP and probably not very well-maintained.
 
-See [examples](oogabooga/examples). 
+The goal is however to have the main form of documentation be in the form of [examples](oogabooga/examples). Seeing things in practice is generally much more informative than theory.
 
 Simply add `#include "oogabooga/examples/some_example.c"` to build.c and compile & run to see the example code in action.
 
-Other than examples, a great way to learn is to delve into the code of whatever module you're using. The codebase is written with this in mind.
+Other than the top-of-file documentation and examples, we have tried to write code that's easy to read & understand i.e. self-documenting. Ideally, a good way of finding what you need is to use your text editor to do a workspace-search for terms related to what you're trying to do and finding related functions/files/documentation.
 
-## Known bugs
-- Window positioning & sizing is fucky wucky
+## Known bugs & issues
+- If DPI changes in runtime, updating window position or size will be a bit weird
 - Converting 24-bit audio files doesn't really work
+- Compiling with msys, cygwin, mingw etc fails
 
 ## Licensing
 By default, the repository has an educational license that makes the engine free to use for personal projects.
@@ -106,3 +110,19 @@ By default, the repository has an educational license that makes the engine free
 You can obtain the full commercial license by being an active member of the community and making your first game.
 
 [Learn more here](https://www.skool.com/game-dev)
+
+## Contributions
+- Open PR's with `dev` as the base branch
+- Keep it simple, no multi-layer abstractions
+- Keep the implementation code readable, comment confusing code
+- If you're introducing a new file/module, document the API and how to use it at the top of the file
+- Add tests in tests.c if it makes sense to test
+- Run tests (#define RUN_TESTS 1) before submitting PR
+- Don't submit PR's for:
+	- the sake of submitting PR's
+	- Small polishing/tweaks that doesn't really affect the people making games
+- When you submit a PR, please answer these prompts (if you're submitting a bugfix then you can skip this):
+	- What feature/bugfix does this PR implement?
+	- Why do we need this?
+	- Describe at least one specific and practical problem this solves for people developing a game
+	- Does this add complexity/friction for people making games? If so, how do you justify that?

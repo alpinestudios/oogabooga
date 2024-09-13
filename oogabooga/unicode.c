@@ -109,3 +109,26 @@ u32 next_utf8(string *s) {
 
     return result.utf32;
 }
+
+u64 utf8_index_to_byte_index(string str, u64 index) {
+	u64 byte_index = 0;
+	u64 utf8_index = 0;
+	while (utf8_index < index && str.count != 0) {
+		string last_str = str;
+		u32 codepoint = next_utf8(&str);
+		if (!codepoint) break;
+
+		u64 byte_diff = ((u8*)str.data)-((u8*)last_str.data);
+		assert(byte_diff != 0);
+		byte_index += byte_diff;
+		utf8_index += 1;
+	}
+	return byte_index;
+}
+string utf8_slice(string str, u64 index, u64 count) {
+	u64 byte_index = utf8_index_to_byte_index(str, index);
+	u64 byte_end_index = utf8_index_to_byte_index(str, index+count);
+	u64 byte_count = byte_end_index - byte_index;
+
+	return string_view(str, byte_index, byte_count);
+}

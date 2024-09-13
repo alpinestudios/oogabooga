@@ -6,6 +6,30 @@
 		
 		All configuration properties has default values if you do not explicitly #define them.
 	
+		- OOGABOOGA_ENABLE_EXTENSIONS
+			Enable oogabooga extensions.
+		
+			0: Disable
+			1: Enable
+			
+			Example:
+			
+				#define OOGABOOGA_ENABLE_EXTENSIONS 1
+				
+			Note:
+				Your program needs to call ext_update_and_draw() each frame.
+				
+		- OOGABOOGA_EXTENSION_PARTICLES
+			Enable the 'particles' oogabooga extension to use particle emitters in your game.
+		
+			0: Disable
+			1: Enable
+			
+			Example:
+			
+				#define OOGABOOGA_EXTENSION_PARTICLES 1
+				
+	
 		- ENTRY_PROC
 			Define this as whatever the entry procedure of your program should be.
 				
@@ -84,7 +108,7 @@
 			
 			Example:
 			
-				#define RUN_TESTS 0
+				#define RUN_TESTS 1
 				
 		- ENABLE_PROFILING
 			Enable time profiling which will be dumped to google_trace.json.
@@ -101,13 +125,22 @@
 					tm_scope
 					tm_scope_var
 					tm_scope_accum
-		
-
+					
+		- OOGABOOGA_HEADLESS
+            Run oogabooga in headless mode, i.e. no window, no graphics, no audio.
+            Useful if you only need the oogabooga standard library for something like a game server.
+            
+            0: Disable
+            1: Enable
+            
+            Example:
+            
+                #define OOGABOOGA_HEADLESS 1
 */
 
 #define OGB_VERSION_MAJOR 0
 #define OGB_VERSION_MINOR 1
-#define OGB_VERSION_PATCH 1
+#define OGB_VERSION_PATCH 8
 
 #define OGB_VERSION (OGB_VERSION_MAJOR*1000000+OGB_VERSION_MINOR*1000+OGB_VERSION_PATCH)
 
@@ -186,6 +219,10 @@ typedef u8 bool;
 	#define ENABLE_SIMD 1
 #endif
 
+#ifndef INITIAL_PROGRAM_MEMORY_SIZE
+    #define INITIAL_PROGRAM_MEMORY_SIZE MB(5)
+#endif
+
 #if ENABLE_SIMD && !defined(SIMD_ENABLE_SSE2)
 	#if COMPILER_CAN_DO_SSE2
 		#define SIMD_ENABLE_SSE2 1
@@ -213,10 +250,11 @@ typedef u8 bool;
 
 #ifdef _WIN32
 	#define COBJMACROS
-	#include <Windows.h>
-#if CONFIGURATION == DEBUG
-	#include <dbghelp.h>
-#endif
+	#undef noreturn
+	#include <windows.h>
+    #if CONFIGURATION == DEBUG
+    	#include <dbghelp.h>
+    #endif
 	#define TARGET_OS WINDOWS
 	#define OS_PATHS_HAVE_BACKSLASH 1
 #elif defined(__linux__)
@@ -231,6 +269,14 @@ typedef u8 bool;
 	#define OS_PATHS_HAVE_BACKSLASH 1
 #else
 	#error "Current OS not supported!";
+#endif
+
+#if OOGABOOGA_LINK_EXTERNAL_INSTANCE
+    #define ogb_instance SHARED_IMPORT extern
+#elif OOGABOOGA_BUILD_SHARED_LIBRARY
+    #define ogb_instance SHARED_EXPORT
+#else
+    #define ogb_instance
 #endif
 
 
@@ -261,11 +307,11 @@ typedef u8 bool;
 #include "string_format.c"
 #include "hash.c"
 #include "path_utils.c"
-#include "linmath.c"
-#include "range.c"
 #include "utility.c"
+#include "linmath.c"
 
 #include "hash_table.c"
+#include "growing_array.c"
 
 #include "os_interface.c"
 
@@ -273,18 +319,14 @@ typedef u8 bool;
 ///
 // Dependencies
 ///
-// The reason dependencies are compiled here is because we modify stb_vorbis to use our
-// file API instead of the stdio.h (cmoooon Sean)
+// The reason dependencies are compiled here is because we need to modify third party code
+// to use the oogabooga standard where they use the C standard.
 
 #include "third_party.c"
 
 /////
 
 #include "concurrency.c"
-#include "gfx_interface.c"
-
-
-#include "font.c"
 
 #include "profiling.c"
 #include "random.c"
@@ -292,30 +334,48 @@ typedef u8 bool;
 #include "memory.c"
 #include "input.c"
 
-#include "drawing.c"
+#ifndef OOGABOOGA_HEADLESS
 
-#include "audio.c"
+    #include "gfx_interface.c"
 
-// #Portability
-#if GFX_RENDERER == GFX_RENDERER_D3D11
-	#include "gfx_impl_d3d11.c"
-#elif GFX_RENDERER == GFX_RENDERER_VULKAN
-	#error "We only have a D3D11 renderer at the moment"
-#elif GFX_RENDERER == GFX_RENDERER_METAL
-	#error "We only have a D3D11 renderer at the moment"
-#else
-	#error "Unknown renderer GFX_RENDERER defined"
+    #include "font.c"
+
+    #include "drawing.c"
+
+    #include "audio.c"
 #endif
 
-#if TARGET_OS == WINDOWS
-	#include "os_impl_windows.c"
-#elif TARGET_OS == LINUX
-	#error "Linux is not supported yet"
-#elif TARGET_OS == MACOS
-	#error "Macos is not supported yet"
-#else
-	#error "Current OS is not supported"
+#if OOGABOOGA_ENABLE_EXTENSIONS
+
+	#include "extensions.c"
 #endif
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
+    #if TARGET_OS == WINDOWS
+    	#include "os_impl_windows.c"
+    #elif TARGET_OS == LINUX
+        #include "os_impl_linux.c"
+    #elif TARGET_OS == MACOS
+    	#error "Macos is not supported yet"
+    #else
+    	#error "Current OS is not supported"
+    #endif
+
+    #ifndef OOGABOOGA_HEADLESS
+        // #Portability
+        #if GFX_RENDERER == GFX_RENDERER_D3D11
+            #include "gfx_impl_d3d11.c"
+        #elif GFX_RENDERER == GFX_RENDERER_VULKAN
+            #error "We only have a D3D11 renderer at the moment"
+        #elif GFX_RENDERER == GFX_RENDERER_METAL
+            #error "We only have a D3D11 renderer at the moment"
+        #else
+            #error "Unknown renderer GFX_RENDERER defined"
+        #endif
+    #endif
+    
+#endif // NOT OOGABOOGA_LINK_EXTERNAL_INSTANCE
 
 #include "tests.c"
 
@@ -342,29 +402,54 @@ void default_logger(Log_Level level, string s) {
 	mutex_release(&_default_logger_mutex);
 }
 
+ogb_instance void oogabooga_init(u64 program_memory_size);
+
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
 void oogabooga_init(u64 program_memory_size) {
+	seed_for_random = rdtsc();
+	
 	context.logger = default_logger;
-	temp = get_initialization_allocator();
+	temp_allocator = get_initialization_allocator();
 	Cpu_Capabilities features = query_cpu_capabilities();
 	os_init(program_memory_size);
 	heap_init();
-	temporary_storage_init();
+	temporary_storage_init(TEMPORARY_STORAGE_SIZE);
 	log_info("Ooga booga version is %d.%02d.%03d", OGB_VERSION_MAJOR, OGB_VERSION_MINOR, OGB_VERSION_PATCH);
+#ifndef OOGABOOGA_HEADLESS
 	gfx_init();
-	log_verbose("CPU has sse1: %cs", features.sse1 ? "true" : "false");
-	log_verbose("CPU has sse2: %cs", features.sse2 ? "true" : "false");
-	log_verbose("CPU has sse3: %cs", features.sse3 ? "true" : "false");
-	log_verbose("CPU has ssse3: %cs", features.ssse3 ? "true" : "false");
-	log_verbose("CPU has sse41: %cs", features.sse41 ? "true" : "false");
-	log_verbose("CPU has sse42: %cs", features.sse42 ? "true" : "false");
-	log_verbose("CPU has avx: %cs", features.avx ? "true" : "false");
-	log_verbose("CPU has avx2: %cs", features.avx2 ? "true" : "false");
+#else
+    log_info("Headless mode on");
+#endif
+
+#if OOGABOOGA_ENABLE_EXTENSIONS
+	ext_init();
+#endif
+
+
+	log_verbose("CPU has sse1:   %cs", features.sse1   ? "true" : "false");
+	log_verbose("CPU has sse2:   %cs", features.sse2   ? "true" : "false");
+	log_verbose("CPU has sse3:   %cs", features.sse3   ? "true" : "false");
+	log_verbose("CPU has ssse3:  %cs", features.ssse3  ? "true" : "false");
+	log_verbose("CPU has sse41:  %cs", features.sse41  ? "true" : "false");
+	log_verbose("CPU has sse42:  %cs", features.sse42  ? "true" : "false");
+	log_verbose("CPU has avx:    %cs", features.avx    ? "true" : "false");
+	log_verbose("CPU has avx2:   %cs", features.avx2   ? "true" : "false");
 	log_verbose("CPU has avx512: %cs", features.avx512 ? "true" : "false");
+	
+	Os_Monitor *m = os.primary_monitor;
+	log_verbose("Primary Monitor:\n\t%s\n\t%dhz\n\t%dx%d\n\tdpi: %d", m->name, m->refresh_rate, m->resolution_x, m->resolution_y, m->dpi);
 }
+#endif
 
 int ENTRY_PROC(int argc, char **argv);
 
+#if !OOGABOOGA_LINK_EXTERNAL_INSTANCE
+
+#if OOGABOOGA_BUILD_SHARED_LIBRARY
+int SHARED_EXPORT main(int argc, char **argv) {
+#else
 int main(int argc, char **argv) {
+#endif
 
 
 	print("Ooga booga program started\n");
@@ -388,10 +473,15 @@ int main(int argc, char **argv) {
 	
 #endif
 	
+	// This is so any threads waiting for window to close will close on exit
+	window.should_close = true;
+	
 	printf("Ooga booga program exit with code %i\n", code);
 	
 	return code;
 }
+#endif
+
 
 
 

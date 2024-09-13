@@ -1,3 +1,281 @@
+## v0.01.008 - hotfix
+- Unbroke gfx_reserve_vbo_bytes
+
+## v0.01.007 - Offscreen rendering, Draw_Frame's, Major reworks, more examples
+
+	- Graphics
+		- Implemented render-target versions of Gfx_Image
+		- Added functions for offscreen rendering:
+			- make_image_render_target()
+			- gfx_render_draw_frame(Draw_Frame, Gfx_Image*)
+			- (and gfx_render_draw_frame_to_window(Draw_Frame) to render draw_frame directly to window)
+			See examples/offscreen_drawing.c for a practical example.
+		- Reworked the Draw_Frame's & drawing API
+			- Instead of targetting the global draw_frame, all drawing functions now make a call to draw_xxx_in_frame and passes &draw_frame as the last parameter.
+			- So, we added draw_xxx_in_frame overloads which means we can now draw to other Draw_Frame's than the global one.
+			- While the global draw_frame is still reset & rendered in gfx_update(), we can now manage separate draw_frame's manually with:
+				void draw_frame_init(Draw_Frame *frame);
+				void draw_frame_init_reserve(Draw_Frame *frame, u64 number_of_quads_to_reserve);
+				void draw_frame_reset(Draw_Frame *frame);
+			- See examples/threaded_drawing.c which dedicates a Draw_Frame to each thread to split up the drawing, and then render them on the main thread.
+			- Complete list of new drawing API functions:
+				void draw_frame_init(Draw_Frame *frame);
+				void draw_frame_init_reserve(Draw_Frame *frame, u64 number_of_quads_to_reserve);
+				void draw_frame_reset(Draw_Frame *frame);
+				Draw_Quad *draw_quad_projected_in_frame(Draw_Quad quad, Matrix4 world_to_clip, Draw_Frame *frame);
+				Draw_Quad *draw_quad_in_frame(Draw_Quad quad, Draw_Frame *frame);
+				Draw_Quad *draw_quad_xform_in_frame(Draw_Quad quad, Matrix4 xform, Draw_Frame *frame);
+				Draw_Quad *draw_rect_in_frame(Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_rect_xform_in_frame(Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_circle_in_frame(Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_circle_xform_in_frame(Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_image_in_frame(Gfx_Image *image, Vector2 position, Vector2 size, Vector4 color, Draw_Frame *frame);
+				Draw_Quad *draw_image_xform_in_frame(Gfx_Image *image, Matrix4 xform, Vector2 size, Vector4 color, Draw_Frame *frame);
+				void draw_line_in_frame(Vector2 p0, Vector2 p1, float line_width, Vector4 color, Draw_Frame *frame);
+				void draw_text_xform_in_frame(Gfx_Font *font, string text, u32 raster_height, Matrix4 xform, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				void draw_text_in_frame(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				Gfx_Text_Metrics draw_text_and_measure_in_frame(Gfx_Font *font, string text, u32 raster_height, Vector2 position, Vector2 scale, Vector4 color, Draw_Frame *frame);
+				void push_z_layer_in_frame(s32 z, Draw_Frame *frame);
+				void pop_z_layer_in_frame(Draw_Frame *frame);
+				void push_window_scissor_in_frame(Vector2 min, Vector2 max, Draw_Frame *frame);
+				void pop_window_scissor_in_frame(Draw_Frame *frame);
+			
+		- Added gfx_reserve_vbo_bytes so you can allocate a big vbo once instead of slowly doubling it, causing lag spikes
+		- Renamed shader_recompile_with_extension -> gfx_shader_recompile_with_extension
+		- Sped up d3d11 renderer a bit with index buffer
+		- More thoroughly documented drawing.c
+		- Made window resizing forced to be even (% 2 == 0), because uneven dimensions make texture sampling wonky and I'm not sure how to solve it
+
+	- OS
+		- Reworked window stuff
+			- Reworked window sizing & positioning
+			- Deprecated window.scaled_width & window.scaled_height to be replaced by window.point_width and window.point_height which is units in 72th of an inch
+			- Added window.point_x and window.point_y
+			- Added window.dpi and window.points_size_in_pixels
+			- Fixed window positioning and sizing, as it was pretty broken and incorrect before
+			- Added an examples that showcase all the window stuff in examples/window_test.c
+			- Added window.force_topmost for forcing the window to be on top of everything when true.
+			- Told windows to gtfo and let us size and position the window however we want
+		- Binary semaphore:
+			os_binary_semaphore_init(Binary_Semaphore *sem, bool initial_state);
+			os_binary_semaphore_destroy(Binary_Semaphore *sem);
+			os_binary_semaphore_wait(Binary_Semaphore *sem);
+			os_binary_semaphore_signal(Binary_Semaphore *sem);
+
+	- Misc
+		- Reworked linmath
+			- There are now 4(x3) different vector types: VectorNf32, VectorNf64, VectorNs32, VectorNs64 where N is the number of scalars from 2 to 4.
+			- The code has been refactored to be more consistent, predictable and self-documenting
+			- Vector2 and Vector2i as well as v2_ and v2i_ functions are typedeffed / #defined to Vector2f32 and Vector2s32
+			- Vector interpolation functions:
+				v2_lerp
+				v3_lerp
+				v4_lerp
+				v2_smerp
+				v3_smerp
+				v4_smerp
+		- Changed profiling to measure in seconds
+		- lerpf -> lerpf32 & lerpf64
+		- smerpf -> smerpf32 & smerpf64
+		- Changed default ortho projection to match window size
+		- Made oogabooga init seed_for_random to rdtsc() so each program starts completely randomized
+		- Cleanups
+
+## v0.01.006 - Particles, Matrix3, extensions
+
+	- Build configuration
+		- Introduced an "extensions" system to be able to compile some extensions that might help with your game.
+			- To enable extensions, do #define OOGABOOGA_ENABLE_EXTENSIONS 1, then #define OOGABOOGA_EXTENSION_XXXXX 1
+				Also call ext_update(delta_time) and ext_draw() each frame.
+	
+	- Implemented a Particles extension for particle emissions
+		- struct Emission_Config
+		- Emission_Handle emit_particles(config, position)
+		- void emission_reset(Emission_Handle h);
+		- void emission_set_config(Emission_Handle h, Emission_Config config);
+		- void emission_set_position(Emission_Handle h, Vector2 pos);
+		- void emission_release(Emission_Handle h);
+	
+	- Misc
+		- Added void *growing_array_add_multiple_empty(void **array, u64 count)
+		- Added void growing_array_add_multiple(void **array, void *items, u64 count)
+		- Added Matrix3 with:
+			- Matrix4 m3_to_m4(Matrix3 mat3)
+			- Matrix3 m3_scalar(float32 scalar)
+			- Matrix3 m3_identity()
+			- Matrix3 m3_make_translation(Vector2 translation)
+			- Matrix3 m3_make_rotation(float32 radians)
+			- Matrix3 m3_make_scale(Vector2 scale)
+			- Matrix3 m3_mul(Matrix3 a, Matrix3 b)
+			- Matrix3 m3_translate(Matrix3 m, Vector2 translation)
+			- Matrix3 m3_rotate(Matrix3 m, float32 radians)
+			- Matrix3 m3_scale(Matrix3 m, Vector2 scale)
+			- Matrix3 m3_inverse(Matrix3 m)
+			- Vector3 m3_transform(Matrix3 m, Vector3 v)
+		- Fixed Arena so it actually works
+		- Fixed sys keys not being handled as expected (such as LALT)
+		- Added some arena procedures:
+			- void *arena_push(Arena *arena, u64 size)
+			- #define arena_push_struct(parena, type)
+			- Allocator make_arena_allocator_from_arena(Arena *arena)
+		- Cleaned up some example stuff
+		- Fixed build.sh
+		- Made seed_for_random thread_local
+		- Added utility function float32 sine_oscillate_n_waves_normalized(float32 v, float32 n)
+		- Fixed os_wait_and_read_stdin including \r\n
+
+## v0.01.005 - Arenas, Monitor query, fullscreen
+
+	- Window
+		- Added bool window.fullscreen
+		- Added bool window.allow_resize
+		- Reworked window initialization
+			Window now starts of invisible and is made visible on first os_update().
+			This also gets rid of the weird window resize and reposition at startup.
+	- Renderer
+		- Added gfx_read_image_data() to read pixels from a Gfx_Image*
+	- Os
+		- Implemented access to monitor information
+			Os_Monitor *os.monitors
+			Os_Monitor *os.primary_monitor
+			Os_Monitor *window.monitor
+			
+			u64 Os_Monitor.refresh_rate
+			u64 Os_Monitor.resolution_x
+			u64 Os_Monitor.resolution_y
+			u64 Os_Monitor.dpi
+			u64 Os_Monitor.dpi_y
+			string Os_Monitor.name
+	
+	- Memory
+		- Added arenas & the arena allocator
+			Arena make_arena(size)
+			
+			Allocator make_arena_allocator(size)
+			Allocator make_arena_allocator_with_memory(size, *memory)
+	
+	- Misc
+		- Added examples/sprite_animation.c
+		- Removed Herobrine.
+		- Modified build scripts to not remove the build/ directory and instead check if it exists and if not, create it.
+		- Added os_wait_and_read_stdin(*result, max_count, allocator)
+		- Added %b format specifier for printing bools (true/false)
+		- Added/Improved some documentation
+		- Fixed some woopsies, goofs, and bugs
+
+## v0.01.004 - Gamepad input, text wrapping, bug fixes
+	- Input
+		- Added Gamepad support
+			- Gamepad keycodes for buttons & clicks
+			- input_frame.left_stick .right_stick .left_trigger .right_trigger
+			- event.gamepad_index for key inputs if it's from the gamepad
+			- INPUT_EVENT_GAMEPAD_AXIS for same axes but in events and with the event.gamepad_index set
+			- Deadzone globals:
+				Vector2 deadzone_left_stick
+				Vector2 deadzone_right_stick
+				float32 deadzone_left_trigger
+				float32 deadzone_right_trigger
+			- Vibration
+				set_gamepad_vibration(float32 left, float32 right)
+				set_specific_gamepad_vibration(int gamepad_index, float32 left, float32 right)
+				
+	- Text
+		- Implemented word-wrapping text into lines with
+			split_text_to_lines_with_wrapping()
+		- Added Gfx_Font_Metrics.new_line_offset for an exact value for how much you should decrement the Y on newline
+		
+	- strings
+		- Added some utf8 helpers
+			utf8_index_to_byte_index()
+			utf8_slice()
+		- Added whitespace trimming helpers
+			string_trim() (trim right & left)
+			string_trim_left()
+			string_trim_right()
+			
+	- Misc
+		- input_example.c
+		- Reworked os_get_current_time_in_seconds() -> os_get_elapsed_seconds()
+			Now returns seconds sincs app init.
+		- draw_frame.view -> draw_frame.camera_xform (deprecated .view)
+		- Unecessary refactoring in drawing.c
+		- Fixed temporary storage overflow warning (contributor @kacpercwiklinski f9bf7ff)
+		- Added build.sh for building on linux (contributor @0xf0adc 90f00b)
+		- Added linmath constants
+			v2_one
+			v3_one
+			v4_one
+			v2_zero
+			v3_zero
+			v4_zero
+		- Refactored get_temporary_allocator() to fallback to get_initialization_allocator() if temp_allocator is not initted
+
+## v0.01.003 - Mouse pointers, Audio improvement & features, bug fixes
+	- Os layer
+		- Implemented setting of mouse pointers, either to system standard pointers or a custom image
+			os_set_mouse_pointer_standard(kind)
+			os_set_mouse_pointer_custom(pointer)
+			os_make_custom_mouse_pointer(image, width, height, hotspot_x, hotspot_y)
+			os_make_custom_mouse_pointer_from_file(path, hotspot_x, hotspot_y, allocator)
+		- Ignore SETCURSOR events unless for window resize pointer
+		- Store SYSTEM_INFO in init
+		- os_get_number_of_logical_processors()
+	
+	- Renderer
+		- Fix bad uv sampling bug when uneven window dimensions
+	
+	- Memory
+		- Made program_memory act more like an arena (see os_reserve_next_memory_pages() & os_unlock_program_memory_pages())
+		- In debug, default program memory to PAGE_NOACCESS which needs to be unlocked with os_unlock_program_memory_pages() (better crashes if we touch that memory)
+		- os_lock_program_memory_pages
+		- Heap locks pages when completely free
+	
+	- Audio
+		- Implemented playback speed configuration
+		- Implemented a way to recognize audio sources which start playing at the exact same time so we can avoid phase cancellation
+		- Refactor playback configuration members in Audio_Player to be in a struct Audio_Playback_Configuration
+			Example: player.volume -> player.config.volume
+		- bool disable_spacialization -> bool enable_spacialization (inverted)
+		- Deprecated:
+			play_one_audio_clip_source_at_position()
+			play_one_audio_clip_at_position()
+		- Added:
+			play_one_audio_clip_source_with_config()
+			play_one_audio_clip_with_config()
+		- Removed 'bool retain_progression_factor' parameter in audio_player_set_source()
+		- Fixed a bug where players didn't loop when set to do so
+		- Fixed a bug where wav sources would return 4 garbage samples at the start of playback, causing a glitch in the sound
+		- Fixed a crash when default audio device could not be initialized
+		- Fixed a bunch of bugs & woopsies
+		- Updated audio_test.c
+	
+	- Misc
+		- Deprecated Rangef stuff
+		- added peek_random()
+		- Updated #Contributions
+		- Cleaned up memory barriers in concurrency.c and use volatile instead
+		- Made hr fails output d3d11 debug messages before crash
+		- Made temporary storage size runtime-configurable for new threads
+		- Cleanup temporary storage after thread destroy
+		- Added Header checking in growing array
+		- Unfucked linmath alignment
+
+
+## v0.01.002 - Flexible build options, Hotloading, growing array
+    - Build system
+        - We can now compile with:
+            OOGABOOGA_HEADLESS: No window, graphics or audio
+            OOGABOOGA_BUILD_SHARED_LIBRARY: Build oogabooga as a shared library (dll)
+            OOGABOOGA_LINK_EXTERNAL_INSTANCE: Link to an external oogabooga global state instance
+        - See oogabooga/examples/hotload for an example on how we can set up a project with hotloaded code
+    
+    - Misc
+        - Better examples in custom_shader.c, & outlined circle
+        - Z-Sorting in the renderer is now stable
+        - Growing array
+            - oogabooga/examples/growing_array_example.c
+        
+
 ## v0.01.001 - Spacial audio, custom shading, scissor boxing
 	- Audio
 		- Implemented spacial audio playback
@@ -37,7 +315,7 @@
 			vx_cross()
 		- added os_get_file_size_from_Path()
 		- Some simple restructuring of existing code
-	- Made heap corruption detection more robust
+	   - Made heap corruption detection more robust
 
 ## v0.01.000 - AUDIO!
 	- Added audio sources
