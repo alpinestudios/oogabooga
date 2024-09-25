@@ -33,9 +33,11 @@ int entry(int argc, char **argv) {
 	bool ok = os_read_entire_file("oogabooga/examples/custom_shader.hlsl", &source, get_heap_allocator());
 	assert(ok, "Could not read oogabooga/examples/custom_shader.hlsl");
 	
+	Gfx_Shader_Extension shader;
 	// This is slow and needs to recompile the shader. However, it should probably only happen once (or each hot reload)
 	// If it fails, it will return false and return to whatever shader it was before.
-	gfx_shader_recompile_with_extension(source, sizeof(My_Cbuffer));
+	ok = gfx_compile_shader_extension(source, sizeof(My_Cbuffer), &shader);
+	assert(ok, "Failed compiling shader extension");
 	
 	dealloc_string(get_heap_allocator(), source);
 	
@@ -59,6 +61,9 @@ int entry(int argc, char **argv) {
 	
 		draw_frame.projection = m4_make_orthographic_projection(-aspect, aspect, -1, 1, -1, 10);
 		
+		// The shader is used when rendering, which happens in gfx_update() for everything drawn to the Draw_Frame.
+		draw_frame.shader_extension = shader;
+		
 		cbuffer.mouse_pos_screen = v2(input_frame.mouse_x, input_frame.mouse_y);
 		cbuffer.window_size = v2(window.width, window.height);
 		draw_frame.cbuffer = &cbuffer;
@@ -80,7 +85,10 @@ int entry(int argc, char **argv) {
 		if (is_key_just_pressed('R')) {
 			ok = os_read_entire_file("oogabooga/examples/custom_shader.hlsl", &source, get_heap_allocator());
 			assert(ok, "Could not read oogabooga/examples/custom_shader.hlsl");
-			shader_recompile_with_extension(source, sizeof(My_Cbuffer));
+			Gfx_Shader_Extension old_shader = shader; // Store previous shader in case this one fails to compile
+			ok = gfx_compile_shader_extension(source, sizeof(My_Cbuffer), &shader);
+			if (!ok)  shader = old_shader;
+			else gfx_destroy_shader_extension(old_shader);
 			dealloc_string(get_heap_allocator(), source);
 		}
 		

@@ -300,12 +300,12 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
 	    	}
 	    	MINMAXINFO* mmi = (MINMAXINFO*)lparam;
             
-            mmi->ptMaxSize.x = window.monitor->resolution_x*2;
-            mmi->ptMaxSize.y = window.monitor->resolution_y*2;
-            mmi->ptMaxTrackSize.x = window.monitor->resolution_x*2;
-            mmi->ptMaxTrackSize.y = window.monitor->resolution_y*2;
-            mmi->ptMinTrackSize.x = -window.monitor->resolution_x*2;
-            mmi->ptMinTrackSize.y = -window.monitor->resolution_y*2;
+            mmi->ptMaxSize.x = window.monitor->resolution_x;
+            mmi->ptMaxSize.y = window.monitor->resolution_y;
+            mmi->ptMaxTrackSize.x = window.monitor->resolution_x;
+            mmi->ptMaxTrackSize.y = window.monitor->resolution_y;
+            mmi->ptMinTrackSize.x = -window.monitor->resolution_x;
+            mmi->ptMinTrackSize.y = -window.monitor->resolution_y;
             
 	    	break;
 	    }

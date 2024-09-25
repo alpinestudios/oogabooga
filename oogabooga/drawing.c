@@ -165,6 +165,7 @@
 #define MAX_Z ((1 << MAX_Z_BITS)/2)
 #define Z_STACK_MAX 4096
 #define SCISSOR_STACK_MAX 4096
+#define MAX_BOUND_IMAGES 16
 
 typedef struct Draw_Quad {
 	// BEWARE !! These are in ndc
@@ -181,7 +182,7 @@ typedef struct Draw_Quad {
 	Vector4 uv;
 	Vector4 scissor;
 	
-	Vector4 userdata[VERTEX_2D_USER_DATA_COUNT]; // #Volatile do NOT change this to a pointer
+	Vector4 userdata[VERTEX_USER_DATA_COUNT]; // #Volatile do NOT change this to a pointer
 	
 } Draw_Quad;
 
@@ -203,6 +204,11 @@ typedef struct Draw_Frame {
 	u64 z_count;
 	s32 z_stack[Z_STACK_MAX];
 	bool enable_z_sorting;
+	
+	Gfx_Shader_Extension shader_extension;
+	
+	Gfx_Image *bound_images[MAX_BOUND_IMAGES];
+	int highest_bound_slot_index;
 	
 } Draw_Frame;
 
@@ -235,6 +241,17 @@ void draw_frame_reset(Draw_Frame *frame) {
 	frame->projection 
 		= m4_make_orthographic_projection(-window.width/2, window.width/2, -window.height/2, window.height/2, -1, 10);
 	frame->camera_xform = m4_scalar(1.0);
+	
+	frame->highest_bound_slot_index = -1;
+}
+
+void draw_frame_bind_image_to_shader(Draw_Frame *frame, Gfx_Image *image, int slot_index) {
+	if (slot_index >= MAX_BOUND_IMAGES) {
+		log_error("The highest bind image slot is %i, you tried to bind to %i", MAX_BOUND_IMAGES-1, slot_index);
+		return;
+	}
+	frame->bound_images[slot_index] = image;
+	frame->highest_bound_slot_index = max(slot_index, frame->highest_bound_slot_index);
 }
 
 // This is the global draw frame which is rendered and reset each time you call gfx_update();

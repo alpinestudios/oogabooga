@@ -1,4 +1,4 @@
-## v0.01.009
+## v0.01.009 - Better shaders & Audio fixes
 
 	- Audio
 		- Improved spacialization API
@@ -10,9 +10,23 @@
 			- Fixed the short fade in/out on pausing/playing without noise
 			- Added audio_player_transition_to_source() which makes a player fade to another source for a given amount of seconds
 			
+	- Graphics
+		- Reworked shader extension system so you can make multiple Gfx_Shader_Extension and use them per Draw_Frame render.
+			- gfx_destroy_shader_extension()
+			- gfx_compile_shader_extension()
+		- Added Draw_Frame.shader_extension (which you set before gfx_render_draw_frame for it to be used)
+			Not setting this or setting it to {0} means default shader is used.
+		- Added draw_frame_bind_image_to_shader()
+			We can now directly bind an image to a hlsl texture slot that we can sample from
+		- Made examples/bloom.c example which shows how you can do post-processing effects like bloom.
+		- Fixed a bug where the window would maximize to fill all monitors rather than the current one
+		- Fixed a bug where when more than 32 images were used in the same Draw_Frame, the wrong textures would start getting drawn.
+	
 	- Misc
 		- Added parsing functions string_to_int and string_to_float
-		- Fixed som bugs
+		- Fixed Vector(N)64's to actually use float64's instead of float32's (whoops)
+		- VERTEX_2D_USER_DATA_COUNT -> VERTEX_USER_DATA_COUNT
+		- Minor refactors, cleanup, bugfixes
 			
 			
 			
