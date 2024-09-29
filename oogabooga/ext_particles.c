@@ -177,10 +177,10 @@ Emission_Instance *emissions;
 float32 sample_interp_one(Emission_Interpolation_Kind interp, float32 min, float32 max, float t) {
 	switch (interp) {
 		case EMISSION_INTERPOLATION_LINEAR: {
-			return lerpf(min, max, t);
+			return lerpf32(min, max, t);
 		}
 		case EMISSION_INTERPOLATION_SMOOTH: {
-			return smerpf(min, max, t);
+			return smerpf32(min, max, t);
 		}
 		case EMISSION_INTERPOLATION_SINE_WAVE: {
 			return sine_oscillate_n_waves_normalized(t, 1);

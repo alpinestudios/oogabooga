@@ -8,6 +8,8 @@
 	typedef ID3D11ShaderResourceView * Gfx_Handle;
 	typedef ID3D11RenderTargetView * Gfx_Render_Target_Handle;
 	
+	typedef struct { ID3D11PixelShader *ps; ID3D11Buffer *cbuffer; u64 cbuffer_size; } Gfx_Shader_Extension;
+	
 #elif GFX_RENDERER == GFX_RENDERER_VULKAN
 	#error "We only have a D3D11 renderer at the moment"
 #elif GFX_RENDERER == GFX_RENDERER_METAL
@@ -17,8 +19,11 @@
 #endif
 
 
-#ifndef VERTEX_2D_USER_DATA_COUNT
-	#define VERTEX_2D_USER_DATA_COUNT 1
+#ifdef VERTEX_2D_USER_DATA_COUNT
+	#error VERTEX_2D_USER_DATA_COUNT has been renamed to VERTEX_USER_DATA_COUNT, please use that instead
+#endif
+#ifndef VERTEX_USER_DATA_COUNT
+	#define VERTEX_USER_DATA_COUNT 1
 #endif
 
 ogb_instance const Gfx_Handle GFX_INVALID_HANDLE;
@@ -42,18 +47,42 @@ typedef struct Gfx_Image {
 typedef struct Draw_Frame Draw_Frame;
 
 // Implemented per renderer
-ogb_instance void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target);
-ogb_instance void gfx_render_draw_frame_to_window(Draw_Frame *frame);
-ogb_instance void gfx_init_image(Gfx_Image *image, void *data, bool render_target);
-ogb_instance void gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
-ogb_instance void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output);
-ogb_instance void gfx_deinit_image(Gfx_Image *image);
-ogb_instance void gfx_init();
-ogb_instance void gfx_update();
-ogb_instance void gfx_reserve_vbo_bytes(u64 number_of_bytes);
-ogb_instance bool gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size);
 
-DEPRECATED(bool shader_recompile_with_extension(string ext_source, u64 cbuffer_size), "Use gfx_shader_recompile_with_extension");
+ogb_instance void 
+gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target);
+
+ogb_instance void 
+gfx_render_draw_frame_to_window(Draw_Frame *frame);
+
+ogb_instance void 
+gfx_init_image(Gfx_Image *image, void *data, bool render_target);
+
+ogb_instance void 
+gfx_set_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *data);
+
+ogb_instance void 
+gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *output);
+
+ogb_instance void 
+gfx_deinit_image(Gfx_Image *image);
+
+ogb_instance void 
+gfx_init();
+
+ogb_instance void 
+gfx_update();
+
+ogb_instance void 
+gfx_reserve_vbo_bytes(u64 number_of_bytes);
+
+ogb_instance bool
+gfx_compile_shader_extension(string ext_source, u64 cbuffer_size, Gfx_Shader_Extension *result);
+
+ogb_instance void
+gfx_destroy_shader_extension(Gfx_Shader_Extension shader_extension);
+
+// Deprecated @ 25th of September 2024 #Cleanup
+DEPRECATED(ogb_instance bool gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size), "The shader extension system has been reworked and this function will no longer do anything. See custom_shader.c or bloom.c in oogabooga/examples.");
 
 
 // initial_data can be null to leave image data uninitialized

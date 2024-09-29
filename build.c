@@ -50,6 +50,7 @@ typedef struct Context_Extra
 // #include "oogabooga/examples/window_test.c"
 // #include "oogabooga/examples/offscreen_drawing.c"
 // #include "oogabooga/examples/threaded_drawing.c"
+#include "oogabooga/examples/bloom.c"
 
 // These examples require some extensions to be enabled. See top respective files for more info.
 // #include "oogabooga/examples/particles_example.c" // Requires OOGABOOGA_EXTENSION_PARTICLES
@@ -57,4 +58,6 @@ typedef struct Context_Extra
 // #include "oogabooga/examples/sanity_tests.c"
 
 // This is where you swap in your own project!
-#include "life_game.c"
+// #include "entry_yourepicgamename.c"
+
+// #include "entry_randygame.c"

@@ -20,7 +20,7 @@ typedef struct alignat(16) D3D11_Vertex {
 	u8 sampler;
 	u8 has_scissor;
 	
-	Vector4 userdata[VERTEX_2D_USER_DATA_COUNT];
+	Vector4 userdata[VERTEX_USER_DATA_COUNT];
 	
 	Vector4 scissor;
 	
@@ -49,17 +49,14 @@ ID3D11SamplerState *d3d11_image_sampler_nl_fl = 0;
 ID3D11SamplerState *d3d11_image_sampler_np_fl = 0;
 ID3D11SamplerState *d3d11_image_sampler_nl_fp = 0;
 
-ID3D11VertexShader *d3d11_vertex_shader_for_2d = 0;
-ID3D11PixelShader  *d3d11_fragment_shader_for_2d = 0;
+ID3D11VertexShader *d3d11_default_vertex_shader = 0;
+ID3D11PixelShader  *d3d11_default_pixel_shader = 0;
 ID3D11InputLayout  *d3d11_image_vertex_layout = 0;
 
 ID3D11Buffer *d3d11_quad_vbo = 0;
 ID3D11Buffer *d3d11_quad_ibo = 0;
 u32 d3d11_quad_vbo_size = 0;
 void *d3d11_staging_quad_buffer = 0;
-
-ID3D11Buffer *d3d11_cbuffer = 0;
-u64 d3d11_cbuffer_size = 0;
 
 Draw_Quad *d3d11_sort_quad_buffer = 0;
 u64 d3d11_sort_quad_buffer_size = 0;
@@ -254,15 +251,8 @@ void d3d11_update_swapchain() {
 }
 
 bool
-d3d11_compile_shader(string source) {
-
-	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), get_temporary_allocator());
-	source = string_replace_all(source, STR("$VERTEX_2D_USER_DATA_COUNT"), tprint("%d", VERTEX_2D_USER_DATA_COUNT), get_temporary_allocator());
+d3d11_compile_vertex_shader(string source, ID3D11VertexShader **vs, ID3D11InputLayout **input_layout) {
 	
-	// #Leak on recompile
-	
-	///
-	// Make default shaders
 	
 	// Compile vertex shader
     ID3DBlob* vs_blob = NULL;
@@ -272,36 +262,15 @@ d3d11_compile_shader(string source) {
 		log_error("Vertex Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
 		return false;
 	}
-
-    // Compile pixel shader
-    ID3DBlob* ps_blob = NULL;
-    hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "ps_main", "ps_5_0", 0, 0, &ps_blob, &err_blob);
-	if (!SUCCEEDED(hr)) {
-		log_error("Fragment Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
-		return false;
-	}
-
+	
 	void *vs_buffer = ID3D10Blob_GetBufferPointer(vs_blob);
 	u64   vs_size   = ID3D10Blob_GetBufferSize(vs_blob);
-	void *ps_buffer = ID3D10Blob_GetBufferPointer(ps_blob);
-	u64   ps_size   = ID3D10Blob_GetBufferSize(ps_blob);
-
-    log_verbose("Shaders compiled");
-    
-    
-    // Create the shaders
-    hr = ID3D11Device_CreateVertexShader(d3d11_device, vs_buffer, vs_size, NULL, &d3d11_vertex_shader_for_2d);
-    d3d11_check_hr(hr);
-
-    hr = ID3D11Device_CreatePixelShader(d3d11_device, ps_buffer, ps_size, NULL, &d3d11_fragment_shader_for_2d);
-    d3d11_check_hr(hr);
-
-    log_verbose("Shaders created");
-
-
-
+	
+	hr = ID3D11Device_CreateVertexShader(d3d11_device, vs_buffer, vs_size, NULL, vs);
+	d3d11_check_hr(hr);
+	
 	#define layout_base_count 9
-	D3D11_INPUT_ELEMENT_DESC layout[layout_base_count+VERTEX_2D_USER_DATA_COUNT];
+	D3D11_INPUT_ELEMENT_DESC layout[layout_base_count+VERTEX_USER_DATA_COUNT];
 	memset(layout, 0, sizeof(layout));
 	
 	layout[0].SemanticName = "POSITION";
@@ -376,7 +345,7 @@ d3d11_compile_shader(string source) {
 	layout[8].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	layout[8].InstanceDataStepRate = 0;
 	
-	for (int i = 0; i < VERTEX_2D_USER_DATA_COUNT; ++i) {
+	for (int i = 0; i < VERTEX_USER_DATA_COUNT; ++i) {
 	    layout[layout_base_count + i].SemanticName = "USERDATA";
 	    layout[layout_base_count + i].SemanticIndex = i;
 	    layout[layout_base_count + i].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -385,13 +354,36 @@ d3d11_compile_shader(string source) {
 	    layout[layout_base_count + i].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	}
 	
-	
-	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, layout_base_count+VERTEX_2D_USER_DATA_COUNT, vs_buffer, vs_size, &d3d11_image_vertex_layout);
+	hr = ID3D11Device_CreateInputLayout(d3d11_device, layout, layout_base_count+VERTEX_USER_DATA_COUNT, vs_buffer, vs_size, input_layout);
 	d3d11_check_hr(hr);
 	
 	#undef layout_base_count
 
 	D3D11Release(vs_blob);
+	
+	return true;
+}
+
+bool
+d3d11_compile_pixel_shader(string source, ID3D11PixelShader **ps) {
+
+	HRESULT hr;
+
+    // Compile pixel shader
+    ID3DBlob* ps_blob = NULL;
+    ID3DBlob* err_blob = NULL;
+    hr = D3DCompile((char*)source.data, source.count, 0, 0, 0, "ps_main", "ps_5_0", 0, 0, &ps_blob, &err_blob);
+	if (!SUCCEEDED(hr)) {
+		log_error("Fragment Shader Compilation Error: %cs\n", (char*)ID3D10Blob_GetBufferPointer(err_blob));
+		return false;
+	}
+	
+	void *ps_buffer = ID3D10Blob_GetBufferPointer(ps_blob);
+	u64   ps_size   = ID3D10Blob_GetBufferSize(ps_blob);
+
+    hr = ID3D11Device_CreatePixelShader(d3d11_device, ps_buffer, ps_size, NULL, ps);
+    d3d11_check_hr(hr);
+
     D3D11Release(ps_blob);
 
 	return true;
@@ -400,6 +392,9 @@ d3d11_compile_shader(string source) {
 void gfx_init() {
 
 	window.enable_vsync = false;
+	
+	draw_frame_init(&draw_frame);
+	draw_frame_reset(&draw_frame);
 
 	log_verbose("d3d11 gfx_init");
 	
@@ -545,17 +540,20 @@ void gfx_init() {
 	}
 	
 	string source = STR(d3d11_image_shader_source);
+	source = string_replace_all(source, STR("$INJECT_PIXEL_POST_PROCESS"), STR("float4 pixel_shader_extension(PS_INPUT input, float4 color) { return color; }"), get_temporary_allocator());
+	source = string_replace_all(source, STR("$VERTEX_USER_DATA_COUNT"), tprint("%d", VERTEX_USER_DATA_COUNT), get_temporary_allocator());
 	
-	bool ok = d3d11_compile_shader(source);
-	
-	assert(ok, "Failed compiling default shader");
+	bool ok = d3d11_compile_vertex_shader(source, &d3d11_default_vertex_shader, &d3d11_image_vertex_layout);
+	assert(ok, "Failed compiling vertex shader");
+	ok = d3d11_compile_pixel_shader(source, &d3d11_default_pixel_shader);
+	assert(ok, "Failed compiling default pixel shader");
 
 	log_info("D3D11 init done");
 	
-	draw_frame_init(&draw_frame);
+	
 }
 
-void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures, Draw_Frame *frame, Gfx_Image *render_target) {
+void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **textures, u64 num_textures, ID3D11ShaderResourceView **bind_textures, u64 num_bind_textures, Draw_Frame *frame, Gfx_Image *render_target) {
 
 	u32 view_width;
 	u32 view_height;
@@ -589,35 +587,52 @@ void d3d11_draw_call(int number_of_rendered_quads, ID3D11ShaderResourceView **te
     ID3D11DeviceContext_IASetIndexBuffer(d3d11_context, d3d11_quad_ibo, DXGI_FORMAT_R32_UINT, 0);
     ID3D11DeviceContext_IASetPrimitiveTopology(d3d11_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_vertex_shader_for_2d, NULL, 0);
-    ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_fragment_shader_for_2d, NULL, 0);
+    ID3D11DeviceContext_VSSetShader(d3d11_context, d3d11_default_vertex_shader, NULL, 0);
+    if (frame->shader_extension.ps) {
+    	ID3D11DeviceContext_PSSetShader(d3d11_context, frame->shader_extension.ps, NULL, 0);
+		if (frame->cbuffer && frame->shader_extension.cbuffer && frame->shader_extension.cbuffer_size) {
+			D3D11_MAPPED_SUBRESOURCE cbuffer_mapping;
+			ID3D11DeviceContext_Map(
+				d3d11_context, 
+				(ID3D11Resource*)frame->shader_extension.cbuffer, 
+				0, 
+				D3D11_MAP_WRITE_DISCARD, 
+				0, 
+				&cbuffer_mapping
+			);
+			memcpy(cbuffer_mapping.pData, frame->cbuffer, frame->shader_extension.cbuffer_size);
+			ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)frame->shader_extension.cbuffer, 0);
+			
+			ID3D11DeviceContext_PSSetConstantBuffers(d3d11_context, 0, 1, &frame->shader_extension.cbuffer);
+		}
+    } else {
+    	ID3D11DeviceContext_PSSetShader(d3d11_context, d3d11_default_pixel_shader, NULL, 0);
+    }
     
-	if (frame->cbuffer && d3d11_cbuffer && d3d11_cbuffer_size) {
-		D3D11_MAPPED_SUBRESOURCE cbuffer_mapping;
-		ID3D11DeviceContext_Map(
-			d3d11_context, 
-			(ID3D11Resource*)d3d11_cbuffer, 
-			0, 
-			D3D11_MAP_WRITE_DISCARD, 
-			0, 
-			&cbuffer_mapping
-		);
-		memcpy(cbuffer_mapping.pData, frame->cbuffer, d3d11_cbuffer_size);
-		ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_cbuffer, 0);
-		
-		ID3D11DeviceContext_PSSetConstantBuffers(d3d11_context, 0, 1, &d3d11_cbuffer);
-	}
     
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 0, 1, &d3d11_image_sampler_np_fp);
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 1, 1, &d3d11_image_sampler_nl_fl);
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 2, 1, &d3d11_image_sampler_np_fl);
     ID3D11DeviceContext_PSSetSamplers(d3d11_context, 3, 1, &d3d11_image_sampler_nl_fp);
-    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 0, num_textures, textures);
+    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 31, num_textures, textures);
+    for (int i = 0; i < num_bind_textures; i += 1) {
+    	if (bind_textures[i]) {
+    		ID3D11DeviceContext_PSSetShaderResources(d3d11_context, i, 1, &bind_textures[i]);
+    	}
+    }
 
     ID3D11DeviceContext_DrawIndexed(d3d11_context, number_of_rendered_quads * 6, 0, 0);
-    
+     
     ID3D11ShaderResourceView* null_srv[32] = {0};
-    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 0, num_textures, null_srv);
+    ID3D11DeviceContext_PSSetShaderResources(d3d11_context, 31, num_textures, null_srv);
+    for (int i = 0; i < num_bind_textures; i += 1) {
+    	ID3D11ShaderResourceView* null_srv = 0;
+    	ID3D11DeviceContext_PSSetShaderResources(d3d11_context, i, 1, &null_srv);
+    }
+    
+    if (render_target) {
+    	ID3D11DeviceContext_OMSetRenderTargets(d3d11_context, 1, &d3d11_window_render_target_view, 0); 
+    }
 }
 
 void gfx_clear_render_target(Gfx_Image *render_target, Vector4 clear_color) {
@@ -693,9 +708,13 @@ void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target) {
 	    
 		
 		ID3D11ShaderResourceView *textures[32];
+		ID3D11ShaderResourceView *bind_textures[MAX_BOUND_IMAGES];
 		ID3D11ShaderResourceView *last_texture = 0;
 		u64 num_textures = 0;
 		s8 last_texture_index = 0;
+		for (int i = 0; i < frame->highest_bound_slot_index+1; i += 1) {
+			bind_textures[i] = frame->bound_images[i]->gfx_handle;
+		}
 		
 		D3D11_Vertex* head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
 		D3D11_Vertex* pointer = head;
@@ -709,8 +728,8 @@ void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target) {
 		// This way, we could easily build different draw frames on different threads and then render them
 		// here on the main thread.
 		//
-		tm_scope("Quad processing") {
-			if (frame->enable_z_sorting) tm_scope("Z sorting") {
+		{
+			if (frame->enable_z_sorting) {
 				if (!d3d11_sort_quad_buffer || (d3d11_sort_quad_buffer_size < number_of_quads*sizeof(Draw_Quad))) {
 					// #Memory #Heapalloc
 					if (d3d11_sort_quad_buffer) dealloc(get_heap_allocator(), d3d11_sort_quad_buffer);
@@ -744,14 +763,15 @@ void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target) {
 						// Otherwise use a new slot
 						if (texture_index <= -1) {
 							if (num_textures >= 32) {
+								
 								// If max textures reached, make a draw call and start over
 								D3D11_MAPPED_SUBRESOURCE buffer_mapping;
 								ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 								memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*4);
 								ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
-								d3d11_draw_call(number_of_rendered_quads, textures, num_textures, frame, render_target);
+								d3d11_draw_call(number_of_rendered_quads, textures, num_textures, bind_textures, frame->highest_bound_slot_index+1, frame, render_target);
 								head = (D3D11_Vertex*)d3d11_staging_quad_buffer;
-								num_textures = 0;
+								num_textures = 1;
 								texture_index = 0;
 								number_of_rendered_quads = 0;
 								pointer = head;
@@ -858,23 +878,17 @@ void gfx_render_draw_frame(Draw_Frame *frame, Gfx_Image *render_target) {
 			}
 		}
 		
-		tm_scope("Write to gpu") {
+		{
 		    D3D11_MAPPED_SUBRESOURCE buffer_mapping;
-			tm_scope("The Map call") {
-				hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
+			hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0, D3D11_MAP_WRITE_DISCARD, 0, &buffer_mapping);
 			d3d11_check_hr(hr);
-			}
-			tm_scope("The memcpy") {
-				memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*4);
-			}
-			tm_scope("The Unmap call") {
-				ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
-			}
+			memcpy(buffer_mapping.pData, d3d11_staging_quad_buffer, number_of_rendered_quads*sizeof(D3D11_Vertex)*4);
+			ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource*)d3d11_quad_vbo, 0);
 		}
 		
 		///
 		// Draw call
-		tm_scope("Draw call") d3d11_draw_call(number_of_rendered_quads, textures, num_textures, frame, render_target);
+		d3d11_draw_call(number_of_rendered_quads, textures, num_textures, bind_textures, frame->highest_bound_slot_index+1, frame, render_target);
     }
     
     
@@ -897,9 +911,7 @@ void gfx_update() {
 	gfx_render_draw_frame_to_window(&draw_frame);
 	draw_frame_reset(&draw_frame);
 
-	tm_scope("Present") {
-		IDXGISwapChain1_Present(d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
-	}
+	IDXGISwapChain1_Present(d3d11_swap_chain, window.enable_vsync, window.enable_vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 	ID3D11DeviceContext_ClearRenderTargetView(d3d11_context, d3d11_window_render_target_view, (float*)&window.clear_color);
 	
 #if CONFIGURATION == DEBUG
@@ -1104,10 +1116,6 @@ void gfx_read_image_data(Gfx_Image *image, u32 x, u32 y, u32 w, u32 h, void *out
     hr = ID3D11DeviceContext_Map(d3d11_context, (ID3D11Resource *)staging_texture, 0, D3D11_MAP_READ, 0, &mapped_texture);
 	d3d11_check_hr(hr);
 	
-	// #Hdr
-	assert(mapped_texture.RowPitch == image->width * image->channels, "Unexpected row pitch in d3d11 texture");
-	
-	// #Hdr
 	memcpy(output, mapped_texture.pData, image->width*image->height*image->channels);
 	
 	ID3D11DeviceContext_Unmap(d3d11_context, (ID3D11Resource *)staging_texture, 0);
@@ -1135,31 +1143,42 @@ void gfx_deinit_image(Gfx_Image *image) {
 	ID3D11Resource_Release(resource);
 }
 
-bool 
-gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
+bool gfx_compile_shader_extension(string ext_source, u64 cbuffer_size, Gfx_Shader_Extension *result) {
+	*result = (Gfx_Shader_Extension){0};
 	assert(context.thread_id == d3d11_thread_id, "gfx_ functions must be called on the main thread");
 
 	string source = string_replace_all(STR(d3d11_image_shader_source), STR("$INJECT_PIXEL_POST_PROCESS"), ext_source, get_temporary_allocator());
+	source = string_replace_all(source, STR("$VERTEX_USER_DATA_COUNT"), tprint("%d", VERTEX_USER_DATA_COUNT), get_temporary_allocator());
 	
 	
-	if (!d3d11_compile_shader(source)) return false;
+	if (!d3d11_compile_pixel_shader(source, &result->ps)) return false;
 	
-	u64 aligned_cbuffer_size = (max(cbuffer_size, 16) + 16) & ~(15);
 	
-	if (d3d11_cbuffer) {
-		D3D11Release(d3d11_cbuffer);
+	if (cbuffer_size > 0) {
+		u64 aligned_cbuffer_size = (max(cbuffer_size, 16) + 16) & ~(15);
+		D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
+		desc.ByteWidth      = aligned_cbuffer_size;
+		desc.Usage          = D3D11_USAGE_DYNAMIC;
+		desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, null, &result->cbuffer);
+		d3d11_check_hr(hr);
+		
+		result->cbuffer_size = cbuffer_size;
 	}
-	D3D11_BUFFER_DESC desc = ZERO(D3D11_BUFFER_DESC);
-	desc.ByteWidth      = aligned_cbuffer_size;
-	desc.Usage          = D3D11_USAGE_DYNAMIC;
-	desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	HRESULT hr = ID3D11Device_CreateBuffer(d3d11_device, &desc, null, &d3d11_cbuffer);
-	d3d11_check_hr(hr);
-	
-	d3d11_cbuffer_size = cbuffer_size;
 	
 	return true;
+}
+
+void gfx_destroy_shader_extension(Gfx_Shader_Extension shader_extension) {
+	ID3D11PixelShader_Release(shader_extension.ps);
+	ID3D11Buffer_Release(shader_extension.cbuffer);
+}
+
+// DEPRECATED #Cleanup
+bool 
+gfx_shader_recompile_with_extension(string ext_source, u64 cbuffer_size) {
+	return false;
 }
     
     
@@ -1176,7 +1195,7 @@ struct VS_INPUT
     uint type : TYPE;
     uint sampler_index : SAMPLER_INDEX;
     uint has_scissor : HAS_SCISSOR;
-    float4 userdata[$VERTEX_2D_USER_DATA_COUNT] : USERDATA;
+    float4 userdata[$VERTEX_USER_DATA_COUNT] : USERDATA;
     float4 scissor : SCISSOR;
 };
 
@@ -1191,7 +1210,7 @@ struct PS_INPUT
     int type: TYPE;
     int sampler_index: SAMPLER_INDEX;
     uint has_scissor : HAS_SCISSOR;
-    float4 userdata[$VERTEX_2D_USER_DATA_COUNT] : USERDATA;
+    float4 userdata[$VERTEX_USER_DATA_COUNT] : USERDATA;
     float4 scissor : SCISSOR;
 };
 
@@ -1208,7 +1227,7 @@ PS_INPUT vs_main(VS_INPUT input)
     output.type          = input.type;
     output.sampler_index = input.sampler_index;
     output.self_uv = input.self_uv;
-	for (int i = 0; i < $VERTEX_2D_USER_DATA_COUNT; i++) {
+	for (int i = 0; i < $VERTEX_USER_DATA_COUNT; i++) {
     	output.userdata[i] = input.userdata[i];
 	}
 	output.scissor = input.scissor;
@@ -1217,11 +1236,11 @@ PS_INPUT vs_main(VS_INPUT input)
 }
 
 // #Magicvalue
-Texture2D textures[32] : register(t0);
-SamplerState image_sampler_0 : register(s0);
-SamplerState image_sampler_1 : register(s1);
-SamplerState image_sampler_2 : register(s2);
-SamplerState image_sampler_3 : register(s3);
+Texture2D textures[32] : register(t31);
+SamplerState image_sampler_0 : register(s0); // near POINT,  far POINT
+SamplerState image_sampler_1 : register(s1); // near LINEAR, far LINEAR
+SamplerState image_sampler_2 : register(s2); // near POINT,  far LINEAR
+SamplerState image_sampler_3 : register(s3); // near LINEAR, far POINT
 
 float4 sample_texture(int texture_index, int sampler_index, float2 uv) {
 	// I love hlsl

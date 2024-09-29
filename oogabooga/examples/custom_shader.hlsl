@@ -29,7 +29,6 @@ float4 get_light_contribution(PS_INPUT input) {
 // It basically just takes in the resulting color and input from vertex shader, for us to transform it
 // however we want.
 float4 pixel_shader_extension(PS_INPUT input, float4 color) {
-    
     float detail_type = input.userdata[0].x;
 
     // Assumes rect with 90deg corners    

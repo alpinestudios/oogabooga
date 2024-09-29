@@ -193,25 +193,25 @@ typedef union Vector4f32 {
 } Vector4f32;
 
 typedef union Vector2f64 {
-	float32 data[2];
-	struct {float32  x, y;};
+	float64 data[2];
+	struct {float64  x, y;};
 } Vector2f64;
 typedef union Vector3f64 {
-	float32 data[3];
-	struct  {float32  x, y, z;};
-	struct  {float32  r, g, b;};
+	float64 data[3];
+	struct  {float64  x, y, z;};
+	struct  {float64  r, g, b;};
 	struct  {Vector2f64  xy;};
-	struct  {float32  _x; Vector2f64 yz;};
+	struct  {float64  _x; Vector2f64 yz;};
 } Vector3f64;
 typedef union Vector4f64 {
-	float32 data[4];
-	struct {float32  x, y, z, w;};
+	float64 data[4];
+	struct {float64  x, y, z, w;};
 	struct {Vector2f64  xy; Vector2f64 zw;};
-	struct {float32  x1, y1, x2, y2;};
-	struct {float32  r, g, b, a;};
-	struct {float32  left, bottom, right, top;};
+	struct {float64  x1, y1, x2, y2;};
+	struct {float64  r, g, b, a;};
+	struct {float64  left, bottom, right, top;};
 	struct {Vector3f64  xyz;};
-	struct {float32  _x; Vector3f64 yzw;};
+	struct {float64  _x; Vector3f64 yzw;};
 } Vector4f64;
 
 typedef union Vector2s32 {

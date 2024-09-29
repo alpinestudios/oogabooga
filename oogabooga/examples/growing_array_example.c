@@ -5,6 +5,8 @@ typedef struct Circle {
 } Circle;
 
 int entry(int argc, char **argv) {
+
+	//window.enable_vsync = true;
 	
 	window.title = STR("Minimal Game Example");
 	window.point_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)

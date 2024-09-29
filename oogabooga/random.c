@@ -31,6 +31,7 @@ f64 get_random_float64() {
 	return (float64)get_random()/(float64)UINT64_MAX;
 }
 
+
 f32 get_random_float32_in_range(f32 min, f32 max) {
 	return (max-min)*get_random_float32()+min;
 }
@@ -38,6 +39,10 @@ f64 get_random_float64_in_range(f64 min, f64 max) {
 	return (max-min)*get_random_float64()+min;
 }
 
+// in_range max is --->INCLUSIVE<---
 s64 get_random_int_in_range(s64 min, s64 max) {
+    if (min == max) return 0;
+    if (min > max) swap(min, max, s64);
+
     return min + (s64)(get_random() % (max - min + 1));
 }
