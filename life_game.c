@@ -1,44 +1,44 @@
+typedef struct Item_Data
+{
+    string item_name;
+    float64 some_property;
+} Item_Data;
+
+void modify_item(Item_Data *item)
+{
+    Item_Data new_item;
+    new_item.item_name = STR("OOga Booga\n");
+    new_item.some_property = 6;
+    *item = new_item;
+}
 
 int entry(int argc, char **argv)
 {
+    window.title = STR("Hello World");
+    bool is_game_running = true;
 
-    window.title = STR("Life Game");
-    window.scaled_width = 1280; // We need to set the scaled size if we want to handle system scaling (DPI)
-    window.scaled_height = 720;
-    window.x = 200;
-    window.y = 200;
-    window.clear_color = hex_to_rgba(0x2c2c29ff);
+    Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/verdana.ttf"), get_heap_allocator());
+    assert(font, "Failed loading arial.ttf");
 
-    float64 last_time = os_get_current_time_in_seconds();
-    while (!window.should_close)
+    string input = STR("y");
+    // os_wait_and_read_stdin(&input, 1012, get_heap_allocator());
+
+    Item_Data item;
+
+    modify_item(&item);
+
+    print("ITEM %s", &item.item_name);
+
+    while (is_game_running && !window.should_close)
     {
-        reset_temporary_storage();
-        os_update();
-
-        if (is_key_just_pressed(KEY_ESCAPE))
+        if (is_key_down(KEY_ESCAPE))
         {
-            window.should_close = true;
+            is_game_running = false;
         }
-        float64 now = os_get_current_time_in_seconds();
-        if ((int)now != (int)last_time)
-            log("%.2f FPS\n%.2fms", 1.0 / (now - last_time), (now - last_time) * 1000);
-        last_time = now;
 
-        Matrix4 rect_xform = m4_scalar(1.0);
-        rect_xform = m4_rotate_z(rect_xform, (f32)now);
-        rect_xform = m4_translate(rect_xform, v3(-.25f, -.25f, 0));
-        draw_rect_xform(rect_xform, v2(.5f, .5f), COLOR_GREEN);
-
-        // draw_rect(v2(sin(now), -.8), v2(.5, .25), COLOR_RED);
-
-        // float aspect = (f32)window.width / (f32)window.height;
-        // float mx = (input_frame.mouse_x / (f32)window.width * 2.0 - 1.0) * aspect;
-        // float my = input_frame.mouse_y / (f32)window.height * 2.0 - 1.0;
-
-        // draw_line(v2(-.75, -.75), v2(mx, my), 0.005, COLOR_WHITE);
-
+        draw_text(font, tprint("FPS: %s", input), 64, v2(-window.width / 2 + 30, window.height / 2 - 60), v2(1, 1), COLOR_RED);
+        os_update();
         gfx_update();
     }
-
     return 0;
 }
