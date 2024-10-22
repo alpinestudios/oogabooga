@@ -122,6 +122,12 @@ LARGE_INTEGER win32_counter_at_start;
 bool win32_do_handle_raw_input = false;
 HANDLE win32_xinput = 0;
 bool has_os_update_been_called_at_all = false;
+u32 win32_pre_maximize_window_x = 0;
+u32 win32_pre_maximize_window_y = 0;
+u32 win32_pre_maximize_window_width = 0;
+u32 win32_pre_maximize_window_height = 0;
+bool win32_ignore_next_window_position_change = false;
+bool win32_is_window_maximized = false;
 
 // Used to save windowed state when in fullscreen mode.
 DWORD win32_windowed_style = 0;
@@ -304,10 +310,56 @@ LRESULT CALLBACK win32_window_proc(HWND passed_window, UINT message, WPARAM wpar
             mmi->ptMaxSize.y = window.monitor->resolution_y;
             mmi->ptMaxTrackSize.x = window.monitor->resolution_x;
             mmi->ptMaxTrackSize.y = window.monitor->resolution_y;
-            mmi->ptMinTrackSize.x = -window.monitor->resolution_x;
-            mmi->ptMinTrackSize.y = -window.monitor->resolution_y;
+            mmi->ptMinTrackSize.x = 100;
+            mmi->ptMinTrackSize.y = 100;
             
 	    	break;
+	    }
+	    case WM_SIZE: {
+	    	
+	    	if (wparam == SIZE_RESTORED && win32_is_window_maximized) {
+	    		log("Restored");
+	    		if (!window.is_being_dragged) {
+		    		window.x      = win32_pre_maximize_window_x;
+		    		window.y      = win32_pre_maximize_window_y;
+	    		} else {
+	    			win32_ignore_next_window_position_change = true;
+	    		}
+	    		window.width  = win32_pre_maximize_window_width;
+	    		window.height = win32_pre_maximize_window_height;
+	    		
+	    		win32_is_window_maximized = false;
+	    	}
+	    
+	    	break;
+	    }
+	    case WM_NCLBUTTONDOWN: {
+	    
+	    	if (wparam == HTCAPTION) window.is_being_dragged = true;
+	    
+	    	goto DEFAULT_HANDLE;
+	    }
+	    case WM_ENTERSIZEMOVE: {
+	    	goto DEFAULT_HANDLE;
+	    }
+	    case WM_EXITSIZEMOVE: {
+	    	window.is_being_dragged = false;
+	    	goto DEFAULT_HANDLE;
+	    }
+	    case WM_SYSCOMMAND: {
+	    	if ((wparam & 0xFFF0) == SC_MAXIMIZE) {
+	    		win32_is_window_maximized = true;
+	    		win32_pre_maximize_window_x = window.x;
+				win32_pre_maximize_window_y = window.y;
+				win32_pre_maximize_window_width = window.width;
+				win32_pre_maximize_window_height = window.height;
+				window.x      = window.monitor->work_area_x;
+				window.y      = window.monitor->work_area_y;
+				window.width  = window.monitor->work_area_width;
+				window.height = window.monitor->work_area_height;
+	    	} else {
+	    		goto DEFAULT_HANDLE;
+	    	}
 	    }
         default:
         
@@ -516,6 +568,11 @@ BOOL win32_query_monitors_callback(HMONITOR monitor_handle, HDC dc, LPRECT rect,
     monitor->refresh_rate = more_info.dmDisplayFrequency;
     monitor->resolution_x = info.rcMonitor.right  - info.rcMonitor.left;
     monitor->resolution_y = info.rcMonitor.bottom - info.rcMonitor.top;
+    
+    monitor->work_area_width  = info.rcWork.right  - info.rcWork.left;
+    monitor->work_area_height = info.rcWork.bottom - info.rcWork.top;
+    monitor->work_area_x      = info.rcWork.left;
+    monitor->work_area_y      = monitor->resolution_y - info.rcWork.top;
     
     GetDpiForMonitor(monitor_handle, MDT_EFFECTIVE_DPI, (UINT*)&monitor->dpi, (UINT*)&monitor->dpi_y);
     
@@ -1950,7 +2007,7 @@ void os_update() {
 		window.x = 0;
 		window.y = 0;
 	}
-
+	
 	BOOL ok;
 	DWORD style = (DWORD)GetWindowLong(window._os_handle, GWL_STYLE);
 	DWORD style_ex = (DWORD)GetWindowLong(window._os_handle, GWL_EXSTYLE);
@@ -1994,7 +2051,15 @@ void os_update() {
 	    u32 actual_x = update_rect.left;
 	    u32 actual_y = update_rect.top;
 	    
-	    SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOACTIVATE);
+	    if (win32_ignore_next_window_position_change) {
+		    RECT window_rect;
+			GetWindowRect(window._os_handle, &window_rect);
+			actual_x = window_rect.left;
+			actual_y = window_rect.top;
+	    	win32_ignore_next_window_position_change = false;
+	    }
+	    
+    	SetWindowPos(window._os_handle, 0, actual_x, actual_y, actual_width, actual_height, SWP_NOACTIVATE);
 	}
 	
 	if (last_window.force_topmost != window.force_topmost) {

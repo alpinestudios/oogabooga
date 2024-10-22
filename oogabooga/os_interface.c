@@ -41,6 +41,10 @@ typedef struct Os_Monitor {
 	u64 refresh_rate;
 	u64 resolution_x;
 	u64 resolution_y;
+	u64 work_area_x;
+	u64 work_area_y;
+	u64 work_area_width;
+	u64 work_area_height;
 	u64 dpi;
 	u64 dpi_y;
 	string name;
@@ -90,7 +94,7 @@ typedef struct Os_Window {
 	// readonly
 	bool _initialized;
 	Window_Handle _os_handle;
-	
+	bool is_being_dragged;
 	Os_Monitor *monitor;
 	
 } Os_Window;
