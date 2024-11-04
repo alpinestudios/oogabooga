@@ -581,6 +581,31 @@ Matrix4 m4_scalar(float32 scalar) {
 
 inline Matrix4 m4_identity() { return m4_scalar(1.0); }
 
+Matrix4 m4_make_transpose(Matrix4 m) {
+    Matrix4 transpose;
+    transpose.m[0][0] = m.m[0][0];
+    transpose.m[0][1] = m.m[1][0];
+    transpose.m[0][2] = m.m[2][0];
+    transpose.m[0][3] = m.m[3][0];
+
+    transpose.m[1][0] = m.m[0][1];
+    transpose.m[1][1] = m.m[1][1];
+    transpose.m[1][2] = m.m[2][1];
+    transpose.m[1][3] = m.m[3][1];
+
+    transpose.m[2][0] = m.m[0][2];
+    transpose.m[2][1] = m.m[1][2];
+    transpose.m[2][2] = m.m[2][2];
+    transpose.m[2][3] = m.m[3][2];
+
+    transpose.m[3][0] = m.m[0][3];
+    transpose.m[3][1] = m.m[1][3];
+    transpose.m[3][2] = m.m[2][3];
+    transpose.m[3][3] = m.m[3][3];
+
+    return transpose;
+}
+
 Matrix4 m4_make_translation(Vector3f32 translation) {
     Matrix4 m = m4_scalar(1.0);
     m.m[0][0] = 1.0f; m.m[1][1] = 1.0f; m.m[2][2] = 1.0f; m.m[3][3] = 1.0f;
@@ -861,6 +886,23 @@ Matrix3 m3_scalar(float32 scalar) {
 }
 
 inline Matrix3 m3_identity() { return m3_scalar(1.0f); }
+
+Matrix3 m3_make_transpose(Matrix3 m) {
+    Matrix3 transpose;
+    transpose.m[0][0] = m.m[0][0];
+    transpose.m[0][1] = m.m[1][0];
+    transpose.m[0][2] = m.m[2][0];
+
+    transpose.m[1][0] = m.m[0][1];
+    transpose.m[1][1] = m.m[1][1];
+    transpose.m[1][2] = m.m[2][1];
+
+    transpose.m[2][0] = m.m[0][2];
+    transpose.m[2][1] = m.m[1][2];
+    transpose.m[2][2] = m.m[2][2];
+
+    return transpose;
+}
 
 Matrix3 m3_make_translation(Vector2f32 translation) {
     Matrix3 m = m3_scalar(1.0f);
