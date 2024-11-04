@@ -581,7 +581,7 @@ Matrix4 m4_scalar(float32 scalar) {
 
 inline Matrix4 m4_identity() { return m4_scalar(1.0); }
 
-Matrix4 m4_make_transpose(Matrix4 m) {
+Matrix4 m4_transpose(Matrix4 m) {
     Matrix4 transpose;
     transpose.m[0][0] = m.m[0][0];
     transpose.m[0][1] = m.m[1][0];
@@ -887,7 +887,7 @@ Matrix3 m3_scalar(float32 scalar) {
 
 inline Matrix3 m3_identity() { return m3_scalar(1.0f); }
 
-Matrix3 m3_make_transpose(Matrix3 m) {
+Matrix3 m3_transpose(Matrix3 m) {
     Matrix3 transpose;
     transpose.m[0][0] = m.m[0][0];
     transpose.m[0][1] = m.m[1][0];
